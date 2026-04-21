@@ -1224,28 +1224,47 @@ const FPWeaponView = ({ id }) => {
 const TPPlayerView = ({ profile, selectedWeapon, firing }) => {
   const hair = (profile && profile.hair !== undefined) ? profile.hair : 0;
   const outfit = (profile && profile.outfit !== undefined) ? profile.outfit : 0;
+  const shoes = (profile && profile.shoes !== undefined) ? profile.shoes : 0;
+  const skin = (profile && profile.skin) || '#e0b48a';
+  const equippedVeh = profile && profile.equippedVehicle;
+  const hairColor = HAIR_CATALOG[hair]?.color || '#3a2817';
+  const outfitColor = OUTFIT_CATALOG[outfit]?.color || '#1a1a1a';
+  const shoesColor = SHOES_CATALOG[shoes]?.color || '#111';
+
   return (
     <div style={{
       filter: firing ? 'brightness(1.2)' : 'brightness(1)',
       transform: firing ? 'translate(-4px, 4px)' : 'none',
       transition: 'transform .08s, filter .08s',
+      position: 'relative',
     }}>
       <svg viewBox="0 0 80 140" width="140" height="240">
         <ellipse cx="40" cy="136" rx="22" ry="3" fill="rgba(0,0,0,.4)" />
-        <rect x="28" y="90" width="10" height="36" rx="3" fill="#2a2a2a" />
-        <rect x="42" y="90" width="10" height="36" rx="3" fill="#2a2a2a" />
-        <rect x="26" y="122" width="14" height="8" rx="3" fill="#111" />
-        <rect x="40" y="122" width="14" height="8" rx="3" fill="#111" />
-        <rect x="22" y="56" width="36" height="38" rx="8" fill={outfit === 6 ? '#d4af37' : '#1a1a1a'} />
-        <rect x="12" y="58" width="10" height="30" rx="5" fill={outfit === 6 ? '#d4af37' : '#1a1a1a'} />
-        <rect x="58" y="58" width="10" height="30" rx="5" fill={outfit === 6 ? '#d4af37' : '#1a1a1a'} />
-        <circle cx="17" cy="90" r="5" fill="#e0b48a" />
-        <circle cx="63" cy="90" r="5" fill="#e0b48a" />
-        <circle cx="40" cy="38" r="14" fill="#e0b48a" />
-        <path d="M26 30 Q40 14 54 30 L54 38 Q40 32 26 38 Z" fill={hair === 9 ? '#d4af37' : '#3a2817'} />
+        <rect x="28" y="90" width="10" height="36" rx="3" fill={outfitColor} />
+        <rect x="42" y="90" width="10" height="36" rx="3" fill={outfitColor} />
+        <rect x="26" y="122" width="14" height="8" rx="3" fill={shoesColor} />
+        <rect x="40" y="122" width="14" height="8" rx="3" fill={shoesColor} />
+        <rect x="22" y="56" width="36" height="38" rx="8" fill={outfitColor} />
+        <rect x="12" y="58" width="10" height="30" rx="5" fill={outfitColor} />
+        <rect x="58" y="58" width="10" height="30" rx="5" fill={outfitColor} />
+        <circle cx="17" cy="90" r="5" fill={skin} />
+        <circle cx="63" cy="90" r="5" fill={skin} />
+        <circle cx="40" cy="38" r="14" fill={skin} />
+        <path d="M26 30 Q40 14 54 30 L54 38 Q40 32 26 38 Z" fill={hairColor} />
         <circle cx="35" cy="38" r="1.3" fill="#111" />
         <circle cx="45" cy="38" r="1.3" fill="#111" />
       </svg>
+      {/* Vehicle under character */}
+      {equippedVeh && (
+        <div style={{
+          position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)',
+          zIndex: -1,
+        }}>
+          <div style={{ width: 160 }}>
+            <VehicleGraphic id={equippedVeh} />
+          </div>
+        </div>
+      )}
       {/* Weapon attached to hand */}
       {selectedWeapon && (
         <div style={{
@@ -2592,7 +2611,7 @@ const CASINO_3D_COLORS = {
 };
 
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter }) => {
+const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -5778,6 +5797,19 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         </div>
       )}
 
+      {/* ====== VÉHICULE SOUS LES PIEDS (1ère personne) ====== */}
+      {profile && profile.equippedVehicle && viewMode === 'first' && (
+        <div style={{
+          position: 'absolute', left: '50%', bottom: -40,
+          transform: 'translateX(-50%)',
+          width: 260, pointerEvents: 'none', zIndex: 11,
+          filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.7))',
+          opacity: 0.95,
+        }}>
+          <VehicleGraphic id={profile.equippedVehicle} />
+        </div>
+      )}
+
       {/* ====== PERSONNAGE (3ème personne) ====== */}
       {viewMode === 'third' && (
         <div style={{
@@ -6173,6 +6205,10 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
   const [messageColor, setMessageColor] = useState('#ffd700');
   const [canDouble, setCanDouble] = useState(false);
   const [showWeaponMenu, setShowWeaponMenu] = useState(false);
+  // Split state
+  const [splitHands, setSplitHands] = useState(null); // if not null: array of hands
+  const [activeHand, setActiveHand] = useState(0);
+  const [splitBets, setSplitBets] = useState([0, 0]);
 
   const maxBet = Math.min(balance, minBet * 1000);
   // Chips pour classique, PLAQUETTES VIP pour les tables VIP
@@ -6251,31 +6287,107 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
     const { card, deck: newDeck } = drawCard(deck);
     const newHand = [...playerHand, card];
     setPlayerHand(newHand); setDeck(newDeck); setCanDouble(false);
+    if (splitHands) {
+      // Update the active hand in splitHands array
+      const next = [...splitHands];
+      next[activeHand] = newHand;
+      setSplitHands(next);
+    }
     if (handValue(newHand) > 21) {
-      setMessage(`BUST ! -${fmt(totalBet)} B`);
-      setMessageColor('#ff4444');
-      setPhase('result');
+      // Bust: si split, passer à la main suivante, sinon terminer
+      if (splitHands && activeHand === 0) {
+        setTimeout(() => switchToSecondHand(), 400);
+      } else {
+        setMessage(`BUST ! -${fmt(splitHands ? splitBets[activeHand] : totalBet)} B`);
+        setMessageColor('#ff4444');
+        if (splitHands && activeHand === 1) {
+          setTimeout(() => playDealerForSplit(), 500);
+        } else {
+          setPhase('result');
+        }
+      }
     } else if (handValue(newHand) === 21) {
-      stand(newHand);
+      if (splitHands && activeHand === 0) {
+        setTimeout(() => switchToSecondHand(), 400);
+      } else {
+        stand(newHand);
+      }
     }
   };
 
-  const stand = (handOverride) => {
-    const pHand = handOverride || playerHand;
+  const switchToSecondHand = () => {
+    setActiveHand(1);
+    setPlayerHand(splitHands[1]);
+    setCanDouble(balance >= splitBets[1]);
+    setMessage('Main 2 · à toi');
+  };
+
+  const playDealerForSplit = () => {
+    // Si les deux mains ont busté, on ne joue pas le croupier
+    const h1Bust = handValue(splitHands[0]) > 21;
+    const h2Bust = handValue(splitHands[1]) > 21;
+    if (h1Bust && h2Bust) {
+      setPhase('result');
+      setMessage(`Les deux mains bust · -${fmt(splitBets[0] + splitBets[1])} B`);
+      setMessageColor('#ff4444');
+      return;
+    }
+    // Faire jouer le croupier
     setPhase('dealer');
-    let d = [...deck];
-    let dh = [...dealerHand];
-    
+    let d = [...deck]; let dh = [...dealerHand];
     setTimeout(() => {
       while (handValue(dh) < 17) {
         const { card, deck: newD } = drawCard(d);
         dh.push(card); d = newD;
       }
       setDealerHand([...dh]); setDeck(d);
-      
+      const dv = handValue(dh);
+      const dealerBust = dv > 21;
+      let total = 0;
+      [0, 1].forEach((i) => {
+        const pv = handValue(splitHands[i]);
+        if (pv > 21) return; // bust, perdu
+        if (dealerBust || pv > dv) total += splitBets[i] * 2;
+        else if (pv === dv) total += splitBets[i];
+      });
+      setBalance((b) => b + total);
+      setMessage(`Split terminé · Gains: ${fmt(total)} B`);
+      setMessageColor(total > splitBets[0] + splitBets[1] ? '#00ff88' : total === splitBets[0] + splitBets[1] ? '#ffd700' : '#ff4444');
+      setPhase('result');
+    }, 800);
+  };
+
+  const stand = (handOverride) => {
+    const pHand = handOverride || playerHand;
+    // Si split et main 1, passer à la main 2
+    if (splitHands && activeHand === 0) {
+      const next = [...splitHands];
+      next[0] = pHand;
+      setSplitHands(next);
+      setTimeout(() => switchToSecondHand(), 300);
+      return;
+    }
+    if (splitHands && activeHand === 1) {
+      const next = [...splitHands];
+      next[1] = pHand;
+      setSplitHands(next);
+      setTimeout(() => playDealerForSplit(), 300);
+      return;
+    }
+    setPhase('dealer');
+    let d = [...deck];
+    let dh = [...dealerHand];
+
+    setTimeout(() => {
+      while (handValue(dh) < 17) {
+        const { card, deck: newD } = drawCard(d);
+        dh.push(card); d = newD;
+      }
+      setDealerHand([...dh]); setDeck(d);
+
       const pv = handValue(pHand);
       const dv = handValue(dh);
-      
+
       setTimeout(() => {
         if (dv > 21 || pv > dv) {
           setBalance((b) => b + totalBet * 2);
@@ -6318,6 +6430,43 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
   const nextRound = () => {
     setPlayerHand([]); setDealerHand([]);
     setPhase('bet'); setMessage(''); setChipBets({});
+    setSplitHands(null); setActiveHand(0); setSplitBets([0, 0]);
+  };
+
+  // ============== SPLIT ==============
+  const canSplit = () => {
+    if (!playerHand || playerHand.length !== 2) return false;
+    if (splitHands) return false; // already split
+    // Cards must have same value (including 10-J-Q-K all = 10)
+    const v1 = playerHand[0].value === 1 ? 1 : Math.min(10, playerHand[0].value);
+    const v2 = playerHand[1].value === 1 ? 1 : Math.min(10, playerHand[1].value);
+    return v1 === v2 && balance >= totalBet;
+  };
+
+  const split = () => {
+    if (!canSplit()) return;
+    setBalance(balance - totalBet);
+    const d = [...deck];
+    const r1 = drawCard(d);
+    const r2 = drawCard(r1.deck);
+    const h1 = [playerHand[0], r1.card];
+    const h2 = [playerHand[1], r2.card];
+    setSplitHands([h1, h2]);
+    setSplitBets([totalBet, totalBet]);
+    setPlayerHand(h1);
+    setActiveHand(0);
+    setDeck(r2.deck);
+    setCanDouble(balance - totalBet >= totalBet);
+    setMessage('Main 1 · joue d\'abord');
+  };
+
+  // Surrender: récupère moitié de la mise et termine la main
+  const surrender = () => {
+    if (!playerHand || playerHand.length !== 2 || splitHands) return;
+    setBalance((b) => b + Math.floor(totalBet / 2));
+    setMessage(`Abandon · récupération de ${fmt(Math.floor(totalBet/2))} B`);
+    setMessageColor('#ffaa00');
+    setPhase('result');
   };
 
   const lost = phase === 'result' && (message.includes('PERDU') || message.includes('BUST'));
@@ -6466,9 +6615,13 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
 
         {phase === 'player' && (
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={hit} style={btnStyle('#00aa44')}>TIRER</button>
-            <button onClick={() => stand()} style={btnStyle('#aa4400')}>RESTER</button>
-            {canDouble && <button onClick={doubleDown} style={btnStyle('#aa00aa')}>DOUBLER</button>}
+            <button onClick={hit} data-testid="bj-hit" style={btnStyle('#00aa44')}>TIRER</button>
+            <button onClick={() => stand()} data-testid="bj-stand" style={btnStyle('#aa4400')}>RESTER</button>
+            {canDouble && <button onClick={doubleDown} data-testid="bj-double" style={btnStyle('#aa00aa')}>DOUBLER</button>}
+            {canSplit() && <button onClick={split} data-testid="bj-split" style={btnStyle('#0077aa')}>SPLIT</button>}
+            {!splitHands && playerHand && playerHand.length === 2 && (
+              <button onClick={surrender} data-testid="bj-surrender" style={btnStyle('#666')}>ABANDON</button>
+            )}
           </div>
         )}
 
@@ -9198,6 +9351,7 @@ export default function Casino() {
           onShoot={() => {}}
           onChangeCasino={() => setShowChangeCasino(true)}
           onOpenCharacter={() => setScreen('character')}
+          onToggleVehicle={handleEquipVehicle}
         />
       )}
 

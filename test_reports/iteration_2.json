@@ -1,0 +1,49 @@
+{
+  "summary": "Frontend-only iteration 2 validation of Benz Casino. Verified: (1) App compiles with 1 eslint warning only, (2) Login → Casino-select → CharacterScreen flow works end-to-end with data-testid='character-screen' present, 3 tabs (char-tab-hair/outfit/shoes) and exactly 10 items per tab, (3) Profile seed + click enters 3D lobby successfully, (4) view-toggle-btn visible in HUD (1P/3P toggle), (5) Blackjack Split+Surrender implemented correctly in code (canSplit handles 10-J-Q-K pairs via Math.min(10,val), bj-split and bj-surrender buttons conditionally render, split deducts bet, splitHands array, switchToSecondHand, playDealerForSplit pays per hand, surrender returns half bet), (6) VehicleGraphic overlay rendered in 1st person (ligne 5809), TPPlayerView renders vehicle under player in 3rd person (ligne 5819+1264), (7) 3D lobby canvas signage renamed to '🏎 BENZ BOUTIQUE' (ligne 4680), zone label 'BENZ BOUTIQUE' (ligne 5190), (8) No JS runtime errors in console (only WebGL GPU stall warnings, which are expected in headless).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Lobby3D HUD - vehicle-toggle-btn",
+        "issue": "CRITICAL GAP: data-testid='vehicle-toggle-btn' is COMPLETELY MISSING from the codebase. Requested feature 'Mount/Dismount button vehicle-toggle-btn in HUD' has NOT been implemented. grep for 'vehicle-toggle' in /app/frontend/src/components/Casino.jsx returns zero matches. The Lobby3D component receives onToggleVehicle prop (line 2614) which is wired to App's handleEquipVehicle (line 9354) but no HUD button calls it. Currently the only way to (de)equip a vehicle is via the Shop modal. Verified empirically via Playwright: lobby loaded with profile.vehicles=['skateboard','bike'] and equippedVehicle='skateboard', DOM query for [data-testid='vehicle-toggle-btn'] returned null.",
+        "selector": "[data-testid='vehicle-toggle-btn']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Lobby3D HUD - menu-character-btn not directly visible",
+        "issue": "menu-character-btn is inside the MENU drawer and not directly visible on the HUD at lobby load (present in code but hidden behind MENU burger top-right). Minor issue from iteration_1 still open; main agent should decide whether to surface it directly.",
+        "selector": "[data-testid='menu-character-btn']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Blackjack Split / Surrender end-to-end in the 3D lobby",
+        "issue": "Could not execute end-to-end in headless Playwright because reaching the BlackjackGame requires 3D navigation (ZQSD walk into the 'BLACKJACK' interaction zone) which is unreliable with WebGL GPU stalls. Code review confirms correctness: canSplit() lines 6437-6444 handles 10/J/Q/K via Math.min(10,value); split() lines 6446-6461 deducts totalBet and draws 2 cards; switchToSecondHand() line 6318; hit/stand handle split transitions (lines 6290-6315, 6360-6376); playDealerForSplit() line 6325 pays each hand individually; surrender() lines 6464-6470 refunds Math.floor(totalBet/2) and sets phase='result'; buttons bj-split and bj-surrender render in player phase under correct conditions (lines 6621-6624). Logic is sound.",
+        "affected_selectors": ["[data-testid='bj-split']", "[data-testid='bj-surrender']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [
+    "HIGH: Implement the data-testid='vehicle-toggle-btn' Mount/Dismount button in the Lobby3D HUD. Requirements: (a) button appears in HUD only when profile.vehicles is non-empty, (b) clicking toggles profile.equippedVehicle between null (walk) and the latest-purchased or stored vehicle (e.g. profile.vehicles[profile.vehicles.length-1] or a remembered last-equipped id), (c) hook the button to existing onToggleVehicle prop already wired to handleEquipVehicle(vehicleId). Suggested placement: above view-toggle-btn in the right-side HUD stack around line 5615 in Casino.jsx.",
+    "Consider exposing window.__testHooks (openBlackjack, openShop, etc.) to enable E2E coverage of games without 3D navigation, since Blackjack Split/Surrender still cannot be automated in headless Playwright."
+  ],
+  "critical_code_review_comments": [
+    "Casino.jsx is now 9431 lines (was 9277) – still violates the <700 LOC guideline. Refactor into LoginScreen.jsx, CharacterScreen.jsx, Lobby3D.jsx, BlackjackGame.jsx, PokerGame.jsx, Shop.jsx, ATM.jsx, FortuneWheel.jsx.",
+    "useEffect at line 8279 still has exhaustive-deps warning for FIVE_MIN (eslint warning surviving).",
+    "The onToggleVehicle prop is passed but no component uses it yet inside Lobby3D – dead wiring.",
+    "Blackjack split flow is complete and correct (canSplit, split, switchToSecondHand, playDealerForSplit, surrender). Good work.",
+    "surrender() correctly uses Math.floor(totalBet/2) to avoid fractional currency and sets phase='result' atomically.",
+    "canSplit() correctly collapses 10/J/Q/K to same value via Math.min(10,value) and preserves Ace (value===1 kept)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "85% (character screen 100%, lobby HUD view-toggle/fire 100%, blackjack split/surrender code OK but not E2E-runnable, vehicle-toggle-btn MISSING)"},
+  "test_credentials": "Local profiles only: NewPlayer1 (created via UI), T1Lobby (seeded via localStorage, 50M balance, vehicles=[skateboard,bike], equippedVehicle=skateboard, customized=true). No real secrets.",
+  "seed_data_creation": "localStorage.setItem('profile:T1Lobby', JSON.stringify({...,customized:true,vehicles:['skateboard','bike'],equippedVehicle:'skateboard',...})) – then click the profile card in BENZOUZ loader to enter lobby.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter1+iter2 context: Casino.jsx monolith (9431 lignes). Core DOM flows (Login→CharacterScreen, Character→Lobby via seed) work in headless. 3D zone navigation (walking into BLACKJACK/POKER/SHOP/ATM zones) is NOT reliable in headless Playwright due to WebGL GPU stalls – so Blackjack Split/Surrender/Poker/Shop flows require either (a) window.__testHooks to open modals directly, or (b) manual human testing. For iter2 specifically: CHECK IF MAIN AGENT ADDED vehicle-toggle-btn before re-running; if added, verify it is visible only when profile.vehicles.length>0, and clicking toggles profile.equippedVehicle between null and a vehicle id (balance/walking speed change).",
+  "rca_of_the_issue": "The review request mentioned 'Mount/Dismount button vehicle-toggle-btn in HUD' as a new iteration addition, but grep confirms vehicle-toggle-btn is not defined anywhere in /app/frontend/src/components/Casino.jsx. Root cause: the feature was likely planned/started (Lobby3D accepts onToggleVehicle prop, App passes handleEquipVehicle) but the actual HUD button was never rendered. Fix: add a <button data-testid='vehicle-toggle-btn'> in the right-side HUD stack (around line 5615) that shows 🛹/🚲 icon when equipped or 🚶 when walking, conditionally visible when (profile.vehicles || []).length > 0, onClick calls onToggleVehicle(profile.equippedVehicle ? null : profile.vehicles[profile.vehicles.length-1])."
+}
