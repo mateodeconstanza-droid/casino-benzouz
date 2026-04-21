@@ -4658,7 +4658,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       sctx.fillStyle = '#ff0000';
       sctx.font = 'bold 90px Georgia, serif';
       sctx.textAlign = 'center';
-      sctx.fillText('🔫 ARMURERIE', 512, 120);
+      sctx.fillText('🏎 BENZ BOUTIQUE', 512, 120);
       sctx.shadowBlur = 0;
       sctx.fillStyle = '#ffd700';
       sctx.font = 'italic 28px Georgia';
@@ -5168,7 +5168,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     toilet: { icon: '🚻', name: 'TOILETTES' },
     atm: { icon: '🏧', name: 'DISTRIBUTEUR' },
     wheel: { icon: '🎡', name: 'ROUE FORTUNE' },
-    shop: { icon: '🔫', name: 'ARMURERIE' },
+    shop: { icon: '🏎', name: 'BENZ BOUTIQUE' },
     benzbet: { icon: '🎟️', name: 'BENZBET' },
   };
 
