@@ -1,0 +1,82 @@
+{
+  "summary": "Frontend-only smoke + integration test of Benz Casino React app focused on the 11 requested features. Verified Login → Character screen → 3D Lobby flow. Character customization (3 tabs / 10 items / 3 free + 7 paid) fully validated. View toggle 1P/3P works. Wheel SVG flat 2D with readable segments rendered correctly. Shop catalog (6 weapons + 2 vehicles with correct prices and speed multipliers), ATM 5-minute cooldown, BlackJack/Poker logic verified by code review (could not be executed end-to-end without 3D zone navigation in headless WebGL).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Lobby3D - 3D zone signage / interaction prompt",
+        "issue": "Le 3D lobby affiche encore le panneau '🔫 ARMURERIE' (ligne 4661) et le label de zone d'interaction est 'ARMURERIE' (ligne 5171), alors que la modal qui s'ouvre s'appelle 'BENZ BOUTIQUE'. Incohérence UX: l'utilisateur voit ARMURERIE dans le lobby mais BENZ BOUTIQUE dans la modal.",
+        "selector": "n/a (canvas WebGL textCanvas)",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "Lobby3D - Welcome modal 'BIENVENUE'",
+        "issue": "Une modal 'BIENVENUE' s'affiche au premier chargement du lobby et bloque tout interaction avec les boutons de la HUD (view-toggle/fire/menu). Heureusement les boutons HUD sont par-dessus l'overlay (z-index ok), mais on remarque qu'aucun data-testid n'est posé sur le bouton ENTRER de cette modal.",
+        "selector": "button:has-text('ENTRER') (welcome modal)",
+        "priority": "LOW"
+      },
+      {
+        "component": "Lobby3D - menu-character-btn",
+        "issue": "menu-character-btn n'est pas visible directement dans la HUD du lobby au chargement (count=0). Probablement caché derrière un menu burger 'MENU' (visible top-right dans le screenshot). Manque de data-testid sur le bouton 'MENU' top-right pour ouvrir le menu latéral.",
+        "selector": "button:has-text('MENU')",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Ouverture Shop / ATM / Blackjack / Poker depuis le lobby",
+        "issue": "Ces 4 fonctionnalités nécessitent une navigation 3D (marcher dans une zone via touches ZQSD/flèches). Non testables en environnement headless de manière fiable. Le code source des modals/jeux a été review (Shop ligne 7826, ATM ligne 8091, BlackjackGame ligne 6166, PokerGame ligne 7453) – la logique paraît correcte mais l'execution end-to-end en jeu n'a pas été observée.",
+        "affected_selectors": ["[data-testid='shop-tab-weapon']", "[data-testid='shop-tab-vehicle']", "[data-testid='shop-buy-vehicle-skateboard']", "[data-testid='shop-buy-vehicle-bike']"]
+      },
+      {
+        "flow": "Tirer (lobby-fire-btn) sans arme sélectionnée",
+        "issue": "Le profil seedé contient weapons:['gun'] mais selectedWeapon initial=null donc le bouton Tirer reste disabled jusqu'à sélection via inventaire 🎒. Comportement attendu et correct, mais documente que le test de l'animation visible des balles requiert une sélection préalable d'arme via le menu inventaire (pas testé)."
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Login screen",
+        "issues": [
+          "Aucun data-testid sur les boutons de sélection casino (Las Vegas / Monaco / etc.), input pseudo, et bouton ENTRER DANS LE CASINO. Doit être ajouté pour faciliter la régression."
+        ]
+      },
+      {
+        "screen": "Lobby 3D",
+        "issues": [
+          "Beaucoup de warnings GPU stall (ReadPixels) en headless – peut ralentir Playwright mais n'affecte pas l'utilisateur réel.",
+          "Aucun data-testid sur les boutons ENTRER de la welcome modal, MENU (burger top-right), inventaire 🎒, viser 🎯."
+        ]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_1.json"],
+  "action_items": [
+    "Renommer '🔫 ARMURERIE' en '🛍️ BENZ BOUTIQUE' (ou similaire) dans le 3D lobby – ligne 4661 (canvas sign) et ligne 5171 (zone interaction label).",
+    "Ajouter data-testid sur les éléments du LoginScreen: casino-vegas-btn, casino-monaco-btn, ..., name-input, login-enter-btn.",
+    "Ajouter data-testid sur welcome-enter-btn (modal BIENVENUE), menu-burger-btn (top-right MENU), inventory-btn (🎒), aim-btn (🎯).",
+    "(Pour facilité de tests E2E) Exposer une fonction window.__testHooks pour ouvrir Shop/ATM/Wheel/Blackjack/Poker sans navigation 3D, ou ajouter un raccourci clavier debug, afin de permettre la couverture E2E des 5 modals/jeux.",
+    "Tester manuellement (humain) l'ouverture du Shop par marche 3D pour vérifier les onglets Armes (6) et Véhicules (skateboard 1M / bike 5M) ainsi que l'auto-equip et le solde déduit.",
+    "Tester manuellement le retrait ATM (15 000 B) puis vérifier que le compte à rebours 'Cycle se termine dans X min' s'affiche après le 1er retrait.",
+    "Tester manuellement Blackjack (BJ naturel payé 3:2 et BJ croupier traité immédiatement) et Poker (2+2 cartes, 3+1+1 board, showdown)."
+  ],
+  "critical_code_review_comments": [
+    "Casino.jsx fait 9277 lignes – violation majeure du critère <700 lignes. À refactorer en modules (LoginScreen, CharacterScreen, Lobby3D, BlackjackGame, PokerGame, Shop, ATM, FortuneWheel3D, etc.) – chaque composant dans un fichier séparé pour maintenabilité.",
+    "Les catalogues (WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, CASINOS, etc.) devraient être dans un fichier de constantes /src/data/.",
+    "Quasi-aucun data-testid sur les éléments du LoginScreen et la HUD du lobby (boutons MENU, inventaire, viser, ENTRER welcome). Bloque l'automatisation E2E.",
+    "Logique de sauvegarde profile via localStorage avec clé 'profile:<name>' – vulnérable à des collisions de noms et pas de nettoyage. Acceptable pour MVP local-first.",
+    "Le bouton Tirer (line 5634) gère bien press-and-hold via onPointerDown/Up/Leave/Cancel – bon comportement.",
+    "Auto-pop de la wheel à la connexion (handleLogin ligne 8791) peut surprendre – ajouter un 'X' bien visible (présent: data-testid='wheel-close').",
+    "Incohérence label: 'ARMURERIE' dans 3D vs 'BENZ BOUTIQUE' dans la modal – à harmoniser."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "70% (caractéristiques DOM 100% OK, 3D-only fonctions nécessitent test manuel)"},
+  "test_credentials": "Profile local: T1Tester (vegas), T1Lobby (vegas, customized=true, balance 50M). Aucun secret réel.",
+  "seed_data_creation": "localStorage seedé avec profile:T1Lobby pour bypasser l'écran de personnalisation et tester directement le lobby.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Le fichier Casino.jsx est monolithique (9277 lignes). La validation E2E complète des modals/jeux (Shop, ATM, Blackjack, Poker, Wheel cooldown post-retrait) nécessite soit (1) une navigation 3D ZQSD réelle dans un browser non-headless, soit (2) l'ajout de hooks de test (window.__testHooks). Les flows DOM-only fonctionnent parfaitement : Login → CharacterScreen → 10 items × 3 tabs → équiper → entrer dans casino → vue 1P/3P toggle → wheel SVG flat. Profile seed pratique : voir la clé 'other_misc_info' du review_request.",
+  "rca_of_the_issue": "Pas de bug bloquant identifié. L'incohérence ARMURERIE/BENZ BOUTIQUE est due au fait que la rénovation a été faite côté composant Shop (ligne 7868) et titre de modal (ligne 7891) mais pas répercutée dans le canvas du 3D lobby (ligne 4661) ni dans le label des zones d'interaction (ligne 5171). Fix simple : remplacer ces 2 occurrences."
+}
