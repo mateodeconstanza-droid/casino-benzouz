@@ -380,6 +380,12 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     createSpot(20, 0, 0xffd700);
     createSpot(-20, -20, colors.light);
     createSpot(20, -20, colors.light);
+    // Spot supplémentaire concentré sur la roulette pour la mettre en valeur
+    const rouletteSpot = new THREE.SpotLight(0xffffff, 5, 10, Math.PI / 4, 0.2, 1);
+    rouletteSpot.position.set(0, 5, -8);
+    rouletteSpot.target.position.set(0, 1, -8);
+    scene.add(rouletteSpot);
+    scene.add(rouletteSpot.target);
 
     // LEDs murales
     for (let i = 0; i < 12; i++) {
