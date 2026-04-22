@@ -63,56 +63,60 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
     const idx = ROULETTE_NUMBERS.indexOf(winNum);
     const segmentAngle = 360 / ROULETTE_NUMBERS.length;
 
-    // Roue tourne dans un sens, bille dans l'autre
+    // Angles capturés AVANT l'animation (closures stables)
+    const wheelStart = wheelRotation;
     const wheelSpinTurns = 4 + Math.random() * 2; // 4-6 tours pour la roue
     const wheelTarget = 360 * wheelSpinTurns;
-    const currentWheelRotation = wheelRotation; // capture l'angle AVANT mise à jour
-    const newWheelRotation = currentWheelRotation + wheelTarget;
-    setWheelRotation(newWheelRotation);
+    const wheelEnd = wheelStart + wheelTarget;
 
-    // Animation de la bille : tombe EXACTEMENT sur le numéro gagnant
-    // Repère visuel :
-    //   - Les numéros sont dessinés à l'angle monde : idx*segmentAngle - 90 + wheelRotation
-    //     (centre du secteur : idx*segmentAngle + segmentAngle/2 - 90 + wheelRotation)
-    //   - La bille est dessinée à cos/sin((ballAngle - 90) deg)
-    //   - Donc pour que la bille soit au centre du secteur idx :
-    //       ballAngle ≡ idx*segmentAngle + segmentAngle/2 + wheelRotation (mod 360)
-    const ballStart = Date.now();
-    const duration = 7000; // 7 secondes pour une bille qui roule vraiment
-    const ballTurns = 6 + Math.floor(Math.random() * 3); // 6-8 tours entiers
-    const ballFinalAngle = idx * segmentAngle + segmentAngle / 2 + newWheelRotation;
-    // La bille tourne dans le sens inverse (négatif) puis s'arrête sur l'angle cible
-    const totalBallRotation = ballFinalAngle - 360 * ballTurns;
-    
+    // Calcul de l'angle final de la bille pour qu'elle tombe sur winNum :
+    //   Numéros dessinés en SVG : worldAngle = idx*seg - 90 + seg/2 + wheelRotation
+    //   Bille dessinée : worldAngle = ballAngle - 90
+    //   Alignement : ballAngle = idx*seg + seg/2 + wheelRotation
+    const ballTurns = 6 + Math.floor(Math.random() * 3); // 6-8 tours
+    const ballEnd = idx * segmentAngle + segmentAngle / 2 + wheelEnd;
+    // La bille tourne dans le sens inverse (négatif) pour finir sur ballEnd
+    const ballStart = ballEnd - 360 * ballTurns;
+    // On commence la bille à ballStart pour qu'elle tourne ballTurns fois vers ballEnd
+    setBallAngle(ballStart);
+
+    const startTime = Date.now();
+    const duration = 7000; // 7 secondes
+
     const animate = () => {
-      const elapsed = Date.now() - ballStart;
+      const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Easing plus prononcé - la bille ralentit progressivement
+      // Easing prononcé : décollage rapide puis ralentissement
       const eased = 1 - Math.pow(1 - progress, 4);
-      
-      const currentAngle = totalBallRotation * eased;
 
-      // Petits rebonds sur les déflecteurs — réduits pour ne pas décaler visuellement
-      // du numéro gagnant (amplitude < 0.8° vs 9.7° de segment)
+      // Animation synchronisée roue + bille par le MÊME easing
+      const currentWheel = wheelStart + (wheelEnd - wheelStart) * eased;
+      const currentBall = ballStart + (ballEnd - ballStart) * eased;
+      setWheelRotation(currentWheel);
+
+      // Micro-soubresauts de fin (amplitude < seg/20 pour ne jamais dévier du secteur)
       let bumpOffset = 0;
-      if (progress > 0.9) {
-        const bumpPhase = (progress - 0.9) / 0.1;
-        bumpOffset = Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 0.5;
+      if (progress > 0.92) {
+        const bumpPhase = (progress - 0.92) / 0.08;
+        bumpOffset = Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 0.3;
       }
-      setBallAngle(currentAngle + bumpOffset);
-      
-      // Rayon: la bille descend en spirale - du bord (180) au numéro (130)
-      // Avec de petits soubresauts en fin
+      setBallAngle(currentBall + bumpOffset);
+
+      // Rayon : la bille descend en spirale du bord (180) vers la piste des numéros (130)
       let radius = 180 - (180 - 130) * eased;
-      if (progress > 0.9) {
-        const bumpPhase = (progress - 0.9) / 0.1;
-        radius += Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 3;
+      if (progress > 0.92) {
+        const bumpPhase = (progress - 0.92) / 0.08;
+        radius += Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 2;
       }
       setBallRadius(radius);
-      
+
       if (progress < 1) {
         animRef.current = requestAnimationFrame(animate);
       } else {
+        // Snap final : bille posée EXACTEMENT au centre du secteur
+        setBallAngle(ballEnd);
+        setBallRadius(130);
+        setWheelRotation(wheelEnd);
         setWinningNumber(winNum);
         setLastResults(prev => [winNum, ...prev].slice(0, 8));
 
@@ -264,11 +268,11 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
               ))}
             </div>
             
-            {/* La roue tournante */}
+            {/* La roue tournante (animée en JS pour sync parfaite avec la bille) */}
             <div style={{
               position: 'absolute', inset: 30,
               transform: `rotate(${wheelRotation}deg)`,
-              transition: spinning ? 'transform 7s cubic-bezier(0.17, 0.67, 0.15, 0.99)' : 'none',
+              transition: 'none',
               zIndex: 3,
             }}>
               <svg viewBox="0 0 260 260" style={{ width: '100%', height: '100%' }}>
