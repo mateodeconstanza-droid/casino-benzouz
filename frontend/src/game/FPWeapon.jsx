@@ -79,6 +79,73 @@ const FPWeaponView = ({ id }) => {
       </svg>
     );
   }
+  // ============== NOUVELLES ARMES ==============
+  if (id === 'throwknife') {
+    return (
+      <svg viewBox="0 0 340 260" style={{ width: '100%' }}>
+        {hands}
+        <g stroke="#c0c0c0" strokeWidth="2">
+          <polygon points="130,120 160,120 200,220 130,220" fill="#d4d4d4" />
+          <rect x="130" y="220" width="70" height="16" fill="#1a1a1a" />
+          <circle cx="160" cy="228" r="4" fill="#d4af37" />
+        </g>
+      </svg>
+    );
+  }
+  if (id === 'crossbow') {
+    return (
+      <svg viewBox="0 0 340 260" style={{ width: '100%' }}>
+        {hands}
+        <g stroke="#d4af37" strokeWidth="2" fill="#1a1a1a">
+          <rect x="60" y="158" width="220" height="12" />
+          <path d="M100 120 Q50 155 100 200" stroke="#8a6040" strokeWidth="4" fill="none" />
+          <line x1="100" y1="140" x2="280" y2="168" stroke="#888" strokeWidth="1.5" />
+          <polygon points="280,160 310,164 280,168" fill="#c0c0c0" />
+          <rect x="130" y="170" width="35" height="30" fill="#3a2010" />
+        </g>
+      </svg>
+    );
+  }
+  if (id === 'uzi') {
+    return (
+      <svg viewBox="0 0 340 260" style={{ width: '100%' }}>
+        {hands}
+        <g stroke="#d4af37" strokeWidth="2" fill="#d4af37">
+          <rect x="60" y="148" width="200" height="22" />
+          <rect x="130" y="170" width="24" height="50" fill="#2a2a2a" />
+          <rect x="260" y="140" width="34" height="38" rx="3" />
+          <rect x="85" y="132" width="60" height="6" fill="#1a1a1a" />
+        </g>
+      </svg>
+    );
+  }
+  if (id === 'grenade') {
+    return (
+      <svg viewBox="0 0 340 260" style={{ width: '100%' }}>
+        {hands}
+        <g stroke="#1a1a1a" strokeWidth="2">
+          <circle cx="160" cy="180" r="36" fill="#4a5a2a" />
+          <rect x="145" y="135" width="30" height="12" fill="#d4af37" />
+          <rect x="155" y="110" width="12" height="30" fill="#888" />
+          <path d="M170 120 Q200 110 210 135" stroke="#888" fill="none" strokeWidth="3" />
+        </g>
+      </svg>
+    );
+  }
+  if (id === 'laserrifle') {
+    return (
+      <svg viewBox="0 0 340 260" style={{ width: '100%' }}>
+        {hands}
+        <g stroke="#00ffee" strokeWidth="2" fill="#2a2a3a">
+          <rect x="40" y="150" width="240" height="18" />
+          <rect x="280" y="148" width="10" height="24" fill="#00ffee" />
+          <circle cx="295" cy="160" r="6" fill="#00ffee" />
+          <rect x="100" y="168" width="30" height="36" />
+          <rect x="60" y="135" width="60" height="15" rx="4" fill="#3a3a4a" />
+        </g>
+      </svg>
+    );
+  }
   return null;
 };
 

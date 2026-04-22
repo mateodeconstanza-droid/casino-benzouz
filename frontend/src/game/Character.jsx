@@ -168,15 +168,54 @@ const AvatarPreview = ({ hair = 0, outfit = 0, shoes = 0, skin = '#e0b48a', size
   return (
     <svg viewBox="0 0 80 120" width={w} height={h}>
       <ellipse cx="40" cy="116" rx="20" ry="3" fill="rgba(0,0,0,.35)" />
+      {/* Pantalon / short */}
       <rect x="28" y="78" width="10" height="30" rx="3" fill={outfitItem.color} />
       <rect x="42" y="78" width="10" height="30" rx="3" fill={outfitItem.color} />
+      {/* Chaussures */}
       <rect x="26" y="104" width="14" height="8" rx="3" fill={shoesItem.color} />
       <rect x="40" y="104" width="14" height="8" rx="3" fill={shoesItem.color} />
+      {/* Haut / torse */}
       <rect x="22" y="46" width="36" height="36" rx="8" fill={outfitItem.color} />
+      {/* Manches */}
       <rect x="12" y="48" width="10" height="28" rx="5" fill={outfitItem.color} />
       <rect x="58" y="48" width="10" height="28" rx="5" fill={outfitItem.color} />
+
+      {/* ===== Accents selon le skin ===== */}
+      {outfit === 10 && (
+        /* Louis Vuittonz — motif LV sur le haut + bandes latérales dorées */
+        <g>
+          <text x="40" y="66" textAnchor="middle" fill={outfitItem.accent || '#d4af37'}
+            fontSize="9" fontWeight="800" letterSpacing="1">LV</text>
+          <rect x="38" y="78" width="2" height="30" fill={outfitItem.accent || '#d4af37'} />
+          <rect x="42" y="78" width="2" height="30" fill={outfitItem.accent || '#d4af37'} />
+        </g>
+      )}
+      {outfit === 11 && (
+        /* Costume cravate — plastron + cravate */
+        <g>
+          <rect x="32" y="46" width="16" height="18" fill="#f5f5f5" />
+          <polygon points="38,46 42,46 40,62 40,70 38,58" fill={outfitItem.accent || '#8b1a2e'} />
+        </g>
+      )}
+      {(outfit === 12 || outfit === 13 || outfit === 14) && (
+        /* Maillots de foot — bandes horizontales de l'équipe + numéro 10 */
+        <g>
+          {outfit === 12 && <rect x="22" y="58" width="36" height="6" fill={outfitItem.accent} />}
+          {outfit === 13 && <rect x="22" y="50" width="36" height="4" fill={outfitItem.accent} />}
+          {outfit === 14 && (
+            <g>
+              <rect x="22" y="50" width="36" height="6" fill={outfitItem.accent} />
+              <rect x="22" y="66" width="36" height="6" fill={outfitItem.accent} />
+            </g>
+          )}
+          <text x="40" y="74" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="800">10</text>
+        </g>
+      )}
+
+      {/* Mains */}
       <circle cx="17" cy="78" r="5" fill={skin} />
       <circle cx="63" cy="78" r="5" fill={skin} />
+      {/* Tête */}
       <circle cx="40" cy="30" r="14" fill={skin} />
       {hairPath}
       <circle cx="35" cy="30" r="1.3" fill="#111" />

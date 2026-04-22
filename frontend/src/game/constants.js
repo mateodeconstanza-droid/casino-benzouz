@@ -89,12 +89,18 @@ export const TROPHIES = [
 
 // ============== ARMES ==============
 export const WEAPONS = [
-  { id: 'knife', name: 'Couteau tactique', price: 20000, damage: 'léger', desc: 'Lame Ka-Bar affûtée', type: 'melee' },
-  { id: 'machete', name: 'Machette', price: 40000, damage: 'moyen', desc: 'Lame lourde 45cm', type: 'melee' },
-  { id: 'gun', name: 'Pistolet 9mm', price: 60000, damage: 'fort', desc: 'Glock 17, 17 coups', type: 'gun' },
-  { id: 'shotgun', name: 'Fusil à pompe', price: 80000, damage: 'très fort', desc: 'Remington 870 cal.12', type: 'gun' },
-  { id: 'bazooka', name: 'Bazooka RPG', price: 100000, damage: 'massif', desc: 'Lance-roquettes RPG-7', type: 'rocket' },
-  { id: 'flamethrower', name: 'Lance-flammes', price: 2500000, damage: 'dévastateur', desc: 'M2 avec 5L de napalm', type: 'flame' },
+  { id: 'knife',        name: 'Couteau tactique',       price: 20000,   damage: 'léger',       desc: 'Lame Ka-Bar affûtée',                    type: 'melee' },
+  { id: 'machete',      name: 'Machette',               price: 40000,   damage: 'moyen',       desc: 'Lame lourde 45cm',                       type: 'melee' },
+  { id: 'gun',          name: 'Pistolet 9mm',           price: 60000,   damage: 'fort',        desc: 'Glock 17, 17 coups',                     type: 'gun' },
+  { id: 'shotgun',      name: 'Fusil à pompe',          price: 80000,   damage: 'très fort',   desc: 'Remington 870 cal.12',                   type: 'gun' },
+  { id: 'bazooka',      name: 'Bazooka RPG',            price: 100000,  damage: 'massif',      desc: 'Lance-roquettes RPG-7 (explosion 3m)',   type: 'rocket' },
+  { id: 'flamethrower', name: 'Lance-flammes',          price: 2500000, damage: 'dévastateur', desc: 'M2 avec 5L de napalm',                   type: 'flame' },
+  // ===== 5 NOUVELLES ARMES =====
+  { id: 'throwknife',   name: 'Couteau de lancer',      price: 75000,   damage: 'moyen',       desc: 'Set de 6 lames à lancer — silencieux',   type: 'throwable',  projectile: 'blade' },
+  { id: 'crossbow',     name: 'Arbalète tactique',      price: 220000,  damage: 'fort',        desc: 'Carreaux d\'acier, portée 30m',          type: 'projectile', projectile: 'bolt' },
+  { id: 'uzi',          name: 'UZI Benz Or',            price: 400000,  damage: 'fort',        desc: 'Auto 950 rpm, chargeur 32 coups',        type: 'auto',       projectile: 'bullet' },
+  { id: 'grenade',      name: 'Grenades frag',          price: 600000,  damage: 'massif',      desc: 'M67 — explosion 3m, fragments',          type: 'throwable',  projectile: 'grenade' },
+  { id: 'laserrifle',   name: 'Fusil laser prototype',  price: 3500000, damage: 'dévastateur', desc: 'Rayon instantané, traverse tout',        type: 'laser',      projectile: 'laser' },
 ];
 
 // ============== VÉHICULES ==============
@@ -118,18 +124,32 @@ export const HAIR_CATALOG = [
   { id: 8, name: 'Rose néon',         price: 120000, color: '#f06fb5' },
   { id: 9, name: 'Dorés VIP',         price: 500000, color: '#d4af37' },
 ];
-// 10 ensembles/vêtements (3 gratuits + 7 payants)
+// Vêtements — catalogue étendu avec tenues de marque et maillots de foot
 export const OUTFIT_CATALOG = [
-  { id: 0, name: 'T-shirt blanc',      price: 0,       color: '#f1ead0' },
-  { id: 1, name: 'Survêt noir',        price: 0,       color: '#1a1a1a' },
-  { id: 2, name: 'Jean & chemise',     price: 0,       color: '#2a3a68' },
-  { id: 3, name: 'Blouson cuir',       price: 30000,   color: '#1c1c1e' },
-  { id: 4, name: 'Costume business',   price: 120000,  color: '#14141a' },
-  { id: 5, name: 'Smoking casino',     price: 250000,  color: '#0b0b0b' },
-  { id: 6, name: 'Survêt or',          price: 180000,  color: '#d4af37' },
-  { id: 7, name: 'Veste militaire',    price: 60000,   color: '#425c2a' },
-  { id: 8, name: 'Kimono urbain',      price: 90000,   color: '#8b1f2b' },
-  { id: 9, name: 'Manteau fourrure',   price: 900000,  color: '#3a2a18' },
+  { id: 0,  name: 'T-shirt blanc',       price: 0,        color: '#f1ead0' },
+  { id: 1,  name: 'Survêt noir',          price: 0,        color: '#1a1a1a' },
+  { id: 2,  name: 'Jean & chemise',       price: 0,        color: '#2a3a68' },
+  { id: 3,  name: 'Blouson cuir',         price: 30000,    color: '#1c1c1e' },
+  { id: 4,  name: 'Costume business',     price: 120000,   color: '#14141a' },
+  { id: 5,  name: 'Smoking casino',       price: 250000,   color: '#0b0b0b' },
+  { id: 6,  name: 'Survêt or',            price: 180000,   color: '#d4af37' },
+  { id: 7,  name: 'Veste militaire',      price: 60000,    color: '#425c2a' },
+  { id: 8,  name: 'Kimono urbain',        price: 90000,    color: '#8b1f2b' },
+  { id: 9,  name: 'Manteau fourrure',     price: 900000,   color: '#3a2a18' },
+  // Nouveaux skins demandés
+  { id: 10, name: 'Louis Vuittonz',       price: 10000000, color: '#5a3a1e', accent: '#d4af37', pattern: 'LV', tag: 'LUXE' },
+  { id: 11, name: 'Costume cravate',       price: 300000,   color: '#181820', accent: '#8b1a2e', tag: 'ÉLÉGANT' },
+  { id: 12, name: 'Maillot PSG',          price: 2000000,  color: '#1e3a8a', accent: '#b01a3c', tag: 'FOOT' },
+  { id: 13, name: 'Maillot Real Madrid',  price: 2000000,  color: '#f4f4f4', accent: '#ffd700', tag: 'FOOT' },
+  { id: 14, name: 'Maillot FC Barcelone', price: 2000000,  color: '#a41c3b', accent: '#1e3a8a', tag: 'FOOT' },
+];
+// Nouveaux shorts (3 de football + 2 de ville)
+export const SHORT_CATALOG = [
+  { id: 0, name: 'Short PSG',           price: 50000, color: '#1e3a8a', accent: '#b01a3c', tag: 'FOOT' },
+  { id: 1, name: 'Short Real Madrid',   price: 50000, color: '#f4f4f4', accent: '#ffd700', tag: 'FOOT' },
+  { id: 2, name: 'Short FC Barcelone',  price: 50000, color: '#a41c3b', accent: '#1e3a8a', tag: 'FOOT' },
+  { id: 3, name: 'Short ville noir',    price: 50000, color: '#1a1a1a', accent: '#cca366' },
+  { id: 4, name: 'Short beige',         price: 50000, color: '#c7a97a', accent: '#1a1a1a' },
 ];
 // 10 chaussures (3 gratuites + 7 payantes)
 export const SHOES_CATALOG = [

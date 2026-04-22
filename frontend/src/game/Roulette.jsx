@@ -106,18 +106,35 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
       } else {
         setWinningNumber(winNum);
         setLastResults(prev => [winNum, ...prev].slice(0, 8));
-        
+
+        // ============ PAYOUTS ROULETTE EUROPÉENNE (règles réelles) ============
+        // Chaque entrée dans `win` inclut la remise de la mise (stake + profit)
+        // - Plein (straight up) : 35:1 → retour = mise × 36
+        // - Douzaines / colonnes : 2:1 → retour = mise × 3
+        // - Chances simples (rouge/noir/pair/impair/manque/passe) : 1:1 → retour = mise × 2
+        // - Si le 0 sort : TOUTES les mises extérieures perdent (chances simples, douzaines)
         let win = 0;
         const color = getColor(winNum);
+        const isZero = winNum === 0;
+
         Object.entries(betsSnapshot).forEach(([key, amount]) => {
-          if (key === `num-${winNum}`) win += amount * 36;
-          else if (key === 'red' && color === 'red') win += amount * 2;
+          // Mise pleine (un numéro précis, y compris le 0) — 35:1
+          if (key === `num-${winNum}`) {
+            win += amount * 36;
+            return;
+          }
+          // Si 0 sort, toutes les mises suivantes (hors plein) perdent
+          if (isZero) return;
+
+          // Chances simples : 1:1 (retour = mise × 2)
+          if (key === 'red'  && color === 'red')  win += amount * 2;
           else if (key === 'black' && color === 'black') win += amount * 2;
-          else if (key === 'even' && winNum !== 0 && winNum % 2 === 0) win += amount * 2;
-          else if (key === 'odd' && winNum % 2 === 1) win += amount * 2;
-          else if (key === 'low' && winNum >= 1 && winNum <= 18) win += amount * 2;
+          else if (key === 'even' && winNum % 2 === 0) win += amount * 2;
+          else if (key === 'odd'  && winNum % 2 === 1) win += amount * 2;
+          else if (key === 'low'  && winNum >= 1  && winNum <= 18) win += amount * 2;
           else if (key === 'high' && winNum >= 19 && winNum <= 36) win += amount * 2;
-          else if (key === 'dozen1' && winNum >= 1 && winNum <= 12) win += amount * 3;
+          // Douzaines : 2:1 (retour = mise × 3)
+          else if (key === 'dozen1' && winNum >= 1  && winNum <= 12) win += amount * 3;
           else if (key === 'dozen2' && winNum >= 13 && winNum <= 24) win += amount * 3;
           else if (key === 'dozen3' && winNum >= 25 && winNum <= 36) win += amount * 3;
         });

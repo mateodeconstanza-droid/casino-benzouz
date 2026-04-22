@@ -166,7 +166,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
         {/* Cartes du croupier */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {dealerCards.map((c, i) => (
-            <Card key={i} card={c} hidden={!showDealerCards} delay={i * 200} small />
+            <Card key={i} card={c} hidden={!showDealerCards} delay={i * 0.2} small />
           ))}
           {dealerCards.length === 0 && (
             <>
@@ -192,7 +192,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
           </div>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
             {board.map((c, i) => (
-              <Card key={i} card={c} delay={i * 150} small />
+              <Card key={i} card={c} delay={i * 0.15} small />
             ))}
             {[...Array(5 - board.length)].map((_, i) => (
               <div key={i} style={{
@@ -207,7 +207,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
         {/* Cartes du joueur */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {playerCards.map((c, i) => (
-            <Card key={i} card={c} delay={i * 200} />
+            <Card key={i} card={c} delay={i * 0.2} />
           ))}
           {playerCards.length === 0 && (
             <>

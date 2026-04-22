@@ -332,11 +332,101 @@ function renderSplat(splat) {
 
 // ============== PROJECTILE EN VOL ==============
 export const FlyingProjectile = ({ type, onComplete }) => {
+  const [phase, setPhase] = useState('fly');
   useEffect(() => {
-    const dur = type === 'bullet' || type === 'shotgun_shot' ? 300 : type === 'rocket' ? 800 : 600;
-    const timer = setTimeout(onComplete, dur);
-    return () => clearTimeout(timer);
+    const flyDur = type === 'bullet' || type === 'shotgun_shot' || type === 'laser' ? 200
+                 : type === 'rocket' ? 650
+                 : type === 'grenade' ? 750
+                 : type === 'bolt' ? 350
+                 : type === 'blade' ? 420
+                 : 600;
+    const hasExplosion = type === 'rocket' || type === 'grenade';
+    const explodeDur = 480;
+    let t1, t2;
+    if (hasExplosion) {
+      t1 = setTimeout(() => setPhase('explode'), flyDur);
+      t2 = setTimeout(onComplete, flyDur + explodeDur);
+    } else {
+      t1 = setTimeout(onComplete, flyDur);
+    }
+    return () => { clearTimeout(t1); if (t2) clearTimeout(t2); };
   }, [onComplete, type]);
+
+  // ============== EXPLOSIONS (bazooka & grenade) ==============
+  if (phase === 'explode') {
+    return (
+      <div style={{
+        position: 'absolute', bottom: 0, left: '50%',
+        transform: 'translateX(-50%)',
+        width: 240, height: 240,
+        zIndex: 101, pointerEvents: 'none',
+      }}>
+        {/* Flash central */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'radial-gradient(circle, #fff8c0 0%, #ffb636 25%, #ff4400 45%, #5a0000 70%, transparent 85%)',
+          borderRadius: '50%',
+          animation: 'explosionPulse 0.48s ease-out forwards',
+          mixBlendMode: 'screen',
+          filter: 'blur(1px)',
+        }} />
+        {/* Onde de choc (rayon 3m simulé) */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          border: '3px solid rgba(255,200,100,0.7)',
+          borderRadius: '50%',
+          animation: 'shockWave 0.48s ease-out forwards',
+        }} />
+        {/* Fragments */}
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} style={{
+            position: 'absolute', top: '50%', left: '50%',
+            width: 6, height: 6,
+            background: '#ffae00',
+            borderRadius: '50%',
+            boxShadow: '0 0 6px #ff4400',
+            animation: `frag${i} 0.48s ease-out forwards`,
+          }} />
+        ))}
+        <style>{`
+          @keyframes explosionPulse {
+            0% { transform: scale(0.15); opacity: 0; }
+            30% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+          }
+          @keyframes shockWave {
+            0% { transform: scale(0.1); opacity: 0.9; }
+            100% { transform: scale(2.2); opacity: 0; }
+          }
+          ${Array.from({ length: 8 }).map((_, i) => {
+            const ang = (i / 8) * Math.PI * 2;
+            const dx = Math.cos(ang) * 110;
+            const dy = Math.sin(ang) * 110;
+            return `@keyframes frag${i} {
+              0% { transform: translate(-50%, -50%); opacity: 1; }
+              100% { transform: translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)); opacity: 0; }
+            }`;
+          }).join('\n')}
+        `}</style>
+      </div>
+    );
+  }
+
+  if (type === 'laser') {
+    return (
+      <div style={{
+        position: 'absolute', bottom: 120, left: '50%',
+        transform: 'translateX(-50%)',
+        width: '60%', height: 4,
+        background: 'linear-gradient(to right, transparent, #00ffee, #fff, #00ffee, transparent)',
+        boxShadow: '0 0 20px #00ffee, 0 0 40px #00ffee',
+        zIndex: 100, pointerEvents: 'none',
+        animation: 'laserFade 0.2s ease-out forwards',
+      }}>
+        <style>{`@keyframes laserFade { 0%{opacity:1;transform:translateX(-50%) scaleY(1);} 100%{opacity:0;transform:translateX(-50%) scaleY(0.2);} }`}</style>
+      </div>
+    );
+  }
 
   if (type === 'bullet' || type === 'shotgun_shot') {
     return (
@@ -360,7 +450,7 @@ export const FlyingProjectile = ({ type, onComplete }) => {
       <div style={{
         position: 'absolute', bottom: 20, left: '50%',
         width: 40, height: 12,
-        animation: 'rocketFly 0.8s ease-in forwards',
+        animation: 'rocketFly 0.65s ease-in forwards',
         zIndex: 100, pointerEvents: 'none',
       }}>
         <div style={{
@@ -376,6 +466,59 @@ export const FlyingProjectile = ({ type, onComplete }) => {
             filter: 'blur(2px)',
           }} />
         </div>
+      </div>
+    );
+  }
+  if (type === 'grenade') {
+    return (
+      <div style={{
+        position: 'absolute', bottom: 20, left: '50%',
+        width: 24, height: 24,
+        animation: 'grenadeFly 0.75s ease-in forwards',
+        zIndex: 100, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: '100%', height: '100%',
+          background: 'radial-gradient(circle at 30% 30%, #6a7a3a, #2a3a1a)',
+          borderRadius: '50%',
+          boxShadow: '0 0 8px rgba(0,0,0,0.7)',
+        }} />
+        <style>{`@keyframes grenadeFly { 0%{transform:translate(-50%,0) rotate(0);} 50%{transform:translate(-50%,-260px) rotate(540deg);} 100%{transform:translate(-50%,0) rotate(1080deg);} }`}</style>
+      </div>
+    );
+  }
+  if (type === 'bolt') {
+    return (
+      <div style={{
+        position: 'absolute', bottom: 60, left: '50%',
+        width: 70, height: 4,
+        animation: 'boltFly 0.35s linear forwards',
+        zIndex: 100, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: '100%', height: '100%',
+          background: 'linear-gradient(to right, #888, #fff, #aaa)',
+          clipPath: 'polygon(0% 50%, 85% 0%, 100% 50%, 85% 100%)',
+          boxShadow: '0 0 6px rgba(255,255,255,0.5)',
+        }} />
+      </div>
+    );
+  }
+  if (type === 'blade') {
+    return (
+      <div style={{
+        position: 'absolute', bottom: 30, left: '50%',
+        width: 50, height: 14,
+        animation: 'bladeFly 0.42s linear forwards',
+        zIndex: 100, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: '100%', height: '100%',
+          background: 'linear-gradient(to right, #333, #ccc 20%, #fff 50%, #ccc 80%, #333)',
+          clipPath: 'polygon(0% 30%, 75% 0%, 100% 50%, 75% 100%, 0% 70%)',
+          boxShadow: '0 0 8px rgba(255,255,255,0.5)',
+        }} />
+        <style>{`@keyframes bladeFly { 0%{transform:translate(-50%,0) rotate(0);} 100%{transform:translate(-50%,-220px) rotate(720deg);} }`}</style>
       </div>
     );
   }
@@ -698,6 +841,64 @@ export const WeaponIcon = ({ id, size = 60 }) => {
       <ellipse cx="88" cy="50" rx="8" ry="3" fill="#ff0" opacity="0.7" />
       <rect x="38" y="54" width="8" height="5" fill="#444" />
       <rect x="18" y="32" width="4" height="8" fill="#666" />
+    </svg>
+  );
+  // ============== NOUVELLES ARMES ==============
+  if (id === 'throwknife') return (
+    <svg width={s} height={s} viewBox="0 0 100 100">
+      <polygon points="15,50 70,42 80,50 70,58" fill="#d4d4d4" stroke="#333" strokeWidth="0.6" />
+      <rect x="5" y="46" width="12" height="8" fill="#1a1a1a" />
+      <circle cx="11" cy="50" r="1.5" fill="#d4af37" />
+      <polygon points="20,30 28,45 24,48" fill="#c0c0c0" opacity=".6" />
+      <polygon points="60,70 68,55 72,58" fill="#c0c0c0" opacity=".6" />
+    </svg>
+  );
+  if (id === 'crossbow') return (
+    <svg width={s} height={s} viewBox="0 0 100 100">
+      <path d="M20 30 Q6 50 20 70" stroke="#5a3a18" strokeWidth="4" fill="none" />
+      <rect x="20" y="47" width="55" height="6" fill="#1a1a1a" />
+      <line x1="20" y1="36" x2="80" y2="50" stroke="#aaa" strokeWidth="0.8" />
+      <polygon points="80,48 90,50 80,52" fill="#c0c0c0" />
+      <rect x="32" y="53" width="14" height="14" fill="#3a2010" />
+    </svg>
+  );
+  if (id === 'uzi') return (
+    <svg width={s} height={s} viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="uziGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f4d46b" />
+          <stop offset="100%" stopColor="#7a5e1a" />
+        </linearGradient>
+      </defs>
+      <rect x="20" y="43" width="50" height="14" fill="url(#uziGrad)" />
+      <rect x="36" y="57" width="12" height="24" fill="#2a2a2a" />
+      <rect x="70" y="40" width="16" height="20" rx="2" fill="url(#uziGrad)" />
+      <rect x="28" y="38" width="20" height="5" fill="#1a1a1a" />
+    </svg>
+  );
+  if (id === 'grenade') return (
+    <svg width={s} height={s} viewBox="0 0 100 100">
+      <circle cx="50" cy="58" r="22" fill="#4a5a2a" stroke="#333" strokeWidth="1" />
+      <path d="M36 42 Q40 38 44 42 M50 38 Q54 34 58 38 M62 42 Q66 38 70 42" stroke="#2a2a2a" strokeWidth="1" fill="none" />
+      <rect x="45" y="30" width="10" height="10" fill="#d4af37" />
+      <rect x="48" y="22" width="4" height="12" fill="#888" />
+      <path d="M55 26 Q70 20 75 36" stroke="#888" fill="none" strokeWidth="2" />
+    </svg>
+  );
+  if (id === 'laserrifle') return (
+    <svg width={s} height={s} viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="lasGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3a3a4a" />
+          <stop offset="100%" stopColor="#0a0a14" />
+        </linearGradient>
+      </defs>
+      <rect x="15" y="45" width="65" height="10" fill="url(#lasGrad)" />
+      <rect x="80" y="44" width="6" height="12" fill="#00ffee" />
+      <circle cx="89" cy="50" r="4" fill="#00ffee" />
+      <rect x="25" y="55" width="12" height="16" fill="#2a2a3a" />
+      <rect x="20" y="38" width="25" height="7" rx="2" fill="#3a3a4a" />
+      <path d="M86 50 Q92 48 96 50" stroke="#00ffee" strokeWidth="1" opacity=".5" />
     </svg>
   );
   return <div style={{fontSize: s * 0.7}}>⚔️</div>;
