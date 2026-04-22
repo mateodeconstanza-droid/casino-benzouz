@@ -5626,6 +5626,33 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
           }}>
           {viewMode === 'first' ? '👁️ 1P' : '🧍 3P'}
         </button>
+        {/* Bouton Monter / Descendre du véhicule (visible si possédé) */}
+        {profile && (profile.vehicles || []).length > 0 && (
+          <button
+            onClick={() => {
+              const owned = profile.vehicles || [];
+              const current = profile.equippedVehicle;
+              if (!current) { onToggleVehicle && onToggleVehicle(owned[0]); return; }
+              const idx = owned.indexOf(current);
+              const next = idx >= owned.length - 1 ? null : owned[idx + 1];
+              onToggleVehicle && onToggleVehicle(next);
+            }}
+            data-testid="vehicle-toggle-btn"
+            title={profile.equippedVehicle ? `Descendre / changer (${profile.equippedVehicle})` : 'Monter sur un véhicule'}
+            style={{
+              width: 60, height: 44, borderRadius: 22,
+              background: profile.equippedVehicle
+                ? `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`
+                : 'rgba(0,0,0,0.75)',
+              border: `2px solid ${casino.secondary}`,
+              color: '#fff', fontSize: 20, cursor: 'pointer',
+              boxShadow: profile.equippedVehicle ? '0 0 12px rgba(212,175,55,.4)' : '0 4px 10px rgba(0,0,0,0.6)',
+            }}>
+            {profile.equippedVehicle === 'skateboard' ? '🛹'
+              : profile.equippedVehicle === 'bike' ? '🚴'
+              : '🚶'}
+          </button>
+        )}
         <button onClick={() => setShowInventory(true)} style={{
           width: 60, height: 60, borderRadius: '50%',
           background: `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`,
