@@ -14,6 +14,8 @@ import BenzBetScreen from '@/game/BenzBet';
 import { TrophyScreen, TrophyUnlock } from '@/game/Trophies';
 import { ChangeCasinoScreen, TableSelector } from '@/game/ChangeCasino';
 import FortuneWheel3D from '@/game/Wheel';
+import QuestScreen, { rollDailyQuests, progressQuest } from '@/game/Quests';
+import { isVIP, styleMultiplier, countLuxurySkins } from '@/game/VIP';
 export default function Casino() {
   const [screen, setScreen] = useState('loading');
   const [savedProfiles, setSavedProfiles] = useState([]);
@@ -23,6 +25,7 @@ export default function Casino() {
   const [minBet, setMinBet] = useState(20);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
+  const [showQuests, setShowQuests] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showATM, setShowATM] = useState(false);
   const [showBar, setShowBar] = useState(false);
@@ -126,12 +129,14 @@ export default function Casino() {
   const handleWheelComplete = async (value) => {
     const newBalance = balance + value;
     setBalance(newBalance);
-    const newProfile = {
+    let newProfile = {
       ...profile,
       balance: newBalance,
       totalWinnings: profile.totalWinnings + value,
       lastWheelSpin: Date.now(),
     };
+    // Quête : "Tourner la roue de la fortune"
+    newProfile = progressQuest(newProfile, 'wheel_spin', 1);
     if (value > 0) await checkTrophies(newProfile);
     setProfile(newProfile);
     await saveProfile(newProfile);
@@ -155,11 +160,13 @@ export default function Casino() {
     if (balance < weapon.price) return;
     const newBalance = balance - weapon.price;
     setBalance(newBalance);
-    const newProfile = {
+    let newProfile = {
       ...profile,
       balance: newBalance,
       weapons: [...(profile.weapons || []), weapon.id],
     };
+    // Quête : "Acheter 1 article à la Boutique"
+    newProfile = progressQuest(newProfile, 'shop_buy', 1);
     setProfile(newProfile);
     await saveProfile(newProfile);
   };
@@ -488,6 +495,7 @@ export default function Casino() {
           onSelectGame={(tableId) => handleSelectGame(tableId)}
           onLogout={handleLogout}
           onOpenTrophies={() => setShowTrophies(true)}
+          onOpenQuests={() => setShowQuests(true)}
           onOpenShop={() => setShowShop(true)}
           onOpenATM={() => setShowATM(true)}
           onOpenWheel={() => setShowWheel(true)}
@@ -523,6 +531,16 @@ export default function Casino() {
 
       {showTrophies && profile && (
         <TrophyScreen profile={profile} casino={casino} onClose={() => setShowTrophies(false)} />
+      )}
+
+      {showQuests && profile && (
+        <QuestScreen
+          profile={profile} balance={balance}
+          setBalance={handleBalanceChange}
+          saveProfile={saveProfile} setProfile={setProfile}
+          casino={casino}
+          onClose={() => setShowQuests(false)}
+        />
       )}
 
       {showShop && profile && (

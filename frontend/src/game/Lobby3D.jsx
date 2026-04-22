@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, fmt } from '@/game/constants';
+import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, DEALER_PROFILES, WHEEL_PRIZES, fmt } from '@/game/constants';
 import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle } from '@/game/ui';
 import { FPWeaponView, TPPlayerView } from '@/game/FPWeapon';
 import { VehicleGraphic } from '@/game/ui';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle }) => {
+const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -13,6 +13,8 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
   const [showInventory, setShowInventory] = useState(false);
   const [shooting, setShooting] = useState(false);
   const [viewMode, setViewMode] = useState('first'); // 'first' | 'third'
+  const viewModeRef = useRef('first');
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
   const firingRef = useRef(false);
   const [visibleBullets, setVisibleBullets] = useState([]);
   const [muzzleKey, setMuzzleKey] = useState(0);
@@ -55,6 +57,79 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
     camera.position.set(0, 1.7, 14);
     cameraRef.current = camera;
+
+    // ========== AVATAR 3D JOUEUR (vue 3ème personne) ==========
+    // Simple personnage stylisé construit avec des primitives Three.js.
+    // Couleurs tirées du profil (cheveux, tenue, chaussures, teint).
+    const buildPlayerAvatar = () => {
+      const av = new THREE.Group();
+      const skin = new THREE.Color(profile?.skin || '#e0b48a');
+      const hairColor = new THREE.Color(HAIR_CATALOG[profile?.hair ?? 0]?.color || '#3a2817');
+      const shirtColor = new THREE.Color(OUTFIT_CATALOG[profile?.outfit ?? 0]?.color || '#1a1a1a');
+      const pantColor = shirtColor.clone().multiplyScalar(0.75);
+      const shoeColor = new THREE.Color(SHOES_CATALOG[profile?.shoes ?? 0]?.color || '#0a0a0a');
+
+      // Torso
+      const torsoMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.6 });
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.65, 0.28), torsoMat);
+      torso.position.y = 1.1;
+      av.add(torso);
+
+      // Head
+      const headMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.75 });
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), headMat);
+      head.position.y = 1.58;
+      av.add(head);
+
+      // Hair cap
+      const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.9 });
+      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), hairMat);
+      hair.position.y = 1.63;
+      av.add(hair);
+
+      // Arms
+      const armMat = torsoMat.clone();
+      const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.55, 8), armMat);
+      leftArm.position.set(-0.32, 1.1, 0);
+      av.add(leftArm);
+      const rightArm = leftArm.clone();
+      rightArm.position.x = 0.32;
+      av.add(rightArm);
+
+      // Hands
+      const handMat = headMat.clone();
+      const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), handMat);
+      leftHand.position.set(-0.32, 0.8, 0);
+      av.add(leftHand);
+      const rightHand = leftHand.clone();
+      rightHand.position.x = 0.32;
+      av.add(rightHand);
+
+      // Legs
+      const legMat = new THREE.MeshStandardMaterial({ color: pantColor, roughness: 0.8 });
+      const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 8), legMat);
+      leftLeg.position.set(-0.12, 0.38, 0);
+      av.add(leftLeg);
+      const rightLeg = leftLeg.clone();
+      rightLeg.position.x = 0.12;
+      av.add(rightLeg);
+
+      // Shoes
+      const shoeMat = new THREE.MeshStandardMaterial({ color: shoeColor, roughness: 0.5 });
+      const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.26), shoeMat);
+      leftShoe.position.set(-0.12, 0.02, 0.03);
+      av.add(leftShoe);
+      const rightShoe = leftShoe.clone();
+      rightShoe.position.x = 0.12;
+      av.add(rightShoe);
+
+      // Store refs for walk animation
+      av.userData = { leftArm, rightArm, leftLeg, rightLeg, leftShoe, rightShoe };
+      av.visible = false; // shown only in 3rd person
+      return av;
+    };
+    const playerAvatar = buildPlayerAvatar();
+    scene.add(playerAvatar);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
@@ -884,7 +959,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       npc.add(eyeR);
       
       npc.position.set(startX, 0, startZ);
-      npc.userData = { isNpc: true, dead: false };
+      npc.userData = { isNpc: true, dead: false, legL, legR, armL, armR };
       scene.add(npc);
       return npc;
     };
@@ -1236,37 +1311,179 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
 
       // Eléments spécifiques
       let rouletteWheel = null;
+      let rouletteBall = null;
+      let animatedCards = null;
       if (id === 'roulette') {
-        rouletteWheel = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.6, 0.6, 0.1, 37),
-          new THREE.MeshStandardMaterial({ color: 0x3a2010, metalness: 0.7 })
+        // ===== ROULETTE 3D TAILLE RÉELLE AVEC BILLE QUI ROULE =====
+        // Cuvette externe en bois
+        const bowl = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.5, 1.5, 0.25, 48),
+          new THREE.MeshStandardMaterial({ color: 0x3a1a08, metalness: 0.4, roughness: 0.55 })
         );
-        rouletteWheel.position.set(0, 1.05, 0);
+        bowl.position.set(0, 1.05, 0);
+        group.add(bowl);
+
+        // Piste interne (couronne blanche/beige pour la bille)
+        const track = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.3, 1.3, 0.12, 48),
+          new THREE.MeshStandardMaterial({ color: 0xf0e4c8, metalness: 0.3, roughness: 0.5 })
+        );
+        track.position.set(0, 1.17, 0);
+        group.add(track);
+
+        // Groupe tournant (wheel disc qui tourne)
+        rouletteWheel = new THREE.Group();
+        rouletteWheel.position.set(0, 1.2, 0);
         group.add(rouletteWheel);
-        const ball = new THREE.Mesh(
-          new THREE.SphereGeometry(0.08, 12, 12),
-          new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.5 })
+
+        // Disque central
+        const disc = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.15, 1.15, 0.08, 48),
+          new THREE.MeshStandardMaterial({ color: 0x2a1608, metalness: 0.7, roughness: 0.25 })
         );
-        ball.position.set(0.45, 1.15, 0);
-        group.add(ball);
-      } else if (id === 'blackjack') {
-        for (let i = 0; i < 3; i++) {
-          const card = new THREE.Mesh(
-            new THREE.BoxGeometry(0.3, 0.02, 0.4),
-            new THREE.MeshStandardMaterial({ color: 0xffffff })
+        disc.position.y = 0;
+        rouletteWheel.add(disc);
+
+        // 37 poches colorées (rouge/noir/vert pour le 0)
+        const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+        const ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+        for (let i = 0; i < 37; i++) {
+          const num = ORDER[i];
+          const pocketColor = num === 0 ? 0x0a8a3a : (REDS.has(num) ? 0xb81a1a : 0x0a0a0a);
+          const angle = (i / 37) * Math.PI * 2;
+          // Pocket (trapèze)
+          const pocket = new THREE.Mesh(
+            new THREE.BoxGeometry(0.2, 0.05, 0.12),
+            new THREE.MeshStandardMaterial({ color: pocketColor, metalness: 0.3, roughness: 0.6 })
           );
-          card.position.set(-0.5 + i * 0.4, 1.0, 0.3);
-          card.rotation.y = (Math.random() - 0.5) * 0.2;
-          group.add(card);
+          pocket.position.set(Math.cos(angle) * 1.05, 0.06, Math.sin(angle) * 1.05);
+          pocket.rotation.y = -angle;
+          rouletteWheel.add(pocket);
+          // Séparateur argenté
+          const sep = new THREE.Mesh(
+            new THREE.BoxGeometry(0.02, 0.09, 0.22),
+            new THREE.MeshStandardMaterial({ color: 0xd4d4d4, metalness: 0.9, roughness: 0.2 })
+          );
+          const sAngle = angle + Math.PI / 37;
+          sep.position.set(Math.cos(sAngle) * 1.05, 0.08, Math.sin(sAngle) * 1.05);
+          sep.rotation.y = -sAngle;
+          rouletteWheel.add(sep);
         }
-      } else if (id === 'highcard') {
-        const cardMat = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
-        const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.03, 0.55), cardMat);
-        c1.position.set(-0.6, 1.0, 0);
-        group.add(c1);
-        const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.03, 0.55), cardMat);
-        c2.position.set(0.6, 1.0, 0);
-        group.add(c2);
+
+        // Moyeu central doré
+        const hub = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.35, 0.45, 0.18, 24),
+          new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.95, roughness: 0.1 })
+        );
+        hub.position.y = 0.14;
+        rouletteWheel.add(hub);
+
+        // Croix centrale
+        for (let i = 0; i < 4; i++) {
+          const spoke = new THREE.Mesh(
+            new THREE.BoxGeometry(1.0, 0.04, 0.08),
+            new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 })
+          );
+          spoke.position.y = 0.1;
+          spoke.rotation.y = (i / 4) * Math.PI * 2;
+          rouletteWheel.add(spoke);
+        }
+
+        // Pointeur au-dessus (fixe)
+        const pointer = new THREE.Mesh(
+          new THREE.ConeGeometry(0.06, 0.18, 4),
+          new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 })
+        );
+        pointer.position.set(0, 1.45, -1.2);
+        pointer.rotation.x = Math.PI;
+        group.add(pointer);
+
+        // Bille (blanche, métallique) sur la piste externe
+        rouletteBall = new THREE.Mesh(
+          new THREE.SphereGeometry(0.07, 14, 14),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.6, roughness: 0.2 })
+        );
+        rouletteBall.position.set(1.25, 1.27, 0);
+        rouletteBall.userData = { angle: 0, radius: 1.25, ballSpeed: 0.035 };
+        group.add(rouletteBall);
+
+      } else if (id === 'blackjack' || id === 'poker' || id === 'highcard') {
+        // ===== ANIMATION 3D DES CARTES DISTRIBUÉES =====
+        // Cartes animées qui s'envolent du croupier vers les places des joueurs.
+        animatedCards = new THREE.Group();
+        group.add(animatedCards);
+        const cardCount = id === 'poker' ? 7 : id === 'blackjack' ? 5 : 2;
+        for (let i = 0; i < cardCount; i++) {
+          const card = new THREE.Mesh(
+            new THREE.BoxGeometry(0.22, 0.02, 0.32),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 })
+          );
+          // Dos rouge (décoratif)
+          const back = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.2, 0.3),
+            new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.4 })
+          );
+          back.rotation.x = -Math.PI / 2;
+          back.position.y = 0.011;
+          card.add(back);
+          // Position cible : étalées en éventail devant les sièges
+          const angleFan = (i - (cardCount - 1) / 2) * 0.35;
+          const tx = Math.sin(angleFan) * 0.9;
+          const tz = 0.3 + Math.cos(angleFan) * 0.9;
+          card.userData = {
+            startPos: new THREE.Vector3(0, 1.05, -2.3),
+            endPos: new THREE.Vector3(tx, 1.0, tz),
+            delay: i * 400,
+            duration: 600,
+          };
+          card.position.copy(card.userData.startPos);
+          card.rotation.y = angleFan;
+          animatedCards.add(card);
+        }
+        animatedCards.userData = { cycleStart: Date.now() };
+      }
+
+      // ===== CHAISES AUTOUR DE LA TABLE =====
+      // 3 à 4 sièges positionnés autour de la table (rayon 2.4m, exclusion côté croupier -Z)
+      const chairCount = id === 'roulette' ? 4 : 3;
+      const chairs = [];
+      for (let i = 0; i < chairCount; i++) {
+        // Répartition en demi-cercle du côté joueur (vers +Z)
+        const spread = id === 'roulette' ? Math.PI * 1.2 : Math.PI * 0.85;
+        const angle = -spread / 2 + (i / Math.max(1, chairCount - 1)) * spread + Math.PI / 2;
+        const radius = 2.6;
+        const cx = Math.cos(angle) * radius;
+        const cz = Math.sin(angle) * radius;
+        const chair = new THREE.Group();
+        // Assise
+        const seat = new THREE.Mesh(
+          new THREE.BoxGeometry(0.55, 0.1, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x6a1a1a, roughness: 0.55 })
+        );
+        seat.position.y = 0.5;
+        chair.add(seat);
+        // Dossier
+        const back = new THREE.Mesh(
+          new THREE.BoxGeometry(0.55, 0.7, 0.08),
+          new THREE.MeshStandardMaterial({ color: 0x7a2020, roughness: 0.55 })
+        );
+        back.position.set(0, 0.85, -0.21);
+        chair.add(back);
+        // Pied central doré
+        const leg = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.06, 0.12, 0.5, 8),
+          new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.3 })
+        );
+        leg.position.y = 0.22;
+        chair.add(leg);
+        chair.position.set(cx, 0, cz);
+        chair.rotation.y = Math.atan2(-cx, -cz); // face à la table
+        group.add(chair);
+        chairs.push({
+          mesh: chair,
+          worldPos: new THREE.Vector3(x + cx, 0, z + cz),
+          faceAngle: chair.rotation.y,
+        });
       }
 
       // Jetons décoratifs
@@ -1320,7 +1537,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       group.add(zone);
 
       scene.add(group);
-      return { wheel: rouletteWheel, zone, dealer };
+      return { wheel: rouletteWheel, ball: rouletteBall, cards: animatedCards, zone, dealer, chairs, tableX: x, tableZ: z, id };
     };
 
     // Tables avec croupiers uniques
@@ -1333,6 +1550,9 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     const hc = createTable(6, -2, 'CARTE HAUTE', 0x00d4ff, 'highcard', hcDealer);
     const pkDealer = DEALER_PROFILES[Math.floor(Math.random() * DEALER_PROFILES.length)];
     const pk = createTable(0, 4, 'POKER', 0x00aa66, 'poker', pkDealer);
+
+    // Regrouper infos tables pour la logique de mouvement (s'asseoir)
+    const allTables = [bj, rl, hc, pk];
 
     // Liste de tous les croupiers pour le tir visé
     allDealersRef.current = [bj.dealer, rl.dealer, hc.dealer, pk.dealer].filter(Boolean);
@@ -2288,6 +2508,10 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     const direction = new THREE.Vector3();
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
     const SPEED = 0.11;
+    // État assis (smooth) : 1.7 debout, 1.05 assis
+    let camTargetY = 1.7;
+    let camY = 1.7;
+    const SIT_ZONES = new Set(['blackjack', 'roulette', 'highcard', 'poker']);
     const getSpeedMul = () => {
       const v = profile && profile.equippedVehicle;
       const def = VEHICLES.find(x => x.id === v);
@@ -2467,16 +2691,77 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         // Try Z movement
         const newZ = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, startZ + movement.z));
         if (!pointInAnyCollider(camera.position.x, newZ)) camera.position.z = newZ;
-
-        camera.position.y = 1.7;
       }
 
-      if (rl.wheel) rl.wheel.rotation.y += 0.008;
+      // ===== Animation s'asseoir près des tables de jeu =====
+      // Interpolation de la hauteur de caméra: 1.7 debout → 1.05 assis
+      camTargetY = SIT_ZONES.has(nearZoneRef.current) ? 1.05 : 1.7;
+      camY += (camTargetY - camY) * 0.12;
+      camera.position.y = camY;
+
+      if (rl.wheel) rl.wheel.rotation.y += 0.012;
       if (wheelObj.wheelDisc) wheelObj.wheelDisc.rotation.z += 0.003;
       wheelRot += 0.02;
 
-      // Animation balles en vol
+      // Horodatage pour toutes les animations suivantes
       const nowTime = Date.now();
+
+      // ===== Animation bille de roulette (rouleau sur la piste) =====
+      if (rl.ball) {
+        rl.ball.userData.angle += rl.ball.userData.ballSpeed;
+        const ba = rl.ball.userData.angle;
+        const br = rl.ball.userData.radius;
+        rl.ball.position.x = Math.cos(ba) * br;
+        rl.ball.position.z = Math.sin(ba) * br;
+        // Petit rebond vertical pour simuler le roulis
+        rl.ball.position.y = 1.27 + Math.abs(Math.sin(ba * 6)) * 0.02;
+        // Rotation sur elle-même
+        rl.ball.rotation.x += 0.2;
+        rl.ball.rotation.z += 0.15;
+        // Ralentissement progressif puis repos dans une poche (cycle 12s)
+        const cyc = (nowTime % 12000) / 12000;
+        if (cyc < 0.7) {
+          rl.ball.userData.ballSpeed = 0.08 * (1 - cyc / 0.7) + 0.015;
+        } else {
+          // Repos dans une poche: vitesse très faible = suit la rotation du disque
+          rl.ball.userData.ballSpeed = 0.012;
+          rl.ball.userData.radius = 0.95 + Math.sin(nowTime * 0.002) * 0.03;
+        }
+        if (cyc > 0.98) {
+          // relancer au nouveau cycle
+          rl.ball.userData.ballSpeed = 0.09;
+          rl.ball.userData.radius = 1.25;
+        }
+      }
+
+      // ===== Animation cartes distribuées (cycle permanent) =====
+      allTables.forEach((tbl) => {
+        if (!tbl.cards) return;
+        const CYCLE = 8000; // redeal toutes les 8s
+        const local = (nowTime - tbl.cards.userData.cycleStart) % CYCLE;
+        tbl.cards.children.forEach((card) => {
+          const ud = card.userData;
+          const t = Math.max(0, Math.min(1, (local - ud.delay) / ud.duration));
+          if (local < ud.delay) {
+            // Avant deal : cachée dans le sabot du croupier
+            card.position.copy(ud.startPos);
+            card.visible = false;
+          } else if (local < CYCLE - 1000) {
+            card.visible = true;
+            // Animation vol de carte avec arc
+            card.position.lerpVectors(ud.startPos, ud.endPos, t);
+            card.position.y += Math.sin(t * Math.PI) * 0.6;
+            // Petit flip pendant le vol
+            if (t < 1) card.rotation.x = t * Math.PI * 2;
+            else card.rotation.x = 0;
+          } else {
+            // Fade-out fin de cycle
+            card.visible = false;
+          }
+        });
+      });
+
+      // Animation balles en vol
       
       // Animer les TVs (moins souvent pour perf)
       if (nowTime % 100 < 17) {
@@ -2498,12 +2783,22 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         mesh.rotation.y = Math.atan2(dir > 0 ? dx : -dx, dir > 0 ? dz : -dz);
         // Petit bop de marche
         mesh.position.y = Math.abs(Math.sin(nowTime * 0.008 + i)) * 0.05;
+        // Balancement des jambes/bras pour un mouvement réaliste
+        const swing = Math.sin(nowTime * 0.01 + i) * 0.45;
+        if (mesh.userData.legL) mesh.userData.legL.rotation.x = swing;
+        if (mesh.userData.legR) mesh.userData.legR.rotation.x = -swing;
+        if (mesh.userData.armL) mesh.userData.armL.rotation.x = -swing * 0.8;
+        if (mesh.userData.armR) mesh.userData.armR.rotation.x = swing * 0.8;
       });
       
       bulletsRef.current = bulletsRef.current.filter(b => {
         const elapsed = nowTime - b.startTime;
         const t = Math.min(elapsed / b.duration, 1);
-        b.mesh.position.lerpVectors(b.startPos, b.endPos, t);
+        if (b.onUpdate) {
+          b.onUpdate(b.mesh, t);
+        } else {
+          b.mesh.position.lerpVectors(b.startPos, b.endPos, t);
+        }
         if (t >= 1) {
           scene.remove(b.mesh);
           return false;
@@ -2598,7 +2893,45 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         setNearZone(closest);
       }
 
-      renderer.render(scene, camera);
+      // ========== Vue 3ème personne : avatar + caméra orbitale ==========
+      const tps = viewModeRef.current === 'third';
+      playerAvatar.visible = tps;
+      if (tps) {
+        // camera direction (horizontal)
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+        camDir.y = 0; camDir.normalize();
+        // Position avatar devant la caméra (à l'emplacement que la caméra aurait en 1ère pers.)
+        // Les `camera.position` continuent d'être mis à jour par les déplacements (WASD/joystick)
+        // comme s'ils représentaient la tête du joueur — on garde la logique existante.
+        playerAvatar.position.set(camera.position.x, 0, camera.position.z);
+        // Orientation : regarde dans la même direction que la caméra
+        playerAvatar.rotation.y = Math.atan2(camDir.x, camDir.z);
+
+        // Léger balancement des bras/jambes si le joueur bouge
+        const isMoving = keysRef.current.forward || keysRef.current.backward || keysRef.current.left || keysRef.current.right;
+        const t = performance.now() * 0.008;
+        const sitting = SIT_ZONES.has(nearZoneRef.current);
+        const swing = (isMoving && !sitting) ? Math.sin(t) * 0.3 : 0;
+        if (playerAvatar.userData.leftArm)  playerAvatar.userData.leftArm.rotation.x = swing;
+        if (playerAvatar.userData.rightArm) playerAvatar.userData.rightArm.rotation.x = -swing;
+        if (playerAvatar.userData.leftLeg)  playerAvatar.userData.leftLeg.rotation.x = sitting ? -Math.PI / 2 : -swing;
+        if (playerAvatar.userData.rightLeg) playerAvatar.userData.rightLeg.rotation.x = sitting ? -Math.PI / 2 : swing;
+        // Abaisser l'avatar quand assis
+        playerAvatar.position.y = sitting ? -0.55 : 0;
+
+        // Recule la caméra derrière l'avatar pour le rendu en vue TPS
+        // On crée une caméra "virtuelle" en clonant temporairement la position
+        const origPos = camera.position.clone();
+        camera.position.x = origPos.x - camDir.x * 2.8;
+        camera.position.z = origPos.z - camDir.z * 2.8;
+        camera.position.y = 2.3;
+        renderer.render(scene, camera);
+        // Restore pour que la logique de mouvement suivante fonctionne normalement
+        camera.position.copy(origPos);
+      } else {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
@@ -2705,6 +3038,149 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     
     bulletsRef.current.push({ mesh: bullet, startTime, duration, startPos, endPos, weaponType });
   };
+
+  // Projectile lancé (couteau, grenade) — suit une trajectoire en arc
+  const createThrowable = (fromPos, toPos, kind) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    let mesh;
+    if (kind === 'grenade') {
+      mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2a3a20, metalness: 0.5, roughness: 0.55 })
+      );
+      // Goupille
+      const pin = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.015, 0.015, 0.04, 6),
+        new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8 })
+      );
+      pin.position.y = 0.09;
+      mesh.add(pin);
+    } else if (kind === 'bolt') {
+      mesh = new THREE.Group();
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.015, 0.015, 0.35, 6),
+        new THREE.MeshStandardMaterial({ color: 0x4a2a10 })
+      );
+      shaft.rotation.z = Math.PI / 2;
+      mesh.add(shaft);
+      const tip = new THREE.Mesh(
+        new THREE.ConeGeometry(0.03, 0.08, 6),
+        new THREE.MeshStandardMaterial({ color: 0xb0b0b0, metalness: 0.9 })
+      );
+      tip.rotation.z = -Math.PI / 2;
+      tip.position.x = 0.2;
+      mesh.add(tip);
+    } else {
+      // Couteau de lancer: lame + manche
+      mesh = new THREE.Group();
+      const blade = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.04, 0.01),
+        new THREE.MeshStandardMaterial({ color: 0xe0e0e0, metalness: 0.95, roughness: 0.08 })
+      );
+      mesh.add(blade);
+      const handle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.03, 0.025),
+        new THREE.MeshStandardMaterial({ color: 0x1a0a00 })
+      );
+      handle.position.x = -0.18;
+      mesh.add(handle);
+    }
+    mesh.position.copy(fromPos);
+    scene.add(mesh);
+    const startTime = Date.now();
+    const duration = 500;
+    const startPos = fromPos.clone();
+    const endPos = toPos.clone();
+    bulletsRef.current.push({
+      mesh, startTime, duration, startPos, endPos, weaponType: 'throwable', kind,
+      onUpdate: (m, t) => {
+        m.position.lerpVectors(startPos, endPos, t);
+        m.position.y += Math.sin(t * Math.PI) * 0.6;
+        m.rotation.y += 0.6;
+        m.rotation.z += 0.3;
+      },
+    });
+  };
+
+  // Explosion : sphère lumineuse + onde de choc
+  const createExplosion = (pos) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const group = new THREE.Group();
+    group.position.copy(pos);
+    // Flash initial
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffeeaa, transparent: true, opacity: 1 })
+    );
+    group.add(flash);
+    // Boule de feu
+    const fire = new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 20, 20),
+      new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.9 })
+    );
+    group.add(fire);
+    // Onde de choc
+    const shock = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.7, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+    );
+    shock.rotation.x = -Math.PI / 2;
+    shock.position.y = -1;
+    group.add(shock);
+    // Lumière ponctuelle
+    const light = new THREE.PointLight(0xff8833, 4, 10);
+    group.add(light);
+
+    scene.add(group);
+    const start = Date.now();
+    const duration = 700;
+    const anim = () => {
+      const el = Date.now() - start;
+      const t = Math.min(el / duration, 1);
+      const scale = 1 + t * 6; // grossit jusqu'à 3m de rayon
+      fire.scale.setScalar(scale);
+      flash.scale.setScalar(1 + t * 3);
+      flash.material.opacity = Math.max(0, 1 - t * 2);
+      fire.material.opacity = Math.max(0, 0.9 - t);
+      shock.scale.setScalar(1 + t * 5);
+      shock.material.opacity = Math.max(0, 0.8 - t);
+      light.intensity = Math.max(0, 4 * (1 - t));
+      if (t < 1) requestAnimationFrame(anim);
+      else scene.remove(group);
+    };
+    anim();
+  };
+
+  // Rayon laser instantané
+  const createLaserBeam = (fromPos, toPos) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const dir = new THREE.Vector3().subVectors(toPos, fromPos);
+    const length = dir.length();
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, length, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.95 })
+    );
+    const mid = fromPos.clone().add(toPos).multiplyScalar(0.5);
+    beam.position.copy(mid);
+    beam.lookAt(toPos);
+    beam.rotateX(Math.PI / 2);
+    scene.add(beam);
+    const start = Date.now();
+    const duration = 250;
+    const anim = () => {
+      const el = Date.now() - start;
+      const t = Math.min(el / duration, 1);
+      beam.material.opacity = 0.95 * (1 - t);
+      beam.scale.x = beam.scale.z = 1 + t * 1.5;
+      if (t < 1) requestAnimationFrame(anim);
+      else scene.remove(beam);
+    };
+    anim();
+  };
+
   
   // Créer une douille qui reste 20s
   const createCasing = (pos, weaponType) => {
@@ -2860,6 +3336,97 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       // flame duration handled by flameStream lifecycle
       return;
     }
+
+    // ====== ARMES LANCÉES (couteaux de lancer, grenades) ======
+    if (weaponType === 'throwable') {
+      const right = new THREE.Vector3().crossVectors(cameraDir, camera.up).normalize();
+      const throwStart = cameraPos.clone()
+        .add(cameraDir.clone().multiplyScalar(0.5))
+        .add(right.clone().multiplyScalar(0.25))
+        .add(new THREE.Vector3(0, -0.2, 0));
+
+      // Lancer direct, cherche cible dans cône 15m
+      let hitTarget = null;
+      let bestDist = 15;
+      for (const t of targets) {
+        if (t.userData.dead) continue;
+        const tp = new THREE.Vector3();
+        t.getWorldPosition(tp);
+        const distance = cameraPos.distanceTo(tp);
+        if (distance > bestDist) continue;
+        const toT = new THREE.Vector3().subVectors(tp, cameraPos).normalize();
+        const dot = cameraDir.dot(toT);
+        if (dot > 0.7) {
+          hitTarget = t;
+          bestDist = distance;
+        }
+      }
+      const endPos = hitTarget
+        ? hitTarget.getWorldPosition(new THREE.Vector3()).setY((hitTarget.getWorldPosition(new THREE.Vector3()).y) + 1.5)
+        : cameraPos.clone().add(cameraDir.clone().multiplyScalar(12));
+
+      createThrowable(throwStart, endPos, weaponDef?.projectile || 'blade');
+
+      const flightTime = 500;
+      if (weaponDef?.projectile === 'grenade') {
+        // Grenade: explosion à l'impact avec AoE 3m
+        setTimeout(() => {
+          createExplosion(endPos);
+          targets.forEach(t => {
+            if (t.userData.dead) return;
+            const tp = new THREE.Vector3();
+            t.getWorldPosition(tp);
+            const distToBlast = tp.distanceTo(endPos);
+            if (distToBlast <= 3) {
+              const bp = tp.clone(); bp.y += 1.6;
+              createBloodSplash(bp);
+              killTarget(t);
+            }
+          });
+        }, flightTime);
+      } else {
+        // Couteau/carreau : dégât simple à l'impact
+        if (hitTarget) {
+          setTimeout(() => {
+            if (!hitTarget.userData.dead) {
+              const bp = new THREE.Vector3();
+              hitTarget.getWorldPosition(bp);
+              bp.y += 1.6;
+              createBloodSplash(bp);
+              killTarget(hitTarget);
+            }
+          }, flightTime);
+        }
+      }
+      return;
+    }
+
+    // ====== LASER (fusil laser - rayon instantané) ======
+    if (weaponType === 'laser') {
+      const right = new THREE.Vector3().crossVectors(cameraDir, camera.up).normalize();
+      const laserStart = cameraPos.clone()
+        .add(cameraDir.clone().multiplyScalar(0.5))
+        .add(right.clone().multiplyScalar(0.3))
+        .add(new THREE.Vector3(0, -0.3, 0));
+      const laserEnd = cameraPos.clone().add(cameraDir.clone().multiplyScalar(40));
+      createLaserBeam(laserStart, laserEnd);
+      // Traverse tout : kills TOUS les ennemis dans un cylindre fin de 40m
+      targets.forEach(t => {
+        if (t.userData.dead) return;
+        const tp = new THREE.Vector3();
+        t.getWorldPosition(tp);
+        const toT = new THREE.Vector3().subVectors(tp, cameraPos);
+        const along = toT.dot(cameraDir);
+        if (along < 0 || along > 40) return;
+        const proj = cameraPos.clone().add(cameraDir.clone().multiplyScalar(along));
+        if (proj.distanceTo(tp) < 0.9) {
+          const bp = tp.clone(); bp.y += 1.6;
+          createBloodSplash(bp);
+          killTarget(t);
+        }
+      });
+      return;
+    }
     
     // ====== ARMES À FEU (pistolet, fusil, bazooka) ======
     const right = new THREE.Vector3().crossVectors(cameraDir, camera.up).normalize();
@@ -2910,14 +3477,47 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     if (hitTarget) {
       const flightTime = weaponType === 'rocket' ? 300 : 150;
       setTimeout(() => {
-        if (!hitTarget.userData.dead) {
-          const bloodPos = new THREE.Vector3();
-          hitTarget.getWorldPosition(bloodPos);
-          bloodPos.y += 1.6;
-          createBloodSplash(bloodPos);
-          killTarget(hitTarget);
+        if (weaponType === 'rocket') {
+          // Bazooka: explosion au point d'impact, AoE 3m
+          const blastCenter = targetPos.clone();
+          createExplosion(blastCenter);
+          targets.forEach(t => {
+            if (t.userData.dead) return;
+            const tp = new THREE.Vector3();
+            t.getWorldPosition(tp);
+            const distToBlast = tp.distanceTo(blastCenter);
+            if (distToBlast <= 3) {
+              const bp = tp.clone(); bp.y += 1.6;
+              createBloodSplash(bp);
+              killTarget(t);
+            }
+          });
+        } else {
+          if (!hitTarget.userData.dead) {
+            const bloodPos = new THREE.Vector3();
+            hitTarget.getWorldPosition(bloodPos);
+            bloodPos.y += 1.6;
+            createBloodSplash(bloodPos);
+            killTarget(hitTarget);
+          }
         }
       }, flightTime);
+    } else if (weaponType === 'rocket') {
+      // Tir de bazooka sans cible touchée : quand même explosion au bout de la trajectoire
+      setTimeout(() => {
+        const blastCenter = targetPos.clone();
+        createExplosion(blastCenter);
+        targets.forEach(t => {
+          if (t.userData.dead) return;
+          const tp = new THREE.Vector3();
+          t.getWorldPosition(tp);
+          if (tp.distanceTo(blastCenter) <= 3) {
+            const bp = tp.clone(); bp.y += 1.6;
+            createBloodSplash(bp);
+            killTarget(t);
+          }
+        });
+      }, 300);
     }
     
     // shooting state controlled by fire button press/release
@@ -3029,6 +3629,27 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         }}>
           <div style={{ color: '#cca366', fontSize: 10 }}>{profile.name} • {casino.country}</div>
           <div style={{ fontSize: 18, color: '#ffd700', fontWeight: 'bold' }}>{fmt(balance)} B</div>
+          {/* VIP badge: n skins luxe équipés → bonus de style */}
+          {(() => {
+            const H = HAIR_CATALOG[profile.hair ?? 0];
+            const O = OUTFIT_CATALOG[profile.outfit ?? 0];
+            const S = SHOES_CATALOG[profile.shoes ?? 0];
+            const luxuryCount = (H && H.price >= 500000 ? 1 : 0) + (O && O.price >= 500000 ? 1 : 0) + (S && S.price >= 500000 ? 1 : 0);
+            if (luxuryCount < 2) return null;
+            const mul = luxuryCount >= 4 ? 1.75 : luxuryCount >= 3 ? 1.5 : 1.25;
+            return (
+              <div data-testid="vip-badge" style={{
+                marginTop: 6, padding: '3px 8px',
+                borderRadius: 14,
+                background: luxuryCount >= 3 ? 'linear-gradient(90deg, #ffd700, #ff00cc)' : 'rgba(212,175,55,.25)',
+                color: luxuryCount >= 3 ? '#000' : '#ffd700',
+                fontSize: 10, fontWeight: 800, letterSpacing: 1,
+                display: 'inline-block',
+              }}>
+                {luxuryCount >= 3 ? '⭐ VIP' : '✨ STYLE'} ×{mul}
+              </div>
+            );
+          })()}
         </div>
         <button onClick={() => setShowMenu(true)}
           style={{
@@ -3291,7 +3912,9 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       )}
 
       {/* ====== PERSONNAGE (3ème personne) ====== */}
-      {viewMode === 'third' && (
+      {/* Vue 3ème personne : l'avatar 3D est maintenant rendu directement dans la scène Three.js,
+          pas besoin de l'overlay SVG. Le FPWeaponView overlay ne s'affiche qu'en 1ère personne. */}
+      {false && viewMode === 'third' && (
         <div style={{
           position: 'absolute', left: '50%', bottom: 80,
           transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 11,
@@ -3576,6 +4199,12 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
                 data-testid="menu-character-btn"
                 style={{ ...menuBtnStyle('#b48cff'), marginTop: 10 }}>
                 👤 Personnaliser le personnage
+              </button>
+
+              <button onClick={() => { setShowMenu(false); onOpenQuests && onOpenQuests(); }}
+                data-testid="menu-quests-btn"
+                style={{ ...menuBtnStyle('#ffd43b'), marginTop: 10 }}>
+                🎯 Quêtes du jour
               </button>
 
               <button onClick={() => { setShowMenu(false); onChangeCasino && onChangeCasino(); }} style={{
