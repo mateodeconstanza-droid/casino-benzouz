@@ -1,0 +1,405 @@
+// Centralised game constants. Data-only, no React.
+
+// ============== CASINOS THÉMATIQUES ==============
+export const CASINOS = {
+  vegas: {
+    name: 'Las Vegas',
+    country: '🇺🇸',
+    flag: ['#b22234', '#ffffff', '#3c3b6e'],
+    primary: '#ff0040',
+    secondary: '#ffd700',
+    accent: '#ff6b00',
+    bg: 'radial-gradient(ellipse at top, #2a0510 0%, #0a0005 80%)',
+    wallColor: '#3a0a1a',
+    floorColor: '#1a0a0a',
+    tagline: 'Sin City — Ville des lumières',
+  },
+  malta: {
+    name: 'Malta Casino',
+    country: '🇲🇹',
+    flag: ['#cf142b', '#ffffff'],
+    primary: '#cf142b',
+    secondary: '#ffffff',
+    accent: '#8b0000',
+    bg: 'radial-gradient(ellipse at top, #2a0a0a 0%, #1a0505 80%)',
+    wallColor: '#3a1010',
+    floorColor: '#2a0505',
+    tagline: 'L\'élégance méditerranéenne',
+  },
+  barcelona: {
+    name: 'Casino Barcelona',
+    country: '🇪🇸',
+    flag: ['#aa151b', '#f1bf00'],
+    primary: '#aa151b',
+    secondary: '#f1bf00',
+    accent: '#d4a017',
+    bg: 'radial-gradient(ellipse at top, #2a1a0a 0%, #1a0f05 80%)',
+    wallColor: '#3a2010',
+    floorColor: '#2a1808',
+    tagline: 'Passion catalane',
+  },
+  prague: {
+    name: 'Prague Casino',
+    country: '🇨🇿',
+    flag: ['#11457e', '#d7141a', '#ffffff'],
+    primary: '#11457e',
+    secondary: '#d7141a',
+    accent: '#4a7bc0',
+    bg: 'radial-gradient(ellipse at top, #0a1530 0%, #050a1a 80%)',
+    wallColor: '#0f2040',
+    floorColor: '#081428',
+    tagline: 'Charme bohémien',
+  },
+  monaco: {
+    name: 'Monaco Casino',
+    country: '🇲🇨',
+    flag: ['#ce1126', '#ffffff'],
+    primary: '#ce1126',
+    secondary: '#d4af37',
+    accent: '#f5e6a8',
+    bg: 'radial-gradient(ellipse at top, #1a0505 0%, #0a0202 80%)',
+    wallColor: '#2a0808',
+    floorColor: '#180404',
+    tagline: 'Luxe à la française',
+  },
+  jonzac: {
+    name: 'Jonzac France Casino',
+    country: '🇫🇷',
+    flag: ['#0055a4', '#ffffff', '#ef4135'],
+    primary: '#0055a4',
+    secondary: '#ef4135',
+    accent: '#ffffff',
+    bg: 'radial-gradient(ellipse at top, #0a1530 0%, #050a1a 80%)',
+    wallColor: '#0f2050',
+    floorColor: '#0a1530',
+    tagline: 'Charme charentais',
+  },
+};
+
+// ============== TROPHÉES (plus dur + récompenses) ==============
+export const TROPHIES = [
+  { threshold: 10000, name: 'Bronze', icon: '🥉', color: '#cd7f32', reward: 500 },
+  { threshold: 50000, name: 'Argent', icon: '🥈', color: '#c0c0c0', reward: 2500 },
+  { threshold: 150000, name: 'Or', icon: '🥇', color: '#ffd700', reward: 7500 },
+  { threshold: 500000, name: 'Platine', icon: '💎', color: '#e5e4e2', reward: 25000 },
+  { threshold: 1500000, name: 'Diamant', icon: '💠', color: '#b9f2ff', reward: 75000 },
+  { threshold: 5000000, name: 'Légende', icon: '👑', color: '#ff6b9d', reward: 250000 },
+  { threshold: 15000000, name: 'Mythique', icon: '🏆', color: '#ff0080', reward: 750000 },
+];
+
+// ============== ARMES ==============
+export const WEAPONS = [
+  { id: 'knife', name: 'Couteau tactique', price: 20000, damage: 'léger', desc: 'Lame Ka-Bar affûtée', type: 'melee' },
+  { id: 'machete', name: 'Machette', price: 40000, damage: 'moyen', desc: 'Lame lourde 45cm', type: 'melee' },
+  { id: 'gun', name: 'Pistolet 9mm', price: 60000, damage: 'fort', desc: 'Glock 17, 17 coups', type: 'gun' },
+  { id: 'shotgun', name: 'Fusil à pompe', price: 80000, damage: 'très fort', desc: 'Remington 870 cal.12', type: 'gun' },
+  { id: 'bazooka', name: 'Bazooka RPG', price: 100000, damage: 'massif', desc: 'Lance-roquettes RPG-7', type: 'rocket' },
+  { id: 'flamethrower', name: 'Lance-flammes', price: 2500000, damage: 'dévastateur', desc: 'M2 avec 5L de napalm', type: 'flame' },
+];
+
+// ============== VÉHICULES ==============
+// Marche = 1x, Skateboard = 2x, Vélo = 3x
+export const VEHICLES = [
+  { id: 'skateboard', name: 'Skateboard Benz', price: 1000000,  speedMul: 2, emoji: '🛹', desc: 'Plateau carbone, roues uréthane – 2× plus rapide qu\'à pied' },
+  { id: 'bike',       name: 'Vélo Benz Turbo',  price: 5000000,  speedMul: 3, emoji: '🚴', desc: 'Cadre titane, assistance secrète – 3× plus rapide qu\'à pied' },
+];
+
+// ============== CATALOGUE PERSONNALISATION PERSONNAGE ==============
+// 10 coupes de cheveux (3 gratuits + 7 payants)
+export const HAIR_CATALOG = [
+  { id: 0, name: 'Classique',         price: 0,      color: '#3a2817' },
+  { id: 1, name: 'Rasée',             price: 0,      color: '#111111' },
+  { id: 2, name: 'Afro',              price: 0,      color: '#2a1a0f' },
+  { id: 3, name: 'Dreadlocks',        price: 15000,  color: '#1f1408' },
+  { id: 4, name: 'Man bun',           price: 20000,  color: '#4a3220' },
+  { id: 5, name: 'Crête punk',        price: 35000,  color: '#c72424' },
+  { id: 6, name: 'Blonde surfeur',    price: 25000,  color: '#e8c77b' },
+  { id: 7, name: 'Platine',           price: 80000,  color: '#f4f4f4' },
+  { id: 8, name: 'Rose néon',         price: 120000, color: '#f06fb5' },
+  { id: 9, name: 'Dorés VIP',         price: 500000, color: '#d4af37' },
+];
+// 10 ensembles/vêtements (3 gratuits + 7 payants)
+export const OUTFIT_CATALOG = [
+  { id: 0, name: 'T-shirt blanc',      price: 0,       color: '#f1ead0' },
+  { id: 1, name: 'Survêt noir',        price: 0,       color: '#1a1a1a' },
+  { id: 2, name: 'Jean & chemise',     price: 0,       color: '#2a3a68' },
+  { id: 3, name: 'Blouson cuir',       price: 30000,   color: '#1c1c1e' },
+  { id: 4, name: 'Costume business',   price: 120000,  color: '#14141a' },
+  { id: 5, name: 'Smoking casino',     price: 250000,  color: '#0b0b0b' },
+  { id: 6, name: 'Survêt or',          price: 180000,  color: '#d4af37' },
+  { id: 7, name: 'Veste militaire',    price: 60000,   color: '#425c2a' },
+  { id: 8, name: 'Kimono urbain',      price: 90000,   color: '#8b1f2b' },
+  { id: 9, name: 'Manteau fourrure',   price: 900000,  color: '#3a2a18' },
+];
+// 10 chaussures (3 gratuites + 7 payantes)
+export const SHOES_CATALOG = [
+  { id: 0, name: 'Baskets blanches',   price: 0,       color: '#f1f1ea' },
+  { id: 1, name: 'Baskets noires',     price: 0,       color: '#1a1a1a' },
+  { id: 2, name: 'Tongs',              price: 0,       color: '#3a3a40' },
+  { id: 3, name: 'Mocassins',          price: 20000,   color: '#2a1608' },
+  { id: 4, name: 'Bottes militaires',  price: 45000,   color: '#1c1208' },
+  { id: 5, name: 'Sneakers lumineux',  price: 80000,   color: '#2aa6ff' },
+  { id: 6, name: 'Oxford cuir',        price: 140000,  color: '#0b0b0b' },
+  { id: 7, name: 'Crocs diamantés',    price: 300000,  color: '#9fe3ff' },
+  { id: 8, name: 'Bottines rock',      price: 200000,  color: '#3a1e1e' },
+  { id: 9, name: 'Baskets Benz or',    price: 700000,  color: '#d4af37' },
+];
+
+// ============== CARTES ==============
+export const SUITS = ['♠', '♥', '♦', '♣'];
+export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+export const RANK_VALUE = { A: 14, K: 13, Q: 12, J: 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
+
+export const createDeck = () => {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({ suit, rank, id: `${rank}${suit}-${Math.random()}` });
+    }
+  }
+  return deck.sort(() => Math.random() - 0.5);
+};
+
+export const bjValue = (card) => {
+  if (['J', 'Q', 'K'].includes(card.rank)) return 10;
+  if (card.rank === 'A') return 11;
+  return parseInt(card.rank);
+};
+
+export const handValue = (hand) => {
+  let total = hand.reduce((s, c) => s + bjValue(c), 0);
+  let aces = hand.filter((c) => c.rank === 'A').length;
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  return total;
+};
+
+// ============== ROULETTE NUMBERS ==============
+export const ROULETTE_NUMBERS = [
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
+  16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
+];
+export const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+export const getColor = (n) => (n === 0 ? 'green' : RED_NUMBERS.includes(n) ? 'red' : 'black');
+
+// ============== WHEEL PRIZES ==============
+export const WHEEL_PRIZES = [
+  { label: '200', value: 200, color: '#2d5016', weight: 40 },
+  { label: '5000', value: 5000, color: '#4a7c2e', weight: 25 },
+  { label: 'RIEN', value: 0, color: '#1a1a1a', weight: 20 },
+  { label: '15000', value: 15000, color: '#8b0000', weight: 10 },
+  { label: '100000', value: 100000, color: '#d4af37', weight: 4 },
+  { label: 'JACKPOT', value: 1000000, color: '#ff0080', weight: 1 },
+];
+
+// ============== HELPERS ==============
+export const fmt = (n) => n.toLocaleString('fr-FR');
+export const FOUR_HOURS = 4 * 60 * 60 * 1000;
+
+// ============== CROUPIERS VARIÉS ==============
+export const DEALER_PROFILES = [
+  { id: 'marco', name: 'Marco', skin: '#e8b896', hair: '#2a1810', eyes: '#4a2c1a', beard: true, glasses: false, gender: 'm' },
+  { id: 'antonio', name: 'Antonio', skin: '#c9936a', hair: '#1a0e08', eyes: '#2a1808', beard: false, glasses: true, gender: 'm' },
+  { id: 'sophia', name: 'Sophia', skin: '#f0c9a6', hair: '#4a2818', eyes: '#3a5828', beard: false, glasses: false, gender: 'f' },
+  { id: 'viktor', name: 'Viktor', skin: '#d4a888', hair: '#8a6820', eyes: '#2a3a58', beard: true, glasses: false, gender: 'm' },
+  { id: 'elena', name: 'Elena', skin: '#e8c0a0', hair: '#1a0a04', eyes: '#5a3a20', beard: false, glasses: true, gender: 'f' },
+  { id: 'jamal', name: 'Jamal', skin: '#8b5a3c', hair: '#0a0603', eyes: '#1a0a04', beard: true, glasses: false, gender: 'm' },
+  { id: 'aisha', name: 'Aisha', skin: '#a07858', hair: '#0a0603', eyes: '#3a2010', beard: false, glasses: false, gender: 'f' },
+  { id: 'hiroshi', name: 'Hiroshi', skin: '#e8c698', hair: '#0a0603', eyes: '#2a1810', beard: false, glasses: true, gender: 'm' },
+];
+
+// ============== COULEURS 3D POUR CHAQUE CASINO ==============
+export const CASINO_3D_COLORS = {
+  vegas:     { wall: 0x3a0a1a, floor: 0x1a0a0a, ceiling: 0x1a0008, carpet: 0x6a0018, light: 0xff0040 },
+  malta:     { wall: 0x3a1010, floor: 0x2a0505, ceiling: 0x180303, carpet: 0x5a0808, light: 0xcf142b },
+  barcelona: { wall: 0x3a2010, floor: 0x2a1808, ceiling: 0x1a1004, carpet: 0x6a3010, light: 0xf1bf00 },
+  prague:    { wall: 0x0f2040, floor: 0x081428, ceiling: 0x050a1a, carpet: 0x11457e, light: 0x4a7bc0 },
+  monaco:    { wall: 0x2a0808, floor: 0x180404, ceiling: 0x0a0202, carpet: 0x4a1010, light: 0xd4af37 },
+  jonzac:    { wall: 0x0f2050, floor: 0x0a1530, ceiling: 0x050a20, carpet: 0x0055a4, light: 0xef4135 },
+};
+
+// ============== BENZBET - PARIS SPORTIFS ==============
+// ============== BASES DE DONNÉES SPORTIVES ==============
+// Top 20 clubs européens (foot)
+export const FOOT_CLUBS = [
+  'Real Madrid', 'Man City', 'Arsenal', 'Liverpool', 'Barcelone',
+  'Bayern Munich', 'PSG', 'Inter Milan', 'Atlético Madrid', 'Chelsea',
+  'Juventus', 'Milan AC', 'Borussia Dortmund', 'Tottenham', 'Naples',
+  'Atalanta', 'Benfica', 'Porto', 'Leverkusen', 'Aston Villa',
+];
+
+// 30 équipes NBA
+export const NBA_TEAMS = [
+  'Lakers', 'Celtics', 'Warriors', 'Bulls', 'Nets',
+  'Heat', 'Knicks', 'Bucks', 'Nuggets', 'Suns',
+  'Mavericks', 'Clippers', 'Timberwolves', 'Grizzlies', 'Kings',
+  'Pelicans', 'Cavaliers', 'Hawks', 'Raptors', '76ers',
+  'Magic', 'Pacers', 'Wizards', 'Rockets', 'Thunder',
+  'Jazz', 'Spurs', 'Pistons', 'Hornets', 'Blazers',
+];
+
+// Top 50 tennis mondial
+export const TENNIS_PLAYERS = [
+  'Sinner', 'Alcaraz', 'Zverev', 'Djokovic', 'Medvedev',
+  'Fritz', 'De Minaur', 'Rublev', 'Dimitrov', 'Hurkacz',
+  'Paul', 'Rune', 'Tsitsipas', 'Ruud', 'Shelton',
+  'Humbert', 'Khachanov', 'Tiafoe', 'Popyrin', 'Mensik',
+  'Berrettini', 'Arnaldi', 'Musetti', 'Korda', 'Bublik',
+  'Auger-Aliassime', 'Fils', 'Cobolli', 'Shapovalov', 'Davidovich',
+  'Cerundolo', 'Baez', 'Lehecka', 'Nakashima', 'Monfils',
+  'Jarry', 'Safiullin', 'Michelsen', 'McDonald', 'Giron',
+  'Goffin', 'Struff', 'Sonego', 'Nishikori', 'Coric',
+  'Griekspoor', 'Van de Zandschulp', 'Kotov', 'Altmaier', 'Djere',
+];
+
+// Génère 8 matchs aléatoires pour un sport donné
+export const generateMatches = (sport) => {
+  const matches = [];
+  let pool;
+  if (sport === 'foot') pool = FOOT_CLUBS;
+  else if (sport === 'nba') pool = NBA_TEAMS;
+  else pool = TENNIS_PLAYERS;
+  
+  const sportLabel = sport === 'foot' ? '⚽ Football' 
+                   : sport === 'nba' ? '🏀 Basket' 
+                   : '🎾 Tennis';
+  
+  const used = new Set();
+  for (let i = 0; i < 8; i++) {
+    let h, a;
+    let attempts = 0;
+    do {
+      h = pool[Math.floor(Math.random() * pool.length)];
+      a = pool[Math.floor(Math.random() * pool.length)];
+      attempts++;
+    } while ((h === a || used.has(`${h}-${a}`) || used.has(`${a}-${h}`)) && attempts < 20);
+    used.add(`${h}-${a}`);
+    
+    // Cotes réalistes (favorite un peu avant)
+    const fav = Math.random() < 0.5;
+    const base1 = 1.3 + Math.random() * 1.2;
+    const base2 = 2.5 + Math.random() * 3;
+    const nullOdds = sport === 'nba' ? 20 + Math.random() * 15 
+                   : sport === 'tennis' ? 30 + Math.random() * 20 
+                   : 3 + Math.random() * 1.5;
+    
+    matches.push({
+      sport: sportLabel,
+      home: h,
+      away: a,
+      oddsH: fav ? +base1.toFixed(2) : +base2.toFixed(2),
+      oddsN: +nullOdds.toFixed(2),
+      oddsA: fav ? +base2.toFixed(2) : +base1.toFixed(2),
+    });
+  }
+  return matches;
+};
+
+// Conservé pour compatibilité (BenzBet peut encore en utiliser par défaut)
+export const BENZBET_MATCHES = generateMatches('foot');
+
+export const BENZBET_KEY = (name) => `benzbet:${name}:activeBet`;
+
+export const sportBtnStyle = (color) => ({
+  padding: 16,
+  background: `linear-gradient(135deg, ${color}33, ${color}11)`,
+  border: `2px solid ${color}`,
+  color: '#fff', borderRadius: 10,
+  cursor: 'pointer', fontFamily: 'Georgia, serif',
+  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+});
+
+// ============== HELPERS POKER ==============
+// Évalue la meilleure main de 5 cartes à partir de 7 cartes
+// Retourne { rank, rankName, tiebreaker: [values sorted] }
+export const POKER_HAND_NAMES = [
+  'Carte haute', 'Paire', 'Double paire', 'Brelan',
+  'Quinte', 'Couleur', 'Full', 'Carré', 'Quinte flush', 'Quinte flush royale'
+];
+
+export const evaluatePokerHand = (cards7) => {
+  // Essayer toutes les combinaisons de 5 parmi 7
+  let best = { rank: -1, tiebreaker: [] };
+  const choose5 = (arr, idx, chosen) => {
+    if (chosen.length === 5) {
+      const h = evaluateHand5(chosen);
+      if (h.rank > best.rank ||
+          (h.rank === best.rank && compareTB(h.tiebreaker, best.tiebreaker) > 0)) {
+        best = h;
+      }
+      return;
+    }
+    if (idx >= arr.length) return;
+    choose5(arr, idx + 1, [...chosen, arr[idx]]);
+    choose5(arr, idx + 1, chosen);
+  };
+  choose5(cards7, 0, []);
+  best.rankName = POKER_HAND_NAMES[best.rank];
+  return best;
+};
+
+export const compareTB = (a, b) => {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const av = a[i] || 0, bv = b[i] || 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+};
+
+export const evaluateHand5 = (cards) => {
+  const values = cards.map(c => RANK_VALUE[c.rank]).sort((a, b) => b - a);
+  const suits = cards.map(c => c.suit);
+  
+  // Compte des valeurs
+  const counts = {};
+  values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  const groups = Object.entries(counts)
+    .map(([v, c]) => ({ value: +v, count: c }))
+    .sort((a, b) => b.count - a.count || b.value - a.value);
+  
+  const isFlush = suits.every(s => s === suits[0]);
+  
+  // Détection quinte (A-2-3-4-5 = quinte basse)
+  const uniqVals = [...new Set(values)].sort((a, b) => b - a);
+  let isStraight = false;
+  let straightHigh = 0;
+  if (uniqVals.length === 5) {
+    if (uniqVals[0] - uniqVals[4] === 4) {
+      isStraight = true;
+      straightHigh = uniqVals[0];
+    } else if (uniqVals[0] === 14 && uniqVals[1] === 5 && uniqVals[4] === 2) {
+      // A-5-4-3-2
+      isStraight = true;
+      straightHigh = 5;
+    }
+  }
+  
+  if (isFlush && isStraight) {
+    if (straightHigh === 14) return { rank: 9, tiebreaker: [14] }; // royale
+    return { rank: 8, tiebreaker: [straightHigh] };
+  }
+  if (groups[0].count === 4) {
+    return { rank: 7, tiebreaker: [groups[0].value, groups[1].value] };
+  }
+  if (groups[0].count === 3 && groups[1].count === 2) {
+    return { rank: 6, tiebreaker: [groups[0].value, groups[1].value] };
+  }
+  if (isFlush) {
+    return { rank: 5, tiebreaker: values };
+  }
+  if (isStraight) {
+    return { rank: 4, tiebreaker: [straightHigh] };
+  }
+  if (groups[0].count === 3) {
+    const kickers = groups.slice(1).map(g => g.value);
+    return { rank: 3, tiebreaker: [groups[0].value, ...kickers] };
+  }
+  if (groups[0].count === 2 && groups[1].count === 2) {
+    return { rank: 2, tiebreaker: [groups[0].value, groups[1].value, groups[2].value] };
+  }
+  if (groups[0].count === 2) {
+    const kickers = groups.slice(1).map(g => g.value);
+    return { rank: 1, tiebreaker: [groups[0].value, ...kickers] };
+  }
+  return { rank: 0, tiebreaker: values };
+};
+
