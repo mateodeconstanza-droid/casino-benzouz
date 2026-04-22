@@ -1,19 +1,30 @@
 import React, { useState } from 'react';
-import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
+import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, SHORT_CATALOG } from '@/game/constants';
 // ============== ÉCRAN PERSONNALISATION PERSONNAGE ==============
 const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile, onDone, casino }) => {
   const [tab, setTab] = useState('hair');
   const ownedHair = profile.ownedHair || [0, 1, 2];
   const ownedOutfit = profile.ownedOutfit || [0, 1, 2];
   const ownedShoes = profile.ownedShoes || [0, 1, 2];
+  const ownedShort = profile.ownedShort || [];
   const curHair = profile.hair !== undefined ? profile.hair : 0;
   const curOutfit = profile.outfit !== undefined ? profile.outfit : 0;
   const curShoes = profile.shoes !== undefined ? profile.shoes : 0;
+  const curShort = profile.short !== undefined ? profile.short : null; // null = pas de short (pantalon)
   const curSkin = profile.skin || '#e0b48a';
 
-  const cat = tab === 'hair' ? HAIR_CATALOG : tab === 'outfit' ? OUTFIT_CATALOG : SHOES_CATALOG;
-  const owned = tab === 'hair' ? ownedHair : tab === 'outfit' ? ownedOutfit : ownedShoes;
-  const curIdx = tab === 'hair' ? curHair : tab === 'outfit' ? curOutfit : curShoes;
+  const cat = tab === 'hair' ? HAIR_CATALOG
+           : tab === 'outfit' ? OUTFIT_CATALOG
+           : tab === 'shoes' ? SHOES_CATALOG
+           : SHORT_CATALOG;
+  const owned = tab === 'hair' ? ownedHair
+              : tab === 'outfit' ? ownedOutfit
+              : tab === 'shoes' ? ownedShoes
+              : ownedShort;
+  const curIdx = tab === 'hair' ? curHair
+              : tab === 'outfit' ? curOutfit
+              : tab === 'shoes' ? curShoes
+              : curShort;
 
   const selectItem = async (item) => {
     const isOwned = owned.includes(item.id);
@@ -21,7 +32,8 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
       // Just equip
       const patch = tab === 'hair' ? { hair: item.id }
                  : tab === 'outfit' ? { outfit: item.id }
-                 : { shoes: item.id };
+                 : tab === 'shoes' ? { shoes: item.id }
+                 : { short: item.id };
       const p = { ...profile, ...patch };
       setProfile(p); await saveProfile(p);
       return;
@@ -34,7 +46,8 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
     const newOwned = [...owned, item.id];
     const patch = tab === 'hair' ? { hair: item.id, ownedHair: newOwned }
                : tab === 'outfit' ? { outfit: item.id, ownedOutfit: newOwned }
-               : { shoes: item.id, ownedShoes: newOwned };
+               : tab === 'shoes' ? { shoes: item.id, ownedShoes: newOwned }
+               : { short: item.id, ownedShort: newOwned };
     const p = { ...profile, ...patch, balance: balance - item.price };
     setProfile(p); await saveProfile(p);
   };
@@ -68,7 +81,7 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
           borderRadius: 12, padding: 20, minWidth: 240, textAlign: 'center',
         }}>
           <div style={{ color: '#cca366', fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>APERÇU</div>
-          <AvatarPreview hair={curHair} outfit={curOutfit} shoes={curShoes} skin={curSkin} size={180} />
+          <AvatarPreview hair={curHair} outfit={curOutfit} shoes={curShoes} short={curShort} skin={curSkin} size={180} />
           <div style={{ fontSize: 14, marginTop: 10, color: casino.secondary, fontWeight: 'bold' }}>
             {profile.name}
           </div>
@@ -92,7 +105,7 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
         {/* Tabs + Grid */}
         <div style={{ flex: 1, minWidth: 320, maxWidth: 720 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            {[['hair','Cheveux'],['outfit','Vêtements'],['shoes','Chaussures']].map(([k,l]) => (
+            {[['hair','Cheveux'],['outfit','Vêtements'],['short','Shorts'],['shoes','Chaussures']].map(([k,l]) => (
               <button key={k}
                 onClick={() => setTab(k)}
                 data-testid={`char-tab-${k}`}
@@ -124,6 +137,7 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
                       hair={tab === 'hair' ? item.id : curHair}
                       outfit={tab === 'outfit' ? item.id : curOutfit}
                       shoes={tab === 'shoes' ? item.id : curShoes}
+                      short={tab === 'short' ? item.id : curShort}
                       skin={curSkin}
                       size={80}
                     />
@@ -145,7 +159,7 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
 };
 
 // ============== AVATAR PREVIEW (SVG) ==============
-const AvatarPreview = ({ hair = 0, outfit = 0, shoes = 0, skin = '#e0b48a', size = 100 }) => {
+const AvatarPreview = ({ hair = 0, outfit = 0, shoes = 0, short = null, skin = '#e0b48a', size = 100 }) => {
   const hairItem = HAIR_CATALOG[hair] || HAIR_CATALOG[0];
   const outfitItem = OUTFIT_CATALOG[outfit] || OUTFIT_CATALOG[0];
   const shoesItem = SHOES_CATALOG[shoes] || SHOES_CATALOG[0];
@@ -168,9 +182,28 @@ const AvatarPreview = ({ hair = 0, outfit = 0, shoes = 0, skin = '#e0b48a', size
   return (
     <svg viewBox="0 0 80 120" width={w} height={h}>
       <ellipse cx="40" cy="116" rx="20" ry="3" fill="rgba(0,0,0,.35)" />
-      {/* Pantalon / short */}
-      <rect x="28" y="78" width="10" height="30" rx="3" fill={outfitItem.color} />
-      <rect x="42" y="78" width="10" height="30" rx="3" fill={outfitItem.color} />
+      {/* Jambes : pantalon long (outfit) OU short si sélectionné */}
+      {short !== null && short !== undefined ? (
+        <g>
+          {/* Short (plus court) */}
+          <rect x="28" y="78" width="10" height="16" rx="3" fill={(SHORT_CATALOG[short] || {}).color || '#2a2a2a'} />
+          <rect x="42" y="78" width="10" height="16" rx="3" fill={(SHORT_CATALOG[short] || {}).color || '#2a2a2a'} />
+          {(SHORT_CATALOG[short] || {}).accent && (
+            <g>
+              <rect x="28" y="90" width="10" height="4" fill={SHORT_CATALOG[short].accent} />
+              <rect x="42" y="90" width="10" height="4" fill={SHORT_CATALOG[short].accent} />
+            </g>
+          )}
+          {/* Jambes nues sous le short */}
+          <rect x="30" y="94" width="6" height="16" rx="2" fill={skin} />
+          <rect x="44" y="94" width="6" height="16" rx="2" fill={skin} />
+        </g>
+      ) : (
+        <g>
+          <rect x="28" y="78" width="10" height="30" rx="3" fill={outfitItem.color} />
+          <rect x="42" y="78" width="10" height="30" rx="3" fill={outfitItem.color} />
+        </g>
+      )}
       {/* Chaussures */}
       <rect x="26" y="104" width="14" height="8" rx="3" fill={shoesItem.color} />
       <rect x="40" y="104" width="14" height="8" rx="3" fill={shoesItem.color} />
@@ -228,3 +261,4 @@ const AvatarPreview = ({ hair = 0, outfit = 0, shoes = 0, skin = '#e0b48a', size
 
 export default CharacterScreen;
 export { AvatarPreview };
+;

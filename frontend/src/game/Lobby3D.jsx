@@ -2296,6 +2296,50 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     const ROOM_HALF = 18;
     let isPointerLocked = false;
 
+    // ========== COLLISION DETECTION ==========
+    // Collect AABB (axis-aligned bounding boxes in XZ plane) of all significant
+    // obstacles in the scene so the player can't walk through tables, slot
+    // machines, counters, walls, etc.
+    // Called once per animate frame (cheap – precomputed list).
+    const colliders = [];
+    const PLAYER_RADIUS = 0.45; // half-width of the player's collision capsule
+    const collectColliders = () => {
+      colliders.length = 0;
+      const tmpBox = new THREE.Box3();
+      scene.traverse((obj) => {
+        if (!obj.isMesh) return;
+        // Skip floor, ceiling, decals (too thin, too large or too low/high)
+        if (!obj.geometry) return;
+        obj.updateWorldMatrix(true, false);
+        tmpBox.setFromObject(obj);
+        const sizeY = tmpBox.max.y - tmpBox.min.y;
+        const sizeX = tmpBox.max.x - tmpBox.min.x;
+        const sizeZ = tmpBox.max.z - tmpBox.min.z;
+        // Skip ultra-flat things (floor, carpet, decals) and sky-high props
+        if (sizeY < 0.2) return;
+        if (tmpBox.min.y > 2.2) return;      // only objects reaching below chest level block
+        if (tmpBox.max.y < 0.3) return;      // skip very low ground props
+        // Skip extremely large meshes (walls/ceiling) — they'd trap us everywhere
+        if (sizeX > 40 || sizeZ > 40) return;
+        // Skip tiny things (cards, chips, bullets…) to keep the list short
+        if (sizeX < 0.15 && sizeZ < 0.15) return;
+        colliders.push({
+          minX: tmpBox.min.x - PLAYER_RADIUS,
+          maxX: tmpBox.max.x + PLAYER_RADIUS,
+          minZ: tmpBox.min.z - PLAYER_RADIUS,
+          maxZ: tmpBox.max.z + PLAYER_RADIUS,
+        });
+      });
+    };
+
+    const pointInAnyCollider = (x, z) => {
+      for (let i = 0; i < colliders.length; i++) {
+        const c = colliders[i];
+        if (x >= c.minX && x <= c.maxX && z >= c.minZ && z <= c.maxZ) return true;
+      }
+      return false;
+    };
+
     const onKeyDown = (e) => {
       switch (e.code) {
         case 'ArrowUp': case 'KeyW': case 'KeyZ': keysRef.current.forward = true; break;
@@ -2406,9 +2450,24 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         const speedMul = getSpeedMul();
         movement.add(cameraDir.multiplyScalar(direction.z * SPEED * speedMul));
         movement.add(right.multiplyScalar(-direction.x * SPEED * speedMul));
-        camera.position.add(movement);
-        camera.position.x = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, camera.position.x));
-        camera.position.z = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, camera.position.z));
+
+        // ===== Collision resolution (slide along axis) =====
+        // Test each axis independently so the player can slide along walls/obstacles
+        // instead of being stuck. We refresh colliders once the first time we move
+        // (some meshes may have been added async after the initial scene build).
+        if (colliders.length === 0) collectColliders();
+
+        const startX = camera.position.x;
+        const startZ = camera.position.z;
+
+        // Try X movement
+        const newX = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, startX + movement.x));
+        if (!pointInAnyCollider(newX, startZ)) camera.position.x = newX;
+
+        // Try Z movement
+        const newZ = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, startZ + movement.z));
+        if (!pointInAnyCollider(camera.position.x, newZ)) camera.position.z = newZ;
+
         camera.position.y = 1.7;
       }
 
