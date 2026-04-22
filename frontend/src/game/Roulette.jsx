@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import sfx from '@/game/sfx';
 
 // ============== ROULETTE AMÉLIORÉE AVEC BILLE ==============
 const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapon, dealerProfile, dealerSplats, flyingProjectile, bloodStreams, dealerDead, dealerShot, onProjectile, weapons }) => {
@@ -56,6 +57,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
     setBalance(b => b - totalBetSnapshot);
     setMessage('');
     setBallDropped(false);
+    try { sfx.play('chip'); } catch (_e) { /* noop */ }
     
     const winNum = ROULETTE_NUMBERS[Math.floor(Math.random() * ROULETTE_NUMBERS.length)];
     const idx = ROULETTE_NUMBERS.indexOf(winNum);

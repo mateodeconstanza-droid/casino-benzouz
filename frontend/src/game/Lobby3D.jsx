@@ -4,8 +4,10 @@ import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOE
 import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle } from '@/game/ui';
 import { FPWeaponView, TPPlayerView } from '@/game/FPWeapon';
 import { VehicleGraphic } from '@/game/ui';
+import sfx from '@/game/sfx';
+import { MPClient } from '@/game/multiplayer';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests }) => {
+const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -38,6 +40,20 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
   // État touches pour mobile
   const keysRef = useRef({ forward: false, backward: false, left: false, right: false });
 
+  // ====== MULTIJOUEUR ======
+  const mpOnline = mpMode === 'online' && !!mpServerId;
+  const mpRef = useRef(null);       // MPClient instance
+  const myIdRef = useRef(null);     // ID reçu du serveur
+  const remotePlayersRef = useRef({}); // id -> { mesh, data }
+  const sceneRefLocal = useRef(null); // accessible via sceneRef plus bas
+  const [chatMessages, setChatMessages] = useState([]); // [{from, text, ts}]
+  const [chatInput, setChatInput] = useState('');
+  const [showChatInput, setShowChatInput] = useState(false);
+  const chatInputRef = useRef(null);
+  const [killFeed, setKillFeed] = useState([]); // [{killer, victim, weapon, ts}]
+  const [myHp, setMyHp] = useState(100);
+  const [onlinePlayersCount, setOnlinePlayersCount] = useState(0);
+
   useEffect(() => {
     if (!mountRef.current) return;
     const mount = mountRef.current;
@@ -53,6 +69,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     scene.background = new THREE.Color(0x1a1028);
     scene.fog = new THREE.Fog(0x1a1028, 25, 80);
     sceneRef.current = scene;
+    sceneRefLocal.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
     camera.position.set(0, 1.7, 14);
@@ -2932,11 +2949,49 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         camera.position.x = origPos.x - camDir.x * 2.8;
         camera.position.z = origPos.z - camDir.z * 2.8;
         camera.position.y = 2.3;
+        // MP : mise à jour des avatars distants avant render
+        updateRemoteAvatars();
         renderer.render(scene, camera);
         // Restore pour que la logique de mouvement suivante fonctionne normalement
         camera.position.copy(origPos);
       } else {
+        // MP : mise à jour des avatars distants avant render
+        updateRemoteAvatars();
         renderer.render(scene, camera);
+      }
+
+      // MP : matérialiser les tirs distants en balles visibles
+      if (remoteShotsRef.current.length > 0) {
+        const shots = remoteShotsRef.current.splice(0);
+        shots.forEach(s => {
+          // Créer une balle éphémère
+          const from = s.from.clone();
+          const to = s.to.clone();
+          const geom = new THREE.SphereGeometry(0.08, 6, 6);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xffee55 });
+          const b = new THREE.Mesh(geom, mat);
+          b.position.copy(from);
+          scene.add(b);
+          const startTime = Date.now();
+          const duration = 300;
+          bulletsRef.current.push({
+            mesh: b, startTime, duration,
+            startPos: from, endPos: to, weaponType: s.weapon,
+          });
+        });
+      }
+
+      // MP : envoyer notre position (throttle 100ms)
+      if (mpRef.current && nowTime - lastPosSentRef.current > 100) {
+        lastPosSentRef.current = nowTime;
+        mpRef.current.sendPos(
+          camera.position.x,
+          camera.position.y,
+          camera.position.z,
+          camera.rotation.y,
+          selectedWeaponRef.current,
+          { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair }
+        );
       }
     };
     animate();
@@ -3001,6 +3056,239 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
   const [isAiming, setIsAiming] = useState(false); // visée 1ère personne
   const isAimingRef = useRef(false);
   useEffect(() => { isAimingRef.current = isAiming; }, [isAiming]);
+
+  // Démarrer l'ambiance casino au montage
+  useEffect(() => {
+    try { sfx.startAmbience(); } catch (_e) { /* noop */ }
+    return () => { try { sfx.stopAmbience(); } catch (_e) { /* noop */ } };
+  }, []);
+
+  // ===== MULTIJOUEUR : refs partagées =====
+  const lastPosSentRef = useRef(0);
+  const selectedWeaponRef = useRef(null);
+  useEffect(() => { selectedWeaponRef.current = selectedWeapon; }, [selectedWeapon]);
+  const pendingRemoteUpdatesRef = useRef({}); // dernière snapshot reçue {id: playerData}
+  const remoteShotsRef = useRef([]); // tirs distants à animer
+
+  // Construire un avatar basique pour un joueur distant
+  const buildRemoteAvatar = (pdata) => {
+    const scene = sceneRefLocal.current;
+    if (!scene) return null;
+    const group = new THREE.Group();
+    const skinHex = (typeof pdata.skin === 'string' && pdata.skin.startsWith('#'))
+      ? parseInt(pdata.skin.slice(1), 16) : 0xe0b48a;
+    // Corps
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.3, 1.1, 12),
+      new THREE.MeshStandardMaterial({ color: 0x223388 })
+    );
+    body.position.y = 1.0;
+    group.add(body);
+    // Tête
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 14, 14),
+      new THREE.MeshStandardMaterial({ color: skinHex })
+    );
+    head.position.y = 1.75;
+    group.add(head);
+    // Cheveux
+    const hair = new THREE.Mesh(
+      new THREE.SphereGeometry(0.23, 14, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0x222222 })
+    );
+    hair.position.y = 1.82;
+    group.add(hair);
+    // Bras
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x223388 });
+    const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), armMat);
+    armL.position.set(-0.33, 1.2, 0);
+    group.add(armL);
+    const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), armMat);
+    armR.position.set(0.33, 1.2, 0);
+    group.add(armR);
+    // Jambes
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 8), legMat);
+    legL.position.set(-0.12, 0.4, 0);
+    group.add(legL);
+    const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 8), legMat);
+    legR.position.set(0.12, 0.4, 0);
+    group.add(legR);
+    // Badge pseudo au-dessus (billboard via CanvasTexture)
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pdata.name || '?', 128, 32);
+    const tex = new THREE.CanvasTexture(canvas);
+    const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    nameSprite.position.y = 2.3;
+    nameSprite.scale.set(1.2, 0.3, 1);
+    group.add(nameSprite);
+    group.position.set(pdata.x || 0, 0, pdata.z || 0);
+    group.userData = { legL, legR, armL, armR, nameSprite, lastPos: new THREE.Vector3(pdata.x, 0, pdata.z) };
+    scene.add(group);
+    return group;
+  };
+
+  const removeRemoteAvatar = (id) => {
+    const scene = sceneRefLocal.current;
+    const entry = remotePlayersRef.current[id];
+    if (entry && scene) {
+      scene.remove(entry.mesh);
+      entry.mesh.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material?.dispose) o.material.dispose();
+      });
+    }
+    delete remotePlayersRef.current[id];
+  };
+
+  const updateRemoteAvatars = () => {
+    const snap = pendingRemoteUpdatesRef.current;
+    if (!snap) return;
+    const myId = myIdRef.current;
+    // Add/update
+    Object.values(snap).forEach((pd) => {
+      if (!pd || !pd.id) return;
+      if (pd.id === myId) return; // skip self
+      let entry = remotePlayersRef.current[pd.id];
+      if (!entry) {
+        const mesh = buildRemoteAvatar(pd);
+        if (!mesh) return;
+        entry = { mesh, data: pd };
+        remotePlayersRef.current[pd.id] = entry;
+      }
+      entry.data = pd;
+      // Interpolation douce vers la position cible
+      const m = entry.mesh;
+      const target = new THREE.Vector3(pd.x || 0, 0, pd.z || 0);
+      m.position.x += (target.x - m.position.x) * 0.2;
+      m.position.z += (target.z - m.position.z) * 0.2;
+      // Rotation
+      m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
+      // Animation marche si bouge
+      const moved = m.userData.lastPos.distanceTo(target) > 0.005;
+      const t = performance.now() * 0.008;
+      const swing = moved ? Math.sin(t) * 0.3 : 0;
+      if (m.userData.legL) m.userData.legL.rotation.x = swing;
+      if (m.userData.legR) m.userData.legR.rotation.x = -swing;
+      if (m.userData.armL) m.userData.armL.rotation.x = -swing * 0.8;
+      if (m.userData.armR) m.userData.armR.rotation.x = swing * 0.8;
+      m.userData.lastPos.copy(target);
+      // Masquer si HP = 0
+      m.visible = (pd.hp || 100) > 0;
+    });
+    // Remove disparus
+    const aliveIds = new Set(Object.keys(snap));
+    Object.keys(remotePlayersRef.current).forEach((id) => {
+      if (!aliveIds.has(id)) removeRemoteAvatar(id);
+    });
+  };
+
+  // Connexion WebSocket au serveur multijoueur
+  useEffect(() => {
+    if (!mpOnline) return;
+    const username = profile?.name || 'Anon';
+    const client = new MPClient({
+      serverId: mpServerId,
+      username,
+      onMessage: (msg) => {
+        if (msg.type === 'welcome') {
+          myIdRef.current = msg.you?.id;
+          // initial snapshot
+          const map = {};
+          (msg.players || []).forEach(p => { map[p.id] = p; });
+          pendingRemoteUpdatesRef.current = map;
+          setOnlinePlayersCount(msg.players?.length || 1);
+          setChatMessages(msg.chat || []);
+        } else if (msg.type === 'snapshot') {
+          const map = {};
+          (msg.players || []).forEach(p => { map[p.id] = p; });
+          pendingRemoteUpdatesRef.current = map;
+          setOnlinePlayersCount(msg.players?.length || 1);
+          // HP personnel
+          const me = (msg.players || []).find(p => p.id === myIdRef.current);
+          if (me) setMyHp(me.hp);
+        } else if (msg.type === 'player_joined') {
+          setChatMessages((prev) => [...prev, { from: 'SYSTÈME', text: `${msg.player.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));
+        } else if (msg.type === 'player_left') {
+          removeRemoteAvatar(msg.id);
+        } else if (msg.type === 'chat') {
+          setChatMessages((prev) => [...prev, msg].slice(-30));
+        } else if (msg.type === 'shot') {
+          // Animer un tir distant
+          remoteShotsRef.current.push({
+            from: new THREE.Vector3(msg.x, msg.y, msg.z),
+            to: new THREE.Vector3(msg.tx, msg.ty, msg.tz),
+            weapon: msg.weapon,
+            start: performance.now(),
+          });
+          try { sfx.play(msg.weapon || 'gun'); } catch (_e) { /* noop */ }
+        } else if (msg.type === 'kill') {
+          setKillFeed((prev) => [...prev, { ...msg, ts: Date.now() }].slice(-5));
+          setTimeout(() => setKillFeed((prev) => prev.filter(k => Date.now() - k.ts < 5000)), 5500);
+          try { sfx.play('explosion'); } catch (_e) { /* noop */ }
+        } else if (msg.type === 'damage') {
+          if (msg.target === myIdRef.current) {
+            setMyHp(msg.hp);
+          }
+        } else if (msg.type === 'respawn') {
+          // noop, snapshot suivant mettra à jour
+        }
+      },
+      onOpen: () => {
+        setChatMessages((prev) => [...prev, { from: 'SYSTÈME', text: `Connecté au serveur ${mpServerId.toUpperCase()}`, ts: Date.now() / 1000 }].slice(-30));
+      },
+      onClose: () => {
+        // Tenter de rester silencieux, le client gère la reco
+      },
+    });
+    mpRef.current = client;
+    client.connect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      client.close();
+      mpRef.current = null;
+      myIdRef.current = null;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const remoteSnap = remotePlayersRef.current;
+      Object.keys(remoteSnap).forEach(removeRemoteAvatar);
+      pendingRemoteUpdatesRef.current = {};
+    };
+  }, [mpOnline, mpServerId, profile?.name]);
+
+  // Envoi chat
+  const sendChatMessage = () => {
+    const text = chatInput.trim();
+    if (!text || !mpRef.current) return;
+    mpRef.current.sendChat(text);
+    setChatInput('');
+    setShowChatInput(false);
+  };
+  // Ouverture chat avec touche T
+  useEffect(() => {
+    if (!mpOnline) return;
+    const onKey = (e) => {
+      if (e.key === 't' || e.key === 'T') {
+        if (!showChatInput) {
+          e.preventDefault();
+          setShowChatInput(true);
+          setTimeout(() => chatInputRef.current?.focus(), 50);
+        }
+      } else if (e.key === 'Escape' && showChatInput) {
+        setShowChatInput(false);
+        setChatInput('');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mpOnline, showChatInput]);
 
   // Créer une balle qui vole de l'arme vers l'impact
   const createBullet = (fromPos, toPos, weaponType) => {
@@ -3113,6 +3401,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
   const createExplosion = (pos) => {
     const scene = sceneRef.current;
     if (!scene) return;
+    try { sfx.play('explosion'); } catch (_e) { /* noop */ }
     const group = new THREE.Group();
     group.position.copy(pos);
     // Flash initial
@@ -3262,6 +3551,8 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     if (!selectedWeapon) return;
     // Do not block on `shooting` state while in auto-fire mode
     onShoot && onShoot();
+    // Son de l'arme
+    try { sfx.play(selectedWeapon); } catch (_e) { /* noop */ }
     
     const camera = cameraRef.current;
     const dealers = allDealersRef.current;
@@ -3277,6 +3568,31 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     camera.getWorldPosition(cameraPos);
     const cameraDir = new THREE.Vector3();
     camera.getWorldDirection(cameraDir);
+
+    // ====== MP : détection PvP & broadcast ======
+    if (mpRef.current) {
+      const tip = cameraPos.clone().add(cameraDir.clone().multiplyScalar(30));
+      mpRef.current.sendShot(cameraPos.x, cameraPos.y, cameraPos.z, tip.x, tip.y, tip.z, selectedWeapon);
+      // Hit sur joueur distant : cône 30m, dot > 0.995 (précision au laser) sauf bazooka
+      const isAoe = weaponType === 'rocket' || selectedWeapon === 'grenade';
+      const dmg = weaponType === 'melee' ? 50 : weaponType === 'rocket' ? 100 : weaponType === 'laser' ? 60 : 25;
+      Object.values(remotePlayersRef.current).forEach((entry) => {
+        const pd = entry.data;
+        if (!pd || pd.hp <= 0) return;
+        const rp = new THREE.Vector3(pd.x, pd.y || 1.5, pd.z);
+        const toT = new THREE.Vector3().subVectors(rp, cameraPos);
+        const dist = toT.length();
+        if (dist > 30) return;
+        toT.normalize();
+        const dotDir = cameraDir.dot(toT);
+        const accept = weaponType === 'melee' ? (dist < 3 && dotDir > 0.5)
+                     : isAoe ? dotDir > 0.88
+                     : dotDir > 0.98;
+        if (accept) {
+          mpRef.current.sendHit(pd.id, selectedWeapon, dmg);
+        }
+      });
+    }
     
     // ====== ARMES BLANCHES (couteau, machette) ======
     if (weaponType === 'melee') {
@@ -4259,6 +4575,131 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
           100% { right: 50%; bottom: 50%; opacity: 0; transform: scale(0.3); }
         }
       `}</style>
+
+      {/* ====== MULTIJOUEUR HUD ====== */}
+      {mpOnline && (
+        <>
+          {/* Badge serveur + joueurs en ligne */}
+          <div
+            data-testid="mp-server-badge"
+            style={{
+              position: 'absolute', top: 10, left: 10, zIndex: 50,
+              background: 'rgba(224,14,26,0.85)', color: '#fff',
+              padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+              letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 8,
+              pointerEvents: 'none',
+            }}
+          >
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', background: '#7fff7f',
+              boxShadow: '0 0 6px #7fff7f',
+            }} />
+            SERVEUR {mpServerId?.toUpperCase()} · {onlinePlayersCount} EN LIGNE
+          </div>
+
+          {/* Barre de vie */}
+          <div style={{
+            position: 'absolute', top: 40, left: 10, zIndex: 50,
+            width: 180, background: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 6,
+            pointerEvents: 'none',
+          }}>
+            <div style={{ fontSize: 10, color: '#fff', marginBottom: 2 }}>HP : {myHp}/100</div>
+            <div style={{
+              height: 8, background: '#333', borderRadius: 4, overflow: 'hidden',
+            }}>
+              <div
+                data-testid="mp-hp-bar"
+                style={{
+                width: `${myHp}%`, height: '100%',
+                background: myHp > 50 ? '#22c55e' : myHp > 25 ? '#f59e0b' : '#dc2626',
+                transition: 'width .2s',
+              }} />
+            </div>
+          </div>
+
+          {/* Kill feed */}
+          {killFeed.length > 0 && (
+            <div style={{
+              position: 'absolute', top: 10, right: 10, zIndex: 50,
+              pointerEvents: 'none',
+            }}>
+              {killFeed.map((k, i) => (
+                <div key={`${k.ts}-${i}`} style={{
+                  background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '6px 12px',
+                  borderRadius: 4, fontSize: 12, marginBottom: 4, fontWeight: 700,
+                }}>
+                  <span style={{ color: '#7fff7f' }}>{k.killer}</span>
+                  <span style={{ margin: '0 6px', color: '#f59e0b' }}>💀 {k.weapon}</span>
+                  <span style={{ color: '#ff9090' }}>{k.victim}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Chat fenêtre (bas gauche) */}
+          <div style={{
+            position: 'absolute', bottom: 120, left: 10, zIndex: 50,
+            width: 330, maxHeight: 200, overflowY: 'auto',
+            background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: 8,
+            pointerEvents: 'none', fontSize: 12, color: '#fff',
+          }} data-testid="mp-chat-log">
+            {chatMessages.slice(-8).map((m, i) => (
+              <div key={`${m.ts}-${i}`} style={{ marginBottom: 2 }}>
+                <b style={{ color: m.from === 'SYSTÈME' ? '#ffd700' : '#7fceff' }}>{m.from}:</b>{' '}
+                <span>{m.text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Champ chat (activé par T) */}
+          {showChatInput && (
+            <div style={{
+              position: 'absolute', bottom: 80, left: 10, zIndex: 60,
+              width: 330, display: 'flex', gap: 6,
+            }}>
+              <input
+                ref={chatInputRef}
+                data-testid="mp-chat-input"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') sendChatMessage();
+                  if (e.key === 'Escape') { setShowChatInput(false); setChatInput(''); }
+                }}
+                placeholder="Message (Entrée pour envoyer)…"
+                style={{
+                  flex: 1, padding: '8px 10px', borderRadius: 4,
+                  border: '1px solid #ffd700', background: 'rgba(0,0,0,0.8)',
+                  color: '#fff', fontSize: 13,
+                }}
+              />
+              <button
+                data-testid="mp-chat-send"
+                onClick={sendChatMessage}
+                style={{
+                  padding: '6px 12px', borderRadius: 4, border: 'none',
+                  background: '#ffd700', color: '#000', fontWeight: 700,
+                  cursor: 'pointer', fontSize: 12,
+                }}
+              >Envoyer</button>
+            </div>
+          )}
+
+          {/* Bouton ouvrir chat (mobile) */}
+          {!showChatInput && (
+            <button
+              data-testid="mp-chat-open"
+              onClick={() => { setShowChatInput(true); setTimeout(() => chatInputRef.current?.focus(), 50); }}
+              style={{
+                position: 'absolute', bottom: 80, left: 10, zIndex: 55,
+                padding: '6px 12px', borderRadius: 4, border: '1px solid #ffd700',
+                background: 'rgba(0,0,0,0.6)', color: '#ffd700', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700,
+              }}
+            >💬 Chat (T)</button>
+          )}
+        </>
+      )}
     </div>
   );
 };

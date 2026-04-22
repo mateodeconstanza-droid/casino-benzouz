@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import sfx from '@/game/sfx';
 
 // ============== JEU POKER TEXAS HOLD'EM ==============
-const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile, weapons, chooseWeapon, dealerDead, dealerShot, onKillDealer }) => {
+const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile, weapons, chooseWeapon, dealerDead, dealerShot, onKillDealer, onOpenMulti }) => {
   const [phase, setPhase] = useState('bet'); // bet | preflop | flop | turn | river | showdown
   const [deck, setDeck] = useState([]);
   const [playerCards, setPlayerCards] = useState([]);
@@ -36,6 +37,10 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
     setPlayerHand(null);
     setDealerHand(null);
     setMessage('Tes cartes ! Tu peux voir le flop ou passer ton tour.');
+    try {
+      sfx.play('chip');
+      [0, 150, 300, 450].forEach((d) => setTimeout(() => sfx.play('card'), d));
+    } catch (_e) { /* noop */ }
   };
 
   const viewFlop = (mul) => {
@@ -53,6 +58,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
     setDeck(deck.slice(4));
     setPhase('flop');
     setMessage(`Mise ×${mul}. À toi : voir la Turn ou te coucher ?`);
+    try { [0, 150, 300].forEach((d) => setTimeout(() => sfx.play('card'), d)); } catch (_e) { /* noop */ }
   };
 
   const fold = () => {

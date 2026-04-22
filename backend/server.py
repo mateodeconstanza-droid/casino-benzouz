@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timezone
+from multiplayer import mp_router, start_snapshot_loop
 
 
 ROOT_DIR = Path(__file__).parent
@@ -68,6 +69,11 @@ async def get_status_checks():
 
 # Include the router in the main app
 app.include_router(api_router)
+app.include_router(mp_router)
+
+@app.on_event("startup")
+async def startup_mp():
+    start_snapshot_loop()
 
 app.add_middleware(
     CORSMiddleware,

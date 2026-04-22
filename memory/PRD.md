@@ -63,6 +63,54 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - **Historique persistant** (localStorage) avec statut won/partial/lost + replay du détail
   - Toast résultat animé (vert gain / rouge perte)
   - Panier + historique persistants via localStorage (`benzbet:<user>:slip` et `:history`)
+- **BenzBet LIVE** (nouveau) :
+  - 3 premiers matchs de chaque sport marqués **🔴 LIVE** avec minute de jeu qui avance en temps réel (tick toutes les 2,5s)
+  - **Score qui évolue** (buts/paniers générés selon la proba réelle)
+  - **Cotes recalculées en direct** : quand l'équipe qui mène change, ses cotes baissent ; la cote du nul s'érode au fil du temps
+  - Filtre "🔴 LIVE uniquement" pour n'afficher que les matchs en cours
+  - Animation pulse sur le badge LIVE
+  - Match terminé → badge "TERMINÉ" + paris inactivés
+- **Sons synthétiques** (Web Audio API, aucun fichier externe) :
+  - Armes : gun, shotgun, bazooka (whoosh + explosion basse-fréquence), laser, throwknife (swoosh), knife, flame, grenade, crossbow, uzi
+  - Casino : chip, card, win (glissando gagnant), lose, click
+  - **Ambiance casino continue** (brouhaha filtré + cloches de slots aléatoires)
+  - Démarrage automatique à l'entrée du lobby, arrêt à la sortie
+### ✅ Implemented (Feb 2026 - current session — multijoueur)
+- **2 Serveurs en ligne** (Alpha EU / Beta US) + mode **Solo** hors ligne au choix
+- **Écran `ServerSelect`** avant entrée au casino (après personnalisation si nouveau profil), avec polling du nombre de joueurs connectés
+- **Backend WebSocket** FastAPI (`/api/mp/ws/<server>/<username>`) avec :
+  - `ConnectionManager` par serveur (mémoire, pas de persistance MongoDB nécessaire pour les sessions live)
+  - Boucle de snapshots à 10 Hz (`snapshot_loop`) diffusée à tous les clients
+  - Endpoint `/api/mp/servers` qui retourne la liste + `online`
+  - Messages gérés : `pos`, `chat`, `shot`, `hit`, `ping`
+  - Broadcasts : `welcome`, `snapshot`, `player_joined`, `player_left`, `chat`, `shot`, `damage`, `kill`, `respawn`
+- **Client WS** (`multiplayer.js`) avec reconnexion exponentielle (5 tentatives max)
+- **Rendu des avatars distants** dans Lobby3D :
+  - Avatar Three.js corps/tête/cheveux/bras/jambes avec couleur de peau (du profil)
+  - **Sprite canvas** avec le pseudo en lettres dorées flottant 2,3 m au-dessus de la tête
+  - Interpolation douce (`lerp 0.2`) pour un mouvement fluide malgré le tick réseau
+  - Balancement bras/jambes lorsque l'avatar se déplace
+  - Masquage automatique quand HP ≤ 0
+- **Envoi de position** throttlée à 10 Hz (toutes les 100 ms)
+- **Chat public** : 
+  - Touche **T** pour ouvrir, Entrée pour envoyer, Échap pour fermer
+  - Bouton 💬 Chat en bas à gauche (mobile)
+  - Historique 30 derniers messages, notifications `SYSTÈME` (joueur entre/sort, connexion)
+- **PvP activé** :
+  - Sur chaque tir, détection automatique des hits sur joueurs distants (cône selon l'arme)
+  - Dégâts 25 (gun) / 50 (mêlée) / 60 (laser) / 100 (bazooka)
+  - Barre HP visible en haut à gauche (verte/orange/rouge)
+  - **Kill feed** en haut à droite (5 derniers kills, auto-dismiss après 5 s)
+  - Respawn automatique côté serveur après 4 s avec HP 100
+  - Tirs distants matérialisés en balles Three.js jaunes (visibles pour tous)
+
+### Suppression
+- `PokerMulti.jsx` retiré (pass-and-play local) — remplacé par le vrai multi réseau
+- **__testHooks** exposés globalement :
+  - `window.__openBenzBet/__closeBenzBet`, `__openPokerMulti/__closePokerMulti`
+  - `__openShop/__openATM/__openWheel/__openQuests/__openTrophies`
+  - `__addBalance(n)`, `__getBalance()`, `__getProfile()`
+  - Documentés dans `/app/memory/test_credentials.md`
 
 ## Architecture
 - Stack: React (CRA + CRACO) + Three.js
@@ -72,13 +120,12 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - Entry: `/app/frontend/src/App.js` → `<Casino />`
 
 ## Next Tasks / Prioritized Backlog
-- **P1** : 🔊 Sons d'armes (bazooka, laser, throwknife) + sons d'ambiance (foule casino, jetons, cartes).
-- **P1** : 🎮 Mode Multijoueur Poker local — plusieurs joueurs sur le même appareil, tour-par-tour Hold'em autour de la table 3D (chaises et animations déjà en place).
-- **P2** : Découper `Lobby3D.jsx` (>4000 lignes) en hooks : `useMovement`, `useCollisions`, `useSceneSetup`, `useWeapons`, `useRoulette3D`, `useNPCs`.
-- **P2** : Exposer `window.__testHooks` (teleport, fire, setNearZone) pour tests automatisés en headless.
-- **P2** : Réel feedback visuel de l'AoE bazooka sur les NPCs touchés (actuellement seulement kill animation).
-- **P3** : Progression des quêtes hooks dans les actions BenzBet (compter les paris gagnés).
-- **P3** : Mode Live (cotes qui évoluent pendant le match).
+- **P2** : Découper `Lobby3D.jsx` (>4500 lignes) en hooks : `useMovement`, `useCollisions`, `useSceneSetup`, `useWeapons`, `useRoulette3D`, `useNPCs`, `useMultiplayer`.
+- **P2** : Persister kills/deaths par profil (leaderboard serveur dans MongoDB).
+- **P2** : Mode "jouer ensemble" aux tables (Poker/Blackjack avec vrais joueurs humains) — tour par tour synchronisé via WS.
+- **P3** : Chat commandes slash (`/w <user>` whisper, `/kick` admin…).
+- **P3** : Anti-cheat rudimentaire côté serveur (rate limit shots, distance checks).
+- **P3** : Mode Live BenzBet (cotes qui évoluent pendant le match) — déjà fait, rien à ajouter mais on peut étendre à plus de sports.
 
 ## Core Requirements (Static)
 - Pas d'auth serveur (profils locaux)

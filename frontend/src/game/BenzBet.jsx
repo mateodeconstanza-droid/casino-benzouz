@@ -3,6 +3,7 @@ import {
   fmt, BENZBET_SPORTS, generateMatches, resolveMatch,
   BENZBET_SLIP_KEY, BENZBET_HISTORY_KEY,
 } from '@/game/constants';
+import sfx from '@/game/sfx';
 
 // ============================================================
 // BenzBet.fr — Site de paris sportifs façon vraie plateforme
@@ -29,16 +30,18 @@ const MatchRow = ({ match, pickForMatch, onPick }) => {
   const cellBtn = (pick, label, odds) => {
     if (odds == null) return <div style={{ minWidth: 72 }} />;
     const active = currentPick === pick;
+    const disabled = !!match.finished;
     return (
       <button
         data-testid={`odds-${match.id}-${pick}`}
-        onClick={() => onPick(match, pick)}
+        onClick={() => !disabled && onPick(match, pick)}
+        disabled={disabled}
         style={{
           minWidth: 72, padding: '10px 12px', margin: '0 4px',
           borderRadius: 8, border: `1px solid ${active ? PRIMARY : BORDER}`,
-          background: active ? PRIMARY : '#fff',
-          color: active ? '#fff' : INK,
-          fontWeight: 700, fontSize: 14, cursor: 'pointer',
+          background: disabled ? '#eee' : (active ? PRIMARY : '#fff'),
+          color: disabled ? '#999' : (active ? '#fff' : INK),
+          fontWeight: 700, fontSize: 14, cursor: disabled ? 'not-allowed' : 'pointer',
           transition: 'all .15s', display: 'flex', flexDirection: 'column', alignItems: 'center',
           boxShadow: active ? '0 2px 8px rgba(224,14,26,0.35)' : '0 1px 2px rgba(0,0,0,0.04)',
         }}
@@ -65,10 +68,31 @@ const MatchRow = ({ match, pickForMatch, onPick }) => {
             background: '#ffe9eb', color: PRIMARY, padding: '2px 8px',
             borderRadius: 4, fontSize: 10, fontWeight: 700,
           }}>{match.league}</span>
-          <span style={{ fontSize: 11, color: INK_SOFT }}>⏰ Aujourd'hui {match.kickoff}</span>
+          {match.live ? (
+            <span style={{
+              background: PRIMARY, color: '#fff', padding: '2px 8px',
+              borderRadius: 4, fontSize: 10, fontWeight: 800,
+              animation: 'pulse 1.4s infinite',
+            }}>🔴 LIVE · {match.minute}'</span>
+          ) : match.finished ? (
+            <span style={{
+              background: '#444', color: '#fff', padding: '2px 8px',
+              borderRadius: 4, fontSize: 10, fontWeight: 700,
+            }}>TERMINÉ</span>
+          ) : (
+            <span style={{ fontSize: 11, color: INK_SOFT }}>⏰ Aujourd'hui {match.kickoff}</span>
+          )}
         </div>
         <div style={{ fontSize: 14, color: INK, fontWeight: 600 }}>
-          {match.home} <span style={{ color: INK_SOFT, fontWeight: 400 }}>vs</span> {match.away}
+          {match.home}
+          {match.live || match.finished ? (
+            <span style={{
+              display: 'inline-block', margin: '0 8px',
+              background: PRIMARY, color: '#fff', padding: '1px 8px', borderRadius: 4,
+              fontSize: 13, fontWeight: 800,
+            }}>{match.scoreH} - {match.scoreA}</span>
+          ) : <span style={{ color: INK_SOFT, fontWeight: 400 }}> vs </span>}
+          {match.away}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -90,6 +114,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
   const [history, setHistory] = useState([]);
   const [toast, setToast] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [liveOnly, setLiveOnly] = useState(false);
 
   // Charger historique + slip persistés
   useEffect(() => {
@@ -112,9 +137,75 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
   const currentMatches = useMemo(() => {
     if (matchesBySport[activeSport]) return matchesBySport[activeSport];
     const gen = generateMatches(activeSport);
+    // Marquer les 3 premiers comme LIVE avec score initial + temps de jeu
+    gen.slice(0, 3).forEach((m, i) => {
+      m.live = true;
+      m.scoreH = 0;
+      m.scoreA = 0;
+      m.minute = 5 + i * 10;
+      m.startTs = Date.now() - (m.minute * 2000); // ratio 1min = 2s
+      m._baseProbH = m.probH;
+      m._baseProbA = m.probA;
+      m._baseProbN = m.probN;
+    });
     setMatchesBySport(prev => ({ ...prev, [activeSport]: gen }));
     return gen;
   }, [activeSport, matchesBySport]);
+
+  // Tick LIVE : met à jour temps/score/cotes toutes les 2 secondes pour les matches marqués live
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMatchesBySport(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(sportId => {
+          const list = next[sportId].map(m => {
+            if (!m.live) return m;
+            changed = true;
+            const matchDuration = m.sportId === 'foot' || m.sportId === 'rugby' ? 90 : m.sportId === 'nba' ? 48 : 60;
+            const newMin = Math.min(matchDuration + 5, m.minute + 1);
+            // Chance qu'un but/point survienne (~5% par minute foot, plus pour basket)
+            let newScoreH = m.scoreH, newScoreA = m.scoreA;
+            const goalProb = sportId === 'nba' ? 0.55 : sportId === 'foot' ? 0.08 : 0.15;
+            if (Math.random() < goalProb) {
+              // Celui qui marque suit la force actuelle
+              if (Math.random() < (m._baseProbH / (m._baseProbH + m._baseProbA))) {
+                newScoreH = m.scoreH + (sportId === 'nba' ? 2 + Math.floor(Math.random() * 2) : 1);
+              } else {
+                newScoreA = m.scoreA + (sportId === 'nba' ? 2 + Math.floor(Math.random() * 2) : 1);
+              }
+            }
+            // Recalculer les cotes en fonction du score + temps restant
+            const timeLeft = Math.max(0, matchDuration - newMin) / matchDuration;
+            const scoreDiff = newScoreH - newScoreA;
+            // Boost de proba pour le meneur, réduit quand le temps passe
+            const leadFactor = Math.tanh(scoreDiff * 0.4) * (1 - timeLeft * 0.5);
+            let newProbH = Math.max(0.02, Math.min(0.96, m._baseProbH + leadFactor * 0.4));
+            let newProbA = Math.max(0.02, Math.min(0.96, m._baseProbA - leadFactor * 0.4));
+            let newProbN = m.hasDraw ? Math.max(0.05, m._baseProbN * timeLeft) : 0;
+            const total = newProbH + newProbA + newProbN;
+            newProbH /= total; newProbA /= total; newProbN /= total;
+            const margin = 1.06;
+            const oddsH = +Math.min(50, Math.max(1.02, margin / newProbH)).toFixed(2);
+            const oddsA = +Math.min(50, Math.max(1.02, margin / newProbA)).toFixed(2);
+            const oddsN = m.hasDraw ? +Math.min(50, Math.max(1.02, margin / newProbN)).toFixed(2) : null;
+            const isOver = newMin >= matchDuration;
+            return {
+              ...m,
+              minute: newMin, scoreH: newScoreH, scoreA: newScoreA,
+              probH: newProbH, probA: newProbA, probN: newProbN,
+              oddsH, oddsA, oddsN,
+              live: !isOver,
+              finished: isOver,
+            };
+          });
+          next[sportId] = list;
+        });
+        return changed ? next : prev;
+      });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   const pickForMatch = (matchId) => slip.find(s => s.matchId === matchId);
 
@@ -194,6 +285,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
       try { localStorage.setItem(BENZBET_HISTORY_KEY(username), JSON.stringify(newHist)); } catch (_e) { /* noop */ }
     }
     setSlip([]);
+    try { sfx.play(payout > 0 ? 'win' : 'lose'); } catch (_e) { /* noop */ }
     setToast(payout > 0
       ? `🎉 Gain ! +${fmt(payout)} B (cote ${entry.totalOdds.toFixed(2)})`
       : `❌ Pari perdu (mise ${fmt(stake)} B)`);
@@ -222,6 +314,9 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}
     >
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.55;} }
+      `}</style>
       {/* ====== Browser chrome : barre d'URL façon navigateur ====== */}
       <div style={{
         background: '#e8eaed', padding: '8px 12px',
@@ -320,19 +415,31 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
                 {sportMeta?.icon} {sportMeta?.label}
               </h2>
               <div style={{ fontSize: 12, color: INK_SOFT, marginTop: 2 }}>
-                {currentMatches.length} matchs disponibles · {sportMeta?.draw ? '3 issues (1/N/2)' : '2 issues (1/2)'}
+                {currentMatches.length} matchs · <span style={{ color: PRIMARY, fontWeight: 700 }}>🔴 {currentMatches.filter(m => m.live).length} en direct</span>
               </div>
             </div>
-            <button
-              data-testid="benzbet-refresh-matches"
-              onClick={refreshSport}
-              style={{
-                background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 6,
-                padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: INK_SOFT, fontWeight: 600,
-              }}
-            >🔄 Actualiser</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                data-testid="benzbet-live-filter"
+                onClick={() => setLiveOnly(v => !v)}
+                style={{
+                  background: liveOnly ? PRIMARY : '#fff',
+                  color: liveOnly ? '#fff' : INK,
+                  border: `1px solid ${liveOnly ? PRIMARY : BORDER}`, borderRadius: 6,
+                  padding: '8px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                }}
+              >🔴 LIVE uniquement</button>
+              <button
+                data-testid="benzbet-refresh-matches"
+                onClick={refreshSport}
+                style={{
+                  background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 6,
+                  padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: INK_SOFT, fontWeight: 600,
+                }}
+              >🔄 Actualiser</button>
+            </div>
           </div>
-          {currentMatches.map(m => (
+          {(liveOnly ? currentMatches.filter(m => m.live) : currentMatches).map(m => (
             <MatchRow key={m.id} match={m} pickForMatch={pickForMatch(m.id)} onPick={onPick} />
           ))}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import sfx from '@/game/sfx';
 
 // ============== BLACKJACK AMÉLIORÉ ==============
 const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapon, dealerProfile, dealerSplats, flyingProjectile, bloodStreams, dealerDead, dealerShot, onKillDealer, onProjectile, weapons }) => {
@@ -62,6 +63,11 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
     setPhase('player');
     setMessage('');
     setCanDouble(balance - totalBet >= totalBet);
+    // Sons de distribution (4 cartes)
+    try {
+      sfx.play('chip');
+      [0, 180, 360, 540].forEach((delay) => setTimeout(() => sfx.play('card'), delay));
+    } catch (_e) { /* noop */ }
 
     const pv = handValue([p1.card, p2.card]);
     const dv = handValue([dl1.card, dl2.card]);
@@ -95,6 +101,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
     const { card, deck: newDeck } = drawCard(deck);
     const newHand = [...playerHand, card];
     setPlayerHand(newHand); setDeck(newDeck); setCanDouble(false);
+    try { sfx.play('card'); } catch (_e) { /* noop */ }
     if (splitHands) {
       // Update the active hand in splitHands array
       const next = [...splitHands];

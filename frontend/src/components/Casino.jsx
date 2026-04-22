@@ -6,6 +6,7 @@ import Lobby3D from '@/game/Lobby3D';
 import BlackjackGame from '@/game/Blackjack';
 import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
+import ServerSelect from '@/game/ServerSelect';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -40,6 +41,9 @@ export default function Casino() {
   const [dealerShot, setDealerShot] = useState(false);
   const [bloodStreams, setBloodStreams] = useState([]);
   const [currentDealer, setCurrentDealer] = useState(DEALER_PROFILES[0]);
+  // Multijoueur
+  const [mpMode, setMpMode] = useState('solo'); // 'solo' | 'online'
+  const [mpServerId, setMpServerId] = useState(null);
 
   // Test hook: expose BenzBet open for E2E testing
   useEffect(() => {
@@ -102,11 +106,17 @@ export default function Casino() {
     if (isNew || !p.customized) {
       setScreen('character');
     } else {
-      setScreen('lobby');
-      // Ouvre la roue à la connexion si disponible
-      if (canSpinWheel(p)) {
-        setTimeout(() => setShowWheel(true), 500);
-      }
+      // Demander choix serveur (solo / alpha / beta) avant d'entrer
+      setScreen('serverSelect');
+    }
+  };
+
+  const handleServerChoice = ({ mode, serverId }) => {
+    setMpMode(mode);
+    setMpServerId(serverId || null);
+    setScreen('lobby');
+    if (profile && canSpinWheel(profile)) {
+      setTimeout(() => setShowWheel(true), 500);
     }
   };
 
@@ -479,10 +489,13 @@ export default function Casino() {
             const p = { ...profile, customized: true };
             setProfile(p);
             await saveProfile(p);
-            setScreen('lobby');
-            if (canSpinWheel(p)) setTimeout(() => setShowWheel(true), 500);
+            setScreen('serverSelect');
           }}
         />
+      )}
+
+      {screen === 'serverSelect' && profile && (
+        <ServerSelect casino={casino} onChoose={handleServerChoice} />
       )}
 
       {pendingGame && (
@@ -501,6 +514,8 @@ export default function Casino() {
           casino={casino}
           casinoId={profile.casino}
           balance={balance}
+          mpMode={mpMode}
+          mpServerId={mpServerId}
           onSelectGame={(tableId) => handleSelectGame(tableId)}
           onLogout={handleLogout}
           onOpenTrophies={() => setShowTrophies(true)}
@@ -528,7 +543,21 @@ export default function Casino() {
         <script dangerouslySetInnerHTML={{ __html: '' }} />
       )}
       {/* eslint-disable-next-line */}
-      {(() => { if (typeof window !== 'undefined') { window.__openBenzBet = () => setShowBenzBet(true); window.__closeBenzBet = () => setShowBenzBet(false); } return null; })()}
+      {(() => {
+        if (typeof window !== 'undefined') {
+          window.__openBenzBet = () => setShowBenzBet(true);
+          window.__closeBenzBet = () => setShowBenzBet(false);
+          window.__openShop = () => setShowShop(true);
+          window.__openATM = () => setShowATM(true);
+          window.__openWheel = () => setShowWheel(true);
+          window.__openQuests = () => setShowQuests(true);
+          window.__openTrophies = () => setShowTrophies(true);
+          window.__addBalance = (n) => setBalance((b) => b + (n || 0));
+          window.__getBalance = () => balance;
+          window.__getProfile = () => profile;
+        }
+        return null;
+      })()}
 
       {screen === 'blackjack' && <BlackjackGame {...gameProps} />}
       {screen === 'roulette' && <RouletteGame {...gameProps} />}
