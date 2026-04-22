@@ -982,7 +982,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       npc.add(eyeR);
       
       npc.position.set(startX, 0, startZ);
-      npc.userData = { isNpc: true, dead: false, legL, legR, armL, armR };
+      npc.userData = { isNpc: true, dead: false, legL, legR, armL, armR, noCollide: true };
       scene.add(npc);
       return npc;
     };
@@ -1356,6 +1356,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
 
         // Groupe tournant (wheel disc qui tourne)
         rouletteWheel = new THREE.Group();
+        rouletteWheel.userData.noCollide = true;
         rouletteWheel.position.set(0, 1.2, 0);
         group.add(rouletteWheel);
 
@@ -1427,13 +1428,14 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
           new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.6, roughness: 0.2 })
         );
         rouletteBall.position.set(1.25, 1.27, 0);
-        rouletteBall.userData = { angle: 0, radius: 1.25, ballSpeed: 0.035 };
+        rouletteBall.userData = { angle: 0, radius: 1.25, ballSpeed: 0.035, noCollide: true };
         group.add(rouletteBall);
 
       } else if (id === 'blackjack' || id === 'poker' || id === 'highcard') {
         // ===== ANIMATION 3D DES CARTES DISTRIBUÉES =====
         // Cartes animées qui s'envolent du croupier vers les places des joueurs.
         animatedCards = new THREE.Group();
+        animatedCards.userData.noCollide = true;
         group.add(animatedCards);
         const cardCount = id === 'poker' ? 7 : id === 'blackjack' ? 5 : 2;
         for (let i = 0; i < cardCount; i++) {
@@ -1463,7 +1465,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
           card.rotation.y = angleFan;
           animatedCards.add(card);
         }
-        animatedCards.userData = { cycleStart: Date.now() };
+        animatedCards.userData = { cycleStart: Date.now(), noCollide: true };
       }
 
       // ===== CHAISES AUTOUR DE LA TABLE =====
@@ -1501,6 +1503,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         chair.add(leg);
         chair.position.set(cx, 0, cz);
         chair.rotation.y = Math.atan2(-cx, -cz); // face à la table
+        chair.userData.noCollide = true; // Les chaises ne bloquent pas l'approche
         group.add(chair);
         chairs.push({
           mesh: chair,
@@ -1523,7 +1526,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       // Croupier 3D détaillé
       const dealer = createDealer3D(dealerData);
       dealer.position.set(0, 0, -2.8);
-      dealer.userData = { isDealer: true, dead: false };
+      dealer.userData = { isDealer: true, dead: false, noCollide: true };
       group.add(dealer);
 
       // Panneau lumineux
@@ -2549,27 +2552,37 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     // machines, counters, walls, etc.
     // Called once per animate frame (cheap – precomputed list).
     const colliders = [];
-    const PLAYER_RADIUS = 0.45; // half-width of the player's collision capsule
+    const PLAYER_RADIUS = 0.2; // rayon de collision du joueur (réduit pour pouvoir s'approcher des tables)
     const collectColliders = () => {
       colliders.length = 0;
       const tmpBox = new THREE.Box3();
       scene.traverse((obj) => {
         if (!obj.isMesh) return;
-        // Skip floor, ceiling, decals (too thin, too large or too low/high)
         if (!obj.geometry) return;
+        // Respect les flags explicites posés côté createTable/NPC/etc.
+        // Remonte aussi la hiérarchie pour chercher un ancêtre marqué noCollide
+        let ancestor = obj;
+        while (ancestor) {
+          if (ancestor.userData && ancestor.userData.noCollide) return;
+          ancestor = ancestor.parent;
+        }
         obj.updateWorldMatrix(true, false);
         tmpBox.setFromObject(obj);
         const sizeY = tmpBox.max.y - tmpBox.min.y;
         const sizeX = tmpBox.max.x - tmpBox.min.x;
         const sizeZ = tmpBox.max.z - tmpBox.min.z;
-        // Skip ultra-flat things (floor, carpet, decals) and sky-high props
-        if (sizeY < 0.2) return;
-        if (tmpBox.min.y > 2.2) return;      // only objects reaching below chest level block
-        if (tmpBox.max.y < 0.3) return;      // skip very low ground props
-        // Skip extremely large meshes (walls/ceiling) — they'd trap us everywhere
+        // Skip ultra-plat (sols, tapis, decals)
+        if (sizeY < 0.25) return;
+        // Skip ce qui est au-dessus du torse (lustres, enseignes, plafond)
+        if (tmpBox.min.y > 1.6) return;
+        // Skip ce qui est au ras du sol
+        if (tmpBox.max.y < 0.3) return;
+        // Skip murs/plafonds/sols gigantesques (ils bloqueraient partout)
         if (sizeX > 40 || sizeZ > 40) return;
-        // Skip tiny things (cards, chips, bullets…) to keep the list short
-        if (sizeX < 0.15 && sizeZ < 0.15) return;
+        // Skip plateaux de tables : larges mais fins en hauteur (sizeY < 0.4 et très large)
+        if (sizeY < 0.4 && (sizeX > 1.5 || sizeZ > 1.5)) return;
+        // Skip tout petit (cartes, balles, chips, jetons)
+        if (sizeX < 0.25 && sizeZ < 0.25) return;
         colliders.push({
           minX: tmpBox.min.x - PLAYER_RADIUS,
           maxX: tmpBox.max.x + PLAYER_RADIUS,
@@ -2901,7 +2914,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
 
       // Proximité zones
       let closest = null;
-      let closestDist = 3;
+      let closestDist = 4.2; // rayon proximité (augmenté pour que le bouton apparaisse même à distance)
       interactZones.forEach((zone) => {
         const worldPos = new THREE.Vector3();
         zone.getWorldPosition(worldPos);
