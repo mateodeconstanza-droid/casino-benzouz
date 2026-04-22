@@ -62,21 +62,27 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
     const winNum = ROULETTE_NUMBERS[Math.floor(Math.random() * ROULETTE_NUMBERS.length)];
     const idx = ROULETTE_NUMBERS.indexOf(winNum);
     const segmentAngle = 360 / ROULETTE_NUMBERS.length;
-    
+
     // Roue tourne dans un sens, bille dans l'autre
     const wheelSpinTurns = 4 + Math.random() * 2; // 4-6 tours pour la roue
     const wheelTarget = 360 * wheelSpinTurns;
-    setWheelRotation(prev => prev + wheelTarget);
-    
-    // Animation de la bille : au MOINS 6 tours dans le sens inverse
+    const currentWheelRotation = wheelRotation; // capture l'angle AVANT mise à jour
+    const newWheelRotation = currentWheelRotation + wheelTarget;
+    setWheelRotation(newWheelRotation);
+
+    // Animation de la bille : tombe EXACTEMENT sur le numéro gagnant
+    // Repère visuel :
+    //   - Les numéros sont dessinés à l'angle monde : idx*segmentAngle - 90 + wheelRotation
+    //     (centre du secteur : idx*segmentAngle + segmentAngle/2 - 90 + wheelRotation)
+    //   - La bille est dessinée à cos/sin((ballAngle - 90) deg)
+    //   - Donc pour que la bille soit au centre du secteur idx :
+    //       ballAngle ≡ idx*segmentAngle + segmentAngle/2 + wheelRotation (mod 360)
     const ballStart = Date.now();
     const duration = 7000; // 7 secondes pour une bille qui roule vraiment
-    const ballTurns = 6 + Math.random() * 2; // 6-8 tours
-    // Angle final dans le repère monde : doit pointer le numéro gagnant (vers le haut, -90)
-    // Mais comme la roue tourne aussi, on calcule l'angle que la bille doit avoir dans le repère terre
-    // quand le numéro aura atteint le haut
-    const ballFinalAngle = -90 - (idx * segmentAngle + segmentAngle / 2) + wheelTarget;
-    const totalBallRotation = -360 * ballTurns + ballFinalAngle;
+    const ballTurns = 6 + Math.floor(Math.random() * 3); // 6-8 tours entiers
+    const ballFinalAngle = idx * segmentAngle + segmentAngle / 2 + newWheelRotation;
+    // La bille tourne dans le sens inverse (négatif) puis s'arrête sur l'angle cible
+    const totalBallRotation = ballFinalAngle - 360 * ballTurns;
     
     const animate = () => {
       const elapsed = Date.now() - ballStart;
@@ -85,21 +91,22 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
       const eased = 1 - Math.pow(1 - progress, 4);
       
       const currentAngle = totalBallRotation * eased;
-      
-      // Petits rebonds sur les déflecteurs en fin d'animation
+
+      // Petits rebonds sur les déflecteurs — réduits pour ne pas décaler visuellement
+      // du numéro gagnant (amplitude < 0.8° vs 9.7° de segment)
       let bumpOffset = 0;
-      if (progress > 0.85) {
-        const bumpPhase = (progress - 0.85) / 0.15;
-        bumpOffset = Math.sin(bumpPhase * Math.PI * 8) * (1 - bumpPhase) * 2;
+      if (progress > 0.9) {
+        const bumpPhase = (progress - 0.9) / 0.1;
+        bumpOffset = Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 0.5;
       }
       setBallAngle(currentAngle + bumpOffset);
       
       // Rayon: la bille descend en spirale - du bord (180) au numéro (130)
       // Avec de petits soubresauts en fin
       let radius = 180 - (180 - 130) * eased;
-      if (progress > 0.85) {
-        const bumpPhase = (progress - 0.85) / 0.15;
-        radius += Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 4;
+      if (progress > 0.9) {
+        const bumpPhase = (progress - 0.9) / 0.1;
+        radius += Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 3;
       }
       setBallRadius(radius);
       
@@ -321,12 +328,12 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
               }} />
             )}
             
-            {/* Bille finale (posée sur le numéro) */}
+            {/* Bille finale (posée au centre du secteur gagnant) */}
             {winningNumber !== null && !spinning && (
               <div style={{
                 position: 'absolute',
-                left: 160 + 130 * Math.cos((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) - 90 + wheelRotation) * Math.PI / 180),
-                top: 160 + 130 * Math.sin((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) - 90 + wheelRotation) * Math.PI / 180),
+                left: 160 + 130 * Math.cos((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
+                top: 160 + 130 * Math.sin((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
                 width: 14, height: 14,
                 marginLeft: -7, marginTop: -7,
                 borderRadius: '50%',

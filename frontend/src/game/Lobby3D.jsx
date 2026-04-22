@@ -2559,6 +2559,9 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       scene.traverse((obj) => {
         if (!obj.isMesh) return;
         if (!obj.geometry) return;
+        // Skip les meshes invisibles (zones de proximité, déclencheurs, etc.)
+        if (obj.visible === false) return;
+        if (obj.material && obj.material.visible === false) return;
         // Respect les flags explicites posés côté createTable/NPC/etc.
         // Remonte aussi la hiérarchie pour chercher un ancêtre marqué noCollide
         let ancestor = obj;
@@ -2730,8 +2733,9 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
       }
 
       // ===== Animation s'asseoir près des tables de jeu =====
-      // Interpolation de la hauteur de caméra: 1.7 debout → 1.05 assis
-      camTargetY = SIT_ZONES.has(nearZoneRef.current) ? 1.05 : 1.7;
+      // Désactivée en lobby : l'animation "sit" n'est déclenchée que quand le
+      // joueur ouvre réellement le mini-jeu (pas juste en passant à côté).
+      camTargetY = 1.7;
       camY += (camTargetY - camY) * 0.12;
       camera.position.y = camY;
 
@@ -2947,14 +2951,13 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
         // Léger balancement des bras/jambes si le joueur bouge
         const isMoving = keysRef.current.forward || keysRef.current.backward || keysRef.current.left || keysRef.current.right;
         const t = performance.now() * 0.008;
-        const sitting = SIT_ZONES.has(nearZoneRef.current);
-        const swing = (isMoving && !sitting) ? Math.sin(t) * 0.3 : 0;
+        const swing = isMoving ? Math.sin(t) * 0.3 : 0;
         if (playerAvatar.userData.leftArm)  playerAvatar.userData.leftArm.rotation.x = swing;
         if (playerAvatar.userData.rightArm) playerAvatar.userData.rightArm.rotation.x = -swing;
-        if (playerAvatar.userData.leftLeg)  playerAvatar.userData.leftLeg.rotation.x = sitting ? -Math.PI / 2 : -swing;
-        if (playerAvatar.userData.rightLeg) playerAvatar.userData.rightLeg.rotation.x = sitting ? -Math.PI / 2 : swing;
-        // Abaisser l'avatar quand assis
-        playerAvatar.position.y = sitting ? -0.55 : 0;
+        if (playerAvatar.userData.leftLeg)  playerAvatar.userData.leftLeg.rotation.x = -swing;
+        if (playerAvatar.userData.rightLeg) playerAvatar.userData.rightLeg.rotation.x = swing;
+        // Avatar toujours au sol (plus de baisse auto près des tables)
+        playerAvatar.position.y = 0;
 
         // Recule la caméra derrière l'avatar pour le rendu en vue TPS
         // On crée une caméra "virtuelle" en clonant temporairement la position
