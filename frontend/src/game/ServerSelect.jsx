@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchServers } from '@/game/multiplayer';
+import { fetchServers, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
 
 // Écran de sélection de mode : Solo ou l'un des 2 serveurs en ligne.
 const ServerSelect = ({ onChoose, casino }) => {
@@ -7,10 +7,11 @@ const ServerSelect = ({ onChoose, casino }) => {
     { id: 'alpha', label: 'Alpha', region: 'EU West', maxPlayers: 30, online: 0 },
     { id: 'beta', label: 'Beta', region: 'US East', maxPlayers: 30, online: 0 },
   ]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(MULTIPLAYER_AVAILABLE);
+  const [error, setError] = useState(MULTIPLAYER_AVAILABLE ? null : "Multijoueur indisponible sur cette plateforme (pas de backend). Joue en Solo.");
 
   const load = async () => {
+    if (!MULTIPLAYER_AVAILABLE) { setLoading(false); return; }
     const res = await fetchServers();
     if (res?.servers) {
       setServers(res.servers);
@@ -23,6 +24,7 @@ const ServerSelect = ({ onChoose, casino }) => {
 
   useEffect(() => {
     load();
+    if (!MULTIPLAYER_AVAILABLE) return;
     const iv = setInterval(load, 5000); // refresh online count
     return () => clearInterval(iv);
   }, []);
@@ -92,37 +94,44 @@ const ServerSelect = ({ onChoose, casino }) => {
           {/* Serveurs en ligne */}
           {servers.map((s) => {
             const full = s.online >= s.maxPlayers;
+            const disabled = !MULTIPLAYER_AVAILABLE || full;
             return (
               <button
                 key={s.id}
                 data-testid={`server-choose-${s.id}`}
-                onClick={() => !full && choose('online', s.id)}
-                disabled={full}
+                onClick={() => !disabled && choose('online', s.id)}
+                disabled={disabled}
                 style={{
                   background: 'linear-gradient(180deg, #2a0828 0%, #0a0814 100%)',
-                  border: `2px solid ${full ? '#555' : '#e00e1a'}`,
-                  borderRadius: 12, padding: 20, cursor: full ? 'not-allowed' : 'pointer',
+                  border: `2px solid ${disabled ? '#555' : '#e00e1a'}`,
+                  borderRadius: 12, padding: 20, cursor: disabled ? 'not-allowed' : 'pointer',
                   color: '#fff', textAlign: 'left',
-                  fontFamily: 'inherit', opacity: full ? 0.5 : 1,
+                  fontFamily: 'inherit', opacity: disabled ? 0.4 : 1,
                   transition: 'transform .15s',
                 }}
-                onMouseEnter={(e) => !full && (e.currentTarget.style.transform = 'translateY(-3px)')}
+                onMouseEnter={(e) => !disabled && (e.currentTarget.style.transform = 'translateY(-3px)')}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <div style={{ fontSize: 26, marginBottom: 6 }}>🌐</div>
-                <div style={{ color: '#ff5565', fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+                <div style={{ color: disabled ? '#888' : '#ff5565', fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
                   SERVEUR {s.label.toUpperCase()}
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
                   {s.region}<br />
-                  Joueurs connectés : <b style={{ color: '#7fff7f' }}>{s.online}</b> / {s.maxPlayers}<br />
-                  {full ? '⚠️ Serveur complet' : 'PvP activé · Chat public'}
+                  {MULTIPLAYER_AVAILABLE ? (
+                    <>Joueurs connectés : <b style={{ color: '#7fff7f' }}>{s.online}</b> / {s.maxPlayers}<br /></>
+                  ) : (
+                    <>Indisponible<br /></>
+                  )}
+                  {full ? '⚠️ Serveur complet' : MULTIPLAYER_AVAILABLE ? 'PvP activé · Chat public' : 'Nécessite un backend en ligne'}
                 </div>
-                <div style={{
-                  marginTop: 10, display: 'inline-block',
-                  padding: '3px 10px', background: '#e00e1a', borderRadius: 4,
-                  fontSize: 11, fontWeight: 700, letterSpacing: 1,
-                }}>● EN LIGNE</div>
+                {MULTIPLAYER_AVAILABLE && !full && (
+                  <div style={{
+                    marginTop: 10, display: 'inline-block',
+                    padding: '3px 10px', background: '#e00e1a', borderRadius: 4,
+                    fontSize: 11, fontWeight: 700, letterSpacing: 1,
+                  }}>● EN LIGNE</div>
+                )}
               </button>
             );
           })}

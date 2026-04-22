@@ -4,6 +4,9 @@
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
 const wsBase = BACKEND.replace(/^http/, 'ws');
 
+// Exporté pour que ServerSelect/Lobby sachent si le multi est disponible
+export const MULTIPLAYER_AVAILABLE = !!BACKEND;
+
 export class MPClient {
   constructor({ serverId, username, onMessage, onOpen, onClose }) {
     this.serverId = serverId;
@@ -18,6 +21,12 @@ export class MPClient {
 
   connect() {
     if (!this.serverId || !this.username) return;
+    if (!BACKEND) {
+      // Pas de backend configuré (déployé sur Vercel sans WS) : abandonner proprement
+      this.closed = true;
+      this.onClose && this.onClose();
+      return;
+    }
     const url = `${wsBase}/api/mp/ws/${encodeURIComponent(this.serverId)}/${encodeURIComponent(this.username)}`;
     try {
       this.ws = new WebSocket(url);
@@ -74,6 +83,7 @@ export class MPClient {
 }
 
 export const fetchServers = async () => {
+  if (!BACKEND) return null;
   try {
     const res = await fetch(`${BACKEND}/api/mp/servers`);
     if (!res.ok) return null;

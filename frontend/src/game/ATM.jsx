@@ -38,6 +38,7 @@ const ATM = ({ profile, balance, setBalance, saveProfile, setProfile, onClose, c
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nbLeft, lastCycleStart]);
 
   const handleWithdraw = async () => {
