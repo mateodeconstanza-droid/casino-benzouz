@@ -115,6 +115,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
   const [toast, setToast] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [liveOnly, setLiveOnly] = useState(false);
+  const [slipCollapsed, setSlipCollapsed] = useState(false); // repli du panier
 
   // Charger historique + slip persistés
   useEffect(() => {
@@ -446,26 +447,57 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
 
         {/* Betslip panneau de droite */}
         <div style={{
-          width: 340, background: '#fff', borderLeft: `1px solid ${BORDER}`,
+          width: slipCollapsed ? 56 : 340,
+          background: '#fff', borderLeft: `1px solid ${BORDER}`,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          transition: 'width .25s ease',
         }}>
           <div style={{
-            background: DARK, color: '#fff', padding: '12px 16px',
+            background: DARK, color: '#fff', padding: slipCollapsed ? '12px 8px' : '12px 16px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>🎟️ Panier ({slip.length})</div>
-            {slip.length > 0 && (
-              <button
-                data-testid="benzbet-clear-slip"
-                onClick={clearSlip}
-                style={{
-                  background: 'transparent', color: '#fff', border: '1px solid #fff',
-                  borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 11,
-                }}
-              >Vider</button>
+            cursor: slipCollapsed ? 'pointer' : 'default',
+          }}
+          onClick={slipCollapsed ? () => setSlipCollapsed(false) : undefined}
+          >
+            {slipCollapsed ? (
+              <div
+                data-testid="benzbet-slip-expand"
+                style={{ width: '100%', textAlign: 'center', fontWeight: 800, fontSize: 14 }}
+                title="Agrandir le panier"
+              >
+                🎟️<br/>
+                <span style={{ fontSize: 11, color: '#ffd700' }}>{slip.length}</span>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>🎟️ Panier ({slip.length})</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {slip.length > 0 && (
+                    <button
+                      data-testid="benzbet-clear-slip"
+                      onClick={clearSlip}
+                      style={{
+                        background: 'transparent', color: '#fff', border: '1px solid #fff',
+                        borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 11,
+                      }}
+                    >Vider</button>
+                  )}
+                  <button
+                    data-testid="benzbet-slip-collapse"
+                    onClick={() => setSlipCollapsed(true)}
+                    title="Réduire le panier"
+                    style={{
+                      background: 'transparent', color: '#fff', border: '1px solid #fff',
+                      borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 11,
+                    }}
+                  >›</button>
+                </div>
+              </>
             )}
           </div>
 
+          {/* Contenu du panier, masqué quand réduit */}
+          {!slipCollapsed && (<>
           {/* Toggle simple / combiné */}
           {slip.length > 1 && (
             <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
@@ -601,6 +633,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
               >PLACER LE PARI</button>
             </div>
           )}
+          </>)}
         </div>
       </div>
 

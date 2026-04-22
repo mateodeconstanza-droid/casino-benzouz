@@ -11,7 +11,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
   const [winningNumber, setWinningNumber] = useState(null);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [ballAngle, setBallAngle] = useState(0);
-  const [ballRadius, setBallRadius] = useState(150);
+  const [ballRadius, setBallRadius] = useState(140);
   const [ballDropped, setBallDropped] = useState(false);
   const [message, setMessage] = useState('');
   const [messageColor, setMessageColor] = useState('#ffd700');
@@ -102,8 +102,10 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
       }
       setBallAngle(currentBall + bumpOffset);
 
-      // Rayon : la bille descend en spirale du bord (180) vers la piste des numéros (130)
-      let radius = 180 - (180 - 130) * eased;
+      // Rayon : la bille descend en spirale du bord (140) vers la piste des numéros (105)
+      // Les numéros sont dessinés à r=105 dans le repère outer (SVG offset 30 + 105 * cos depuis 130)
+      // donc la bille à r=105 tombe EXACTEMENT au centre du numéro.
+      let radius = 140 - (140 - 105) * eased;
       if (progress > 0.92) {
         const bumpPhase = (progress - 0.92) / 0.08;
         radius += Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 2;
@@ -115,7 +117,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
       } else {
         // Snap final : bille posée EXACTEMENT au centre du secteur
         setBallAngle(ballEnd);
-        setBallRadius(130);
+        setBallRadius(105);
         setWheelRotation(wheelEnd);
         setWinningNumber(winNum);
         setLastResults(prev => [winNum, ...prev].slice(0, 8));
@@ -183,7 +185,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
 
   const nextSpin = () => {
     setWinningNumber(null); setMessage('');
-    setBallRadius(180);
+    setBallRadius(140);
   };
 
   const lost = winningNumber !== null && message.includes('PERDU');
@@ -328,7 +330,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
                 background: 'radial-gradient(circle at 30% 30%, #fff, #ccc 50%, #888)',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.8), inset -2px -2px 3px rgba(0,0,0,0.4)',
                 zIndex: 10,
-                transition: 'left 0.05s linear, top 0.05s linear',
+                transition: 'none', // animation gérée par requestAnimationFrame → pas de lag CSS
               }} />
             )}
             
@@ -336,8 +338,8 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
             {winningNumber !== null && !spinning && (
               <div style={{
                 position: 'absolute',
-                left: 160 + 130 * Math.cos((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
-                top: 160 + 130 * Math.sin((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
+                left: 160 + 105 * Math.cos((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
+                top: 160 + 105 * Math.sin((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
                 width: 14, height: 14,
                 marginLeft: -7, marginTop: -7,
                 borderRadius: '50%',
