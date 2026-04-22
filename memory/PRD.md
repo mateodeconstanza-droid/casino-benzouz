@@ -48,6 +48,21 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Arbalète + UZI** : projectiles visibles, dégâts simples
 - **NPCs améliorés** : balancement jambes/bras calé sur la vitesse de déplacement
 - **Éclairage renforcé** sur la roulette (SpotLight 5 unités) pour mieux voir les couleurs
+- **BenzBet v2 — Refonte complète façon vrai site de paris sportifs** :
+  - Chrome de navigateur : boutons ●●●, barre d'URL `https://www.benzbet.fr/paris-sportifs/<sport>` qui change selon le sport actif
+  - Thème blanc/rouge (primary #e00e1a)
+  - Logo **BENZ[BET]** style vrai bookmaker
+  - Nav horizontale 8 sports : Football, Basket NBA, Tennis ATP, MMA/UFC, Hockey NHL, Rugby, Formule 1, Esport
+  - 12 matches par sport avec noms réalistes (Real Madrid, Lakers, Sinner, Jon Jones, Panthers, Nouvelle-Zélande, Verstappen, NAVI…)
+  - **Moteur de cotes intelligent** basé sur ELO secret par équipe + marge bookmaker 6% + avantage domicile (foot/rugby/hockey). Cotes bornées 1.02 → 50 comme les vrais bookmakers.
+  - `resolveMatch()` utilise les VRAIES probabilités (pas les cotes inflées) — aucun bug de paiement
+  - **Panier multi-sports** : ajout/retrait de paris, modes Simple / Combiné (switch auto à partir de 2 paris)
+  - Cote combinée = produit des cotes
+  - Calcul en direct : Mise × Cote totale = Gain potentiel
+  - Quick-stake : 100 / 500 / 2k / 10k
+  - **Historique persistant** (localStorage) avec statut won/partial/lost + replay du détail
+  - Toast résultat animé (vert gain / rouge perte)
+  - Panier + historique persistants via localStorage (`benzbet:<user>:slip` et `:history`)
 
 ## Architecture
 - Stack: React (CRA + CRACO) + Three.js
@@ -57,11 +72,13 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - Entry: `/app/frontend/src/App.js` → `<Casino />`
 
 ## Next Tasks / Prioritized Backlog
+- **P1** : 🔊 Sons d'armes (bazooka, laser, throwknife) + sons d'ambiance (foule casino, jetons, cartes).
+- **P1** : 🎮 Mode Multijoueur Poker local — plusieurs joueurs sur le même appareil, tour-par-tour Hold'em autour de la table 3D (chaises et animations déjà en place).
 - **P2** : Découper `Lobby3D.jsx` (>4000 lignes) en hooks : `useMovement`, `useCollisions`, `useSceneSetup`, `useWeapons`, `useRoulette3D`, `useNPCs`.
-- **P2** : Exposer `window.__testHooks = { teleportTo, setNearZone, fireAt, triggerExplosionAt }` pour permettre la vérification programmatique des animations 3D en headless.
+- **P2** : Exposer `window.__testHooks` (teleport, fire, setNearZone) pour tests automatisés en headless.
 - **P2** : Réel feedback visuel de l'AoE bazooka sur les NPCs touchés (actuellement seulement kill animation).
-- **P3** : Effets de son pour les armes (bazooka, laser, throwknife).
-- **P3** : Progression des quêtes hooks dans les actions principales (déjà partiellement fait).
+- **P3** : Progression des quêtes hooks dans les actions BenzBet (compter les paris gagnés).
+- **P3** : Mode Live (cotes qui évoluent pendant le match).
 
 ## Core Requirements (Static)
 - Pas d'auth serveur (profils locaux)

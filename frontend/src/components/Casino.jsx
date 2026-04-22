@@ -41,6 +41,15 @@ export default function Casino() {
   const [bloodStreams, setBloodStreams] = useState([]);
   const [currentDealer, setCurrentDealer] = useState(DEALER_PROFILES[0]);
 
+  // Test hook: expose BenzBet open for E2E testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__benzbetOpen = () => setShowBenzBet(true);
+      window.__benzbetClose = () => setShowBenzBet(false);
+    }
+  }, []);
+
+
   // Charger profils
   useEffect(() => {
     (async () => {
@@ -513,6 +522,13 @@ export default function Casino() {
           onToggleVehicle={handleEquipVehicle}
         />
       )}
+
+      {/* Dev hooks pour tests automatisés */}
+      {screen === 'lobby' && (
+        <script dangerouslySetInnerHTML={{ __html: '' }} />
+      )}
+      {/* eslint-disable-next-line */}
+      {(() => { if (typeof window !== 'undefined') { window.__openBenzBet = () => setShowBenzBet(true); window.__closeBenzBet = () => setShowBenzBet(false); } return null; })()}
 
       {screen === 'blackjack' && <BlackjackGame {...gameProps} />}
       {screen === 'roulette' && <RouletteGame {...gameProps} />}

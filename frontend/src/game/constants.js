@@ -238,85 +238,211 @@ export const CASINO_3D_COLORS = {
 };
 
 // ============== BENZBET - PARIS SPORTIFS ==============
-// ============== BASES DE DONNÉES SPORTIVES ==============
-// Top 20 clubs européens (foot)
+// ============== BASES DE DONNÉES SPORTIVES AVEC FORCES RÉALISTES ==============
+// Chaque équipe/joueur a un ELO secret (50..100) utilisé pour calculer les vraies
+// probabilités. Les cotes affichées dérivent de ces probas + marge bookmaker 6%.
+
+// FOOTBALL — top clubs européens
 export const FOOT_CLUBS = [
-  'Real Madrid', 'Man City', 'Arsenal', 'Liverpool', 'Barcelone',
-  'Bayern Munich', 'PSG', 'Inter Milan', 'Atlético Madrid', 'Chelsea',
-  'Juventus', 'Milan AC', 'Borussia Dortmund', 'Tottenham', 'Naples',
-  'Atalanta', 'Benfica', 'Porto', 'Leverkusen', 'Aston Villa',
+  { name: 'Real Madrid', elo: 96 }, { name: 'Man City', elo: 95 }, { name: 'Bayern Munich', elo: 93 },
+  { name: 'PSG', elo: 92 }, { name: 'Liverpool', elo: 91 }, { name: 'Arsenal', elo: 90 },
+  { name: 'Barcelone', elo: 90 }, { name: 'Inter Milan', elo: 88 }, { name: 'Atlético Madrid', elo: 87 },
+  { name: 'Chelsea', elo: 85 }, { name: 'Juventus', elo: 84 }, { name: 'Milan AC', elo: 84 },
+  { name: 'Naples', elo: 83 }, { name: 'Leverkusen', elo: 82 }, { name: 'Borussia Dortmund', elo: 82 },
+  { name: 'Tottenham', elo: 81 }, { name: 'Atalanta', elo: 79 }, { name: 'Benfica', elo: 78 },
+  { name: 'Porto', elo: 77 }, { name: 'Aston Villa', elo: 76 }, { name: 'Man United', elo: 78 },
+  { name: 'Newcastle', elo: 76 }, { name: 'AS Roma', elo: 76 }, { name: 'OM', elo: 74 },
+  { name: 'Lyon', elo: 72 }, { name: 'Monaco', elo: 73 }, { name: 'Lille', elo: 71 },
+  { name: 'Lazio', elo: 73 }, { name: 'Feyenoord', elo: 72 }, { name: 'RB Leipzig', elo: 79 },
 ];
 
-// 30 équipes NBA
+// BASKETBALL — équipes NBA avec ELO (champions récents > milieu de tableau)
 export const NBA_TEAMS = [
-  'Lakers', 'Celtics', 'Warriors', 'Bulls', 'Nets',
-  'Heat', 'Knicks', 'Bucks', 'Nuggets', 'Suns',
-  'Mavericks', 'Clippers', 'Timberwolves', 'Grizzlies', 'Kings',
-  'Pelicans', 'Cavaliers', 'Hawks', 'Raptors', '76ers',
-  'Magic', 'Pacers', 'Wizards', 'Rockets', 'Thunder',
-  'Jazz', 'Spurs', 'Pistons', 'Hornets', 'Blazers',
+  { name: 'Celtics', elo: 93 }, { name: 'Nuggets', elo: 91 }, { name: 'Thunder', elo: 90 },
+  { name: 'Mavericks', elo: 88 }, { name: 'Timberwolves', elo: 88 }, { name: 'Bucks', elo: 86 },
+  { name: 'Suns', elo: 84 }, { name: 'Knicks', elo: 85 }, { name: '76ers', elo: 84 },
+  { name: 'Heat', elo: 82 }, { name: 'Warriors', elo: 82 }, { name: 'Lakers', elo: 80 },
+  { name: 'Clippers', elo: 81 }, { name: 'Kings', elo: 78 }, { name: 'Pacers', elo: 82 },
+  { name: 'Cavaliers', elo: 85 }, { name: 'Pelicans', elo: 76 }, { name: 'Grizzlies', elo: 75 },
+  { name: 'Bulls', elo: 70 }, { name: 'Hawks', elo: 72 }, { name: 'Magic', elo: 77 },
+  { name: 'Rockets', elo: 76 }, { name: 'Nets', elo: 68 }, { name: 'Raptors', elo: 69 },
+  { name: 'Jazz', elo: 66 }, { name: 'Spurs', elo: 68 }, { name: 'Blazers', elo: 64 },
+  { name: 'Pistons', elo: 62 }, { name: 'Hornets', elo: 63 }, { name: 'Wizards', elo: 60 },
 ];
 
-// Top 50 tennis mondial
+// TENNIS — Top 40 ATP avec ELO
 export const TENNIS_PLAYERS = [
-  'Sinner', 'Alcaraz', 'Zverev', 'Djokovic', 'Medvedev',
-  'Fritz', 'De Minaur', 'Rublev', 'Dimitrov', 'Hurkacz',
-  'Paul', 'Rune', 'Tsitsipas', 'Ruud', 'Shelton',
-  'Humbert', 'Khachanov', 'Tiafoe', 'Popyrin', 'Mensik',
-  'Berrettini', 'Arnaldi', 'Musetti', 'Korda', 'Bublik',
-  'Auger-Aliassime', 'Fils', 'Cobolli', 'Shapovalov', 'Davidovich',
-  'Cerundolo', 'Baez', 'Lehecka', 'Nakashima', 'Monfils',
-  'Jarry', 'Safiullin', 'Michelsen', 'McDonald', 'Giron',
-  'Goffin', 'Struff', 'Sonego', 'Nishikori', 'Coric',
-  'Griekspoor', 'Van de Zandschulp', 'Kotov', 'Altmaier', 'Djere',
+  { name: 'Sinner', elo: 95 }, { name: 'Alcaraz', elo: 94 }, { name: 'Djokovic', elo: 91 },
+  { name: 'Zverev', elo: 88 }, { name: 'Medvedev', elo: 85 }, { name: 'Fritz', elo: 84 },
+  { name: 'De Minaur', elo: 81 }, { name: 'Rublev', elo: 82 }, { name: 'Ruud', elo: 82 },
+  { name: 'Dimitrov', elo: 80 }, { name: 'Hurkacz', elo: 80 }, { name: 'Tsitsipas', elo: 79 },
+  { name: 'Rune', elo: 78 }, { name: 'Paul', elo: 77 }, { name: 'Musetti', elo: 77 },
+  { name: 'Shelton', elo: 76 }, { name: 'Humbert', elo: 74 }, { name: 'Khachanov', elo: 73 },
+  { name: 'Tiafoe', elo: 75 }, { name: 'Popyrin', elo: 72 }, { name: 'Mensik', elo: 71 },
+  { name: 'Berrettini', elo: 76 }, { name: 'Korda', elo: 72 }, { name: 'Bublik', elo: 71 },
+  { name: 'Auger-Aliassime', elo: 75 }, { name: 'Fils', elo: 73 }, { name: 'Cobolli', elo: 70 },
+  { name: 'Shapovalov', elo: 71 }, { name: 'Cerundolo', elo: 70 }, { name: 'Baez', elo: 69 },
+  { name: 'Lehecka', elo: 72 }, { name: 'Nakashima', elo: 69 }, { name: 'Monfils', elo: 68 },
 ];
 
-// Génère 8 matchs aléatoires pour un sport donné
-export const generateMatches = (sport) => {
-  const matches = [];
-  let pool;
-  if (sport === 'foot') pool = FOOT_CLUBS;
-  else if (sport === 'nba') pool = NBA_TEAMS;
-  else pool = TENNIS_PLAYERS;
-  
-  const sportLabel = sport === 'foot' ? '⚽ Football' 
-                   : sport === 'nba' ? '🏀 Basket' 
-                   : '🎾 Tennis';
-  
-  const used = new Set();
-  for (let i = 0; i < 8; i++) {
-    let h, a;
-    let attempts = 0;
-    do {
-      h = pool[Math.floor(Math.random() * pool.length)];
-      a = pool[Math.floor(Math.random() * pool.length)];
-      attempts++;
-    } while ((h === a || used.has(`${h}-${a}`) || used.has(`${a}-${h}`)) && attempts < 20);
-    used.add(`${h}-${a}`);
-    
-    // Cotes réalistes (favorite un peu avant)
-    const fav = Math.random() < 0.5;
-    const base1 = 1.3 + Math.random() * 1.2;
-    const base2 = 2.5 + Math.random() * 3;
-    const nullOdds = sport === 'nba' ? 20 + Math.random() * 15 
-                   : sport === 'tennis' ? 30 + Math.random() * 20 
-                   : 3 + Math.random() * 1.5;
-    
-    matches.push({
-      sport: sportLabel,
-      home: h,
-      away: a,
-      oddsH: fav ? +base1.toFixed(2) : +base2.toFixed(2),
-      oddsN: +nullOdds.toFixed(2),
-      oddsA: fav ? +base2.toFixed(2) : +base1.toFixed(2),
-    });
-  }
-  return matches;
+// MMA — fighters UFC
+export const MMA_FIGHTERS = [
+  { name: 'Jon Jones', elo: 96 }, { name: 'Islam Makhachev', elo: 94 }, { name: 'Alex Pereira', elo: 91 },
+  { name: 'Ilia Topuria', elo: 90 }, { name: 'Leon Edwards', elo: 87 }, { name: 'Dricus du Plessis', elo: 88 },
+  { name: 'Tom Aspinall', elo: 89 }, { name: 'Merab Dvalishvili', elo: 87 }, { name: 'Alexandre Pantoja', elo: 85 },
+  { name: 'Max Holloway', elo: 85 }, { name: 'Charles Oliveira', elo: 83 }, { name: 'Sean O\'Malley', elo: 82 },
+  { name: 'Dustin Poirier', elo: 80 }, { name: 'Khamzat Chimaev', elo: 88 }, { name: 'Belal Muhammad', elo: 82 },
+  { name: 'Justin Gaethje', elo: 81 }, { name: 'Kamaru Usman', elo: 83 }, { name: 'Robert Whittaker', elo: 82 },
+  { name: 'Ciryl Gane', elo: 82 }, { name: 'Alex Volkanovski', elo: 84 }, { name: 'Conor McGregor', elo: 78 },
+  { name: 'Paulo Costa', elo: 76 }, { name: 'Sean Strickland', elo: 80 }, { name: 'Stipe Miocic', elo: 75 },
+];
+
+// HOCKEY — équipes NHL
+export const NHL_TEAMS = [
+  { name: 'Panthers', elo: 93 }, { name: 'Oilers', elo: 91 }, { name: 'Rangers', elo: 90 },
+  { name: 'Stars', elo: 89 }, { name: 'Avalanche', elo: 88 }, { name: 'Maple Leafs', elo: 86 },
+  { name: 'Canucks', elo: 85 }, { name: 'Hurricanes', elo: 86 }, { name: 'Bruins', elo: 84 },
+  { name: 'Golden Knights', elo: 83 }, { name: 'Jets', elo: 87 }, { name: 'Lightning', elo: 84 },
+  { name: 'Kings', elo: 80 }, { name: 'Capitals', elo: 81 }, { name: 'Predators', elo: 76 },
+  { name: 'Wild', elo: 75 }, { name: 'Devils', elo: 76 }, { name: 'Islanders', elo: 74 },
+  { name: 'Flyers', elo: 70 }, { name: 'Senators', elo: 73 }, { name: 'Sabres', elo: 70 },
+  { name: 'Penguins', elo: 75 }, { name: 'Red Wings', elo: 73 }, { name: 'Canadiens', elo: 70 },
+  { name: 'Ducks', elo: 66 }, { name: 'Sharks', elo: 62 }, { name: 'Blackhawks', elo: 64 },
+  { name: 'Coyotes', elo: 66 }, { name: 'Blues', elo: 72 }, { name: 'Flames', elo: 71 },
+];
+
+// RUGBY — nations & clubs
+export const RUGBY_TEAMS = [
+  { name: 'Nouvelle-Zélande', elo: 95 }, { name: 'Afrique du Sud', elo: 94 }, { name: 'Irlande', elo: 93 },
+  { name: 'France', elo: 92 }, { name: 'Angleterre', elo: 88 }, { name: 'Australie', elo: 86 },
+  { name: 'Écosse', elo: 84 }, { name: 'Argentine', elo: 84 }, { name: 'Fidji', elo: 82 },
+  { name: 'Italie', elo: 75 }, { name: 'Pays de Galles', elo: 80 }, { name: 'Géorgie', elo: 74 },
+  { name: 'Toulouse', elo: 91 }, { name: 'Leinster', elo: 90 }, { name: 'La Rochelle', elo: 88 },
+  { name: 'Bordeaux', elo: 86 }, { name: 'Racing 92', elo: 85 }, { name: 'Stade Français', elo: 82 },
+  { name: 'Clermont', elo: 80 }, { name: 'Lyon LOU', elo: 79 },
+];
+
+// FORMULE 1 — pilotes
+export const F1_DRIVERS = [
+  { name: 'Verstappen', elo: 96 }, { name: 'Lando Norris', elo: 91 }, { name: 'Charles Leclerc', elo: 90 },
+  { name: 'Oscar Piastri', elo: 89 }, { name: 'Carlos Sainz', elo: 86 }, { name: 'George Russell', elo: 85 },
+  { name: 'Lewis Hamilton', elo: 86 }, { name: 'Fernando Alonso', elo: 82 }, { name: 'Sergio Pérez', elo: 78 },
+  { name: 'Pierre Gasly', elo: 74 }, { name: 'Nico Hülkenberg', elo: 73 }, { name: 'Esteban Ocon', elo: 72 },
+  { name: 'Yuki Tsunoda', elo: 72 }, { name: 'Alex Albon', elo: 71 }, { name: 'Daniel Ricciardo', elo: 69 },
+  { name: 'Lance Stroll', elo: 68 }, { name: 'Kevin Magnussen', elo: 67 }, { name: 'Logan Sargeant', elo: 58 },
+  { name: 'Zhou Guanyu', elo: 63 }, { name: 'Valtteri Bottas', elo: 66 },
+];
+
+// ESPORTS — équipes CS2 / LoL
+export const ESPORT_TEAMS = [
+  { name: 'NAVI', elo: 93 }, { name: 'FaZe Clan', elo: 91 }, { name: 'Vitality', elo: 92 },
+  { name: 'G2 Esports', elo: 90 }, { name: 'Team Spirit', elo: 89 }, { name: 'MOUZ', elo: 86 },
+  { name: 'Complexity', elo: 78 }, { name: 'Astralis', elo: 82 }, { name: 'Heroic', elo: 80 },
+  { name: 'Liquid', elo: 78 }, { name: 'T1', elo: 95 }, { name: 'Gen.G', elo: 90 },
+  { name: 'JDG', elo: 89 }, { name: 'BLG', elo: 88 }, { name: 'Hanwha Life', elo: 86 },
+  { name: 'Fnatic', elo: 84 }, { name: 'Cloud9', elo: 76 }, { name: '100 Thieves', elo: 72 },
+];
+
+export const BENZBET_SPORTS = [
+  { id: 'foot', label: 'Football', icon: '⚽', pool: FOOT_CLUBS, draw: true, leagues: ['Ligue des Champions', 'Premier League', 'Liga', 'Serie A', 'Bundesliga', 'Ligue 1'] },
+  { id: 'nba', label: 'Basket NBA', icon: '🏀', pool: NBA_TEAMS, draw: false, leagues: ['NBA Regular Season', 'NBA Playoffs'] },
+  { id: 'tennis', label: 'Tennis ATP', icon: '🎾', pool: TENNIS_PLAYERS, draw: false, leagues: ['Grand Chelem', 'ATP 1000', 'ATP 500'] },
+  { id: 'mma', label: 'MMA / UFC', icon: '🥊', pool: MMA_FIGHTERS, draw: false, leagues: ['UFC PPV', 'UFC Fight Night'] },
+  { id: 'hockey', label: 'Hockey NHL', icon: '🏒', pool: NHL_TEAMS, draw: false, leagues: ['NHL Regular', 'Stanley Cup'] },
+  { id: 'rugby', label: 'Rugby', icon: '🏉', pool: RUGBY_TEAMS, draw: true, leagues: ['Top 14', 'Tournoi des 6 Nations', 'Champions Cup'] },
+  { id: 'f1', label: 'Formule 1', icon: '🏎️', pool: F1_DRIVERS, draw: false, leagues: ['Grand Prix'] },
+  { id: 'esport', label: 'Esport', icon: '🎮', pool: ESPORT_TEAMS, draw: false, leagues: ['CS2 Major', 'LoL Worlds', 'BLAST Premier'] },
+];
+
+// ===== MOTEUR DE COTES INTELLIGENT =====
+// Normalise l'ELO en proba, applique l'avantage du terrain (foot/rugby),
+// calcule les cotes avec marge bookmaker de 6% (overround).
+const BOOKMAKER_MARGIN = 1.06;
+
+const probaFromElo = (eloA, eloB, homeAdvantage = 0) => {
+  // Formule ELO classique adaptée : P(A) = 1 / (1 + 10^((eloB - eloA) / 12))
+  const ratingA = eloA + homeAdvantage;
+  return 1 / (1 + Math.pow(10, (eloB - ratingA) / 12));
 };
 
-// Conservé pour compatibilité (BenzBet peut encore en utiliser par défaut)
-export const BENZBET_MATCHES = generateMatches('foot');
+// Génère 12 matchs réalistes pour un sport donné avec cotes intelligentes
+export const generateMatches = (sportId) => {
+  const sport = BENZBET_SPORTS.find(s => s.id === sportId);
+  if (!sport) return [];
+  const pool = sport.pool;
+  const out = [];
+  const used = new Set();
+  for (let i = 0; i < 12; i++) {
+    let a, b, tries = 0;
+    do {
+      a = pool[Math.floor(Math.random() * pool.length)];
+      b = pool[Math.floor(Math.random() * pool.length)];
+      tries++;
+    } while ((a.name === b.name || used.has(`${a.name}|${b.name}`) || used.has(`${b.name}|${a.name}`)) && tries < 50);
+    used.add(`${a.name}|${b.name}`);
 
+    const homeAdv = (sport.id === 'foot' || sport.id === 'rugby' || sport.id === 'hockey') ? 3 : 0;
+    const probH = probaFromElo(a.elo, b.elo, homeAdv);
+    const probA = 1 - probH;
+
+    let pH, pN, pA;
+    if (sport.draw) {
+      // Foot/Rugby : ~22-28% de nul selon l'écart ELO (plus d'écart = moins de nul)
+      const gap = Math.abs(a.elo - b.elo);
+      const drawShare = Math.max(0.15, 0.30 - gap * 0.008);
+      pN = drawShare;
+      pH = probH * (1 - drawShare);
+      pA = probA * (1 - drawShare);
+    } else {
+      pN = 0;
+      pH = probH;
+      pA = probA;
+    }
+
+    // Cote = (1 / proba) × marge bookmaker, bornée entre 1.02 et 50
+    const oddsH = +Math.min(50, Math.max(1.02, BOOKMAKER_MARGIN / pH)).toFixed(2);
+    const oddsA = +Math.min(50, Math.max(1.02, BOOKMAKER_MARGIN / pA)).toFixed(2);
+    const oddsN = sport.draw ? +Math.min(50, Math.max(1.02, BOOKMAKER_MARGIN / pN)).toFixed(2) : null;
+
+    // Horaire fictif entre 14h et 23h aujourd'hui
+    const hour = 14 + Math.floor(Math.random() * 9);
+    const min = Math.random() < 0.5 ? 0 : 30;
+    const kickoff = `${String(hour).padStart(2, '0')}h${String(min).padStart(2, '0')}`;
+    const league = sport.leagues[Math.floor(Math.random() * sport.leagues.length)];
+
+    out.push({
+      id: `${sport.id}-${i}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sportId: sport.id,
+      sportLabel: sport.label,
+      sportIcon: sport.icon,
+      league,
+      kickoff,
+      home: a.name, away: b.name,
+      homeElo: a.elo, awayElo: b.elo,
+      probH, probN: pN, probA,
+      oddsH, oddsN, oddsA,
+      hasDraw: sport.draw,
+    });
+  }
+  return out;
+};
+
+// Résout un match en utilisant les VRAIES probabilités (pas les cotes)
+export const resolveMatch = (match) => {
+  const r = Math.random();
+  if (match.hasDraw) {
+    if (r < match.probH) return 'H';
+    if (r < match.probH + match.probN) return 'N';
+    return 'A';
+  }
+  return r < match.probH ? 'H' : 'A';
+};
+
+// Clé storage : panier (slip) persistant
+export const BENZBET_SLIP_KEY = (name) => `benzbet:${name}:slip`;
+export const BENZBET_HISTORY_KEY = (name) => `benzbet:${name}:history`;
+// Conservé pour compatibilité
+export const BENZBET_MATCHES = generateMatches('foot');
 export const BENZBET_KEY = (name) => `benzbet:${name}:activeBet`;
 
 export const sportBtnStyle = (color) => ({
