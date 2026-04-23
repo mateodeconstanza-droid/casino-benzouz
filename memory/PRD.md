@@ -128,6 +128,21 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — LOT 4 Session 1 : Quartier extérieur 3D)
+- **Nouveau composant `/app/frontend/src/game/Street3D.jsx`** : scène Three.js outdoor avec ciel bleu + soleil + fog, 10 nuages qui dérivent en continu, 4 oiseaux qui volent en cercle avec battement d'ailes, route asphaltée + lignes blanches, trottoir, pelouse verte.
+- **Bâtiments 3D** :
+  - **Casino "BENZ ROYAL"** : corps beige 14×8×10 + toit rouge terracotta + enseigne dorée "CASINO" + entrée marron encadrée or + 2 piliers dorés + tapis rouge + 6 fenêtres éclairées
+  - **Immeuble "Les Résidences"** (5 appartements) : 8×14×7 avec 15 fenêtres (5 étages × 3), balcons dorés, étiquette "5 APPARTEMENTS · 5M B"
+  - **3 maisons** (bleue / beige / rouge) : corps 5,5×4×5, toit prisme 4 faces, porte + 2 fenêtres, pelouse, label prix flottant "10M B"
+  - **2 villas** (Marina / Palmier) : base 9×6×7 + étage supérieur 6,5×3×5, toit terracotta, porte dorée + 6 grandes fenêtres, palmier décoratif, label "100M B"
+- **Barricades** : 50+ bornes rouges à bande blanche formant un U périmètre (arrière + 2 côtés + front)
+- **Arbres décoratifs** : 6 arbres entre les bâtiments
+- **Système d'achat** : raycaster au clic, modal d'achat avec label, type, prix, bouton ACHETER (disabled si solde insuffisant), toast de confirmation. Houses possédées → porte + fenêtres dorées, label "★ À VOUS ★".
+- **Scan d'identité casino** : clic sur casino → overlay plein écran pendant 5 s avec conic-gradient progression + scan bar cyan animé + pastille "🪪 VÉRIFICATION D'IDENTITÉ" → puis entrée dans le Lobby3D.
+- **Profil étendu** : `profile.keys: []` (liste des houseIds possédées) + `profile.ownedHouses: [{id, boughtAt, customizations}]`.
+- **Flow intégré dans `Casino.jsx`** : après ServerSelect → screen `'street'` → clic casino → scan 5s → screen `'lobby'`. Menu du lobby a un nouveau bouton doré "🚪 Sortir (voir la rue)" qui revient en `'street'`.
+- **HUD street** : badge solde + compteur clés 🔑 en haut à droite, bouton Déconnexion en haut à gauche, instruction au bas de l'écran.
+
 ### ✅ Implemented (Feb 2026 — LOT 3 Roulette 3D Three.js)
 - **Nouveau composant `/app/frontend/src/game/Roulette3DWheel.jsx`** : roue 3D complète en Three.js avec cuvette bois, anneau doré extérieur, disque central rotatif, 37 poches rouge/noir/vert (ordre européen officiel) avec numéros texturés sur face supérieure, frets dorés séparateurs, dôme doré central type moyeu + 8 branches, bille sphérique blanche physique, pointeur doré en haut, éclairage directional + ambient + point light (ton doré).
 - **Physique bille** : animation en 3 phases — (1) piste haute 3,6 m avec léger rebond sinusoïdal, (2) descente spiralée 3,6 → 2,65 m avec rebonds, (3) atterrissage dans la poche cible après 6,5 s. La roue décélère de 2,2 à 0,3 rad/s et se cale pour que le numéro gagnant passe exactement sous le pointeur.

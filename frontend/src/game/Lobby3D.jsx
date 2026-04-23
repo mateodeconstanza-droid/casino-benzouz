@@ -7,7 +7,7 @@ import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
+const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasino, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -4681,6 +4681,13 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
               }}>
                 🌍 Changer de casino
               </button>
+
+              <button onClick={() => { setShowMenu(false); onExitCasino?.(); }} style={{
+                width: '100%', marginTop: 10, padding: 10,
+                background: 'linear-gradient(135deg, #d4af37, #8b6914)',
+                border: '1px solid #ffd700', color: '#fff',
+                borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800,
+              }} data-testid="menu-exit-casino">🚪 Sortir (voir la rue)</button>
 
               <button onClick={() => { setShowMenu(false); onLogout(); }} style={{
                 width: '100%', marginTop: 10, padding: 10,

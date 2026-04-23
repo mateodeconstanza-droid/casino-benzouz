@@ -3,6 +3,7 @@ import { WEAPONS, VEHICLES, CASINOS, TROPHIES, FOUR_HOURS, DEALER_PROFILES, fmt,
 import LoginScreen from '@/game/Login';
 import CharacterScreen from '@/game/Character';
 import Lobby3D from '@/game/Lobby3D';
+import Street3D from '@/game/Street3D';
 import BlackjackGame from '@/game/Blackjack';
 import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
@@ -172,10 +173,30 @@ export default function Casino() {
   const handleServerChoice = ({ mode, serverId }) => {
     setMpMode(mode);
     setMpServerId(serverId || null);
+    // On passe d'abord par la rue (LOT 4) avant d'entrer dans le casino
+    setScreen('street');
+  };
+
+  const handleEnterCasino = () => {
     setScreen('lobby');
     if (profile && canSpinWheel(profile)) {
       setTimeout(() => setShowWheel(true), 500);
     }
+  };
+
+  const handleBuyHouse = async (houseId) => {
+    if (!profile) return;
+    const updated = {
+      ...profile,
+      keys: [...(profile.keys || []), houseId],
+      ownedHouses: [...(profile.ownedHouses || []), { id: houseId, boughtAt: Date.now(), customizations: {} }],
+    };
+    setProfile(updated);
+    await saveProfile({ ...updated, balance });
+  };
+
+  const handleExitToStreet = () => {
+    setScreen('street');
   };
 
   const canSpinWheel = (p) => !p.lastWheelSpin || (Date.now() - p.lastWheelSpin >= FOUR_HOURS);
@@ -566,6 +587,18 @@ export default function Casino() {
         />
       )}
 
+      {screen === 'street' && profile && (
+        <Street3D
+          profile={profile}
+          balance={balance}
+          setBalance={setBalance}
+          onEnterCasino={handleEnterCasino}
+          onBuyHouse={handleBuyHouse}
+          onExitGame={handleLogout}
+          onOpenHome={() => { /* TODO: LOT 4 session 2 — entrer dans la maison customisable */ }}
+        />
+      )}
+
       {screen === 'lobby' && profile && (
         <Lobby3D
           profile={profile}
@@ -593,6 +626,7 @@ export default function Casino() {
           onChangeCasino={() => setShowChangeCasino(true)}
           onOpenCharacter={() => setScreen('character')}
           onToggleVehicle={handleEquipVehicle}
+          onExitCasino={handleExitToStreet}
         />
       )}
 
@@ -614,6 +648,7 @@ export default function Casino() {
           window.__openBlackjack = () => setScreen('blackjack');
           window.__openPoker     = () => setScreen('poker');
           window.__openLobby     = () => setScreen('lobby');
+          window.__openStreet    = () => setScreen('street');
           window.__addBalance = (n) => setBalance((b) => b + (n || 0));
           window.__getBalance = () => balance;
           window.__getProfile = () => profile;
