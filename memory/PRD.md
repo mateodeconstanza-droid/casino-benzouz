@@ -128,6 +128,13 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — LOT 2 Refonte UI style Stake)
+- **Design system partagé** : `/app/frontend/src/game/stake/theme.js` (palette feutre navy + or + cyan live + 9 dénominations jetons) et `/app/frontend/src/game/stake/StakeUI.jsx` (`<StakeShell>`, `<Chip3D>`, `<ChipRack>`, `<RoundBtn>`, `<PlacedStack>`).
+- **Roulette refaite** en `StakeShell` : feutre bleu navy avec gradient radial, liseré or, 7 jetons 3D cliquables (1/5/25/100/500/1K/5K), boutons ronds EFFACER (orange) + TOUR (or XL) + NOUVEAU, mises visibles en piles `<PlacedStack>` sur les cases. Badge "EN DIRECT" cyan pulsant en haut à droite.
+- **Blackjack refait** : table arquée (border-radius 50%/50% 20px/20px) feutre navy + liseré or + clubs/coeurs en watermark, jetons 3D Chip3D inline, boutons ronds TIRER/RESTER/DOUBLER/SPLIT/ABANDON et ENCHAÎNER. Spot mise central dashed doré.
+- **Poker refait** : table ovale bordée or avec fond radial bleu sombre, dos de cartes visibles sur le dealer, slot cartes communes/joueur en pointillés, bouton "DISTRIBUER LES CARTES" dégradé or.
+- **Hooks dev ajoutés** dans `Casino.jsx` : `window.__openRoulette()`, `__openBlackjack()`, `__openPoker()`, `__openLobby()` pour faciliter les campagnes de tests.
+
 ## Architecture
 - Stack: React (CRA + CRACO) + Three.js
 - Storage: localStorage (clé `profile:<name>`)

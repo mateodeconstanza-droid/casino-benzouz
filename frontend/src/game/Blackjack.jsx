@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import { StakeShell, ChipRack, RoundBtn, Chip3D } from '@/game/stake/StakeUI';
+import { STAKE } from '@/game/stake/theme';
 import sfx from '@/game/sfx';
 
 // ============== BLACKJACK AMÉLIORÉ ==============
@@ -288,29 +290,32 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
   const canAfford = balance >= minBet || totalBet >= minBet;
 
   return (
-    <div style={{
-      minHeight: '100vh', background: casino.bg,
-      fontFamily: 'Georgia, serif', color: '#fff', paddingBottom: 40,
-    }}>
-      <GameHeader casino={casino} isVIP={isVIP} balance={balance} onExit={onExit} title={`BLACKJACK - Min ${fmt(minBet)} B`} />
-
+    <StakeShell
+      title="FIRST PERSON BLACKJACK"
+      balance={balance}
+      totalBet={totalBet}
+      minBet={minBet}
+      maxBet={10000000}
+      onExit={onExit}
+      onMenu={onExit}
+    >
       <div style={{ padding: 16, maxWidth: 1000, margin: '0 auto' }}>
         {/* Table de blackjack avec vue immersive */}
         <div style={{
-          background: `radial-gradient(ellipse at center, #0a4020 0%, #051e0f 70%, #020a06 100%)`,
-          border: `4px solid ${casino.primary}`,
+          background: `radial-gradient(ellipse at center, rgba(15,42,66,0.85) 0%, rgba(5,20,32,0.95) 70%, rgba(2,10,18,1) 100%)`,
+          border: `3px solid ${STAKE.gold}`,
           borderRadius: '50% 50% 20px 20px / 40% 40% 20px 20px',
           padding: '30px 20px 20px',
           position: 'relative',
           marginBottom: 20,
-          boxShadow: `0 0 40px ${casino.primary}44, inset 0 0 60px rgba(0,0,0,0.8)`,
+          boxShadow: `0 0 30px rgba(212,175,55,0.15), inset 0 0 60px rgba(0,0,0,0.6)`,
         }}>
           {/* Logo centre de table */}
           <div style={{
             position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%,-50%)',
             fontSize: 70, opacity: 0.08, pointerEvents: 'none',
-            color: casino.secondary,
+            color: STAKE.gold,
           }}>♠♥♦♣</div>
 
           {/* Croupier */}
@@ -406,36 +411,33 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
         {/* Contrôles selon phase */}
         {phase === 'bet' && (
           <div style={{
-            background: 'rgba(0,0,0,0.5)',
-            border: `1px solid ${casino.primary}`,
-            borderRadius: 10, padding: 16,
+            background: 'rgba(0,0,0,0.45)',
+            border: `1px solid rgba(212,175,55,0.25)`,
+            borderRadius: 12, padding: 16,
           }}>
-            <div style={{ textAlign: 'center', color: '#cca366', marginBottom: 12, fontSize: 13 }}>
-              Sélectionne tes jetons (min {fmt(minBet)} B)
+            <div style={{ textAlign: 'center', color: STAKE.inkSoft, marginBottom: 12, fontSize: 12, letterSpacing: 0.6 }}>
+              SÉLECTIONNE TES JETONS — MIN {fmt(minBet)} B
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
               {chipValues.map(v => (
-                <Chip key={v} value={v} onClick={() => addChip(v)} 
-                  disabled={totalBet + v > balance} size={58} />
+                <Chip3D key={v} value={v} onClick={() => addChip(v)} size={58} />
               ))}
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <button onClick={clearBet} disabled={totalBet === 0}
-                style={{...btnStyle('#aa4400', totalBet === 0), marginRight: 8}}>EFFACER</button>
-              <button onClick={startRound} disabled={totalBet < minBet}
-                style={btnStyle(casino.secondary, totalBet < minBet)}>DISTRIBUER</button>
+            <div style={{ display: 'flex', gap: 14, justifyContent: 'center', alignItems: 'center' }}>
+              <RoundBtn testId="bj-clear" label="↶" subLabel="EFFACER" onClick={clearBet} disabled={totalBet === 0} color="#cc6a2a" size={70} />
+              <RoundBtn testId="bj-deal"  label="🂠" subLabel="DONNER"  onClick={startRound} disabled={totalBet < minBet} color={STAKE.gold} size={92} />
             </div>
           </div>
         )}
 
         {phase === 'player' && (
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={hit} data-testid="bj-hit" style={btnStyle('#00aa44')}>TIRER</button>
-            <button onClick={() => stand()} data-testid="bj-stand" style={btnStyle('#aa4400')}>RESTER</button>
-            {canDouble && <button onClick={doubleDown} data-testid="bj-double" style={btnStyle('#aa00aa')}>DOUBLER</button>}
-            {canSplit() && <button onClick={split} data-testid="bj-split" style={btnStyle('#0077aa')}>SPLIT</button>}
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <RoundBtn testId="bj-hit"   label="+"   subLabel="TIRER"   onClick={hit} color={STAKE.gold} />
+            <RoundBtn testId="bj-stand" label="✋"  subLabel="RESTER"  onClick={() => stand()} color="#cc6a2a" />
+            {canDouble    && <RoundBtn testId="bj-double"    label="×2"  subLabel="DOUBLER"   onClick={doubleDown} color="#b48cff" />}
+            {canSplit()   && <RoundBtn testId="bj-split"     label="⇆"   subLabel="SPLIT"     onClick={split} color="#4aa3ff" />}
             {!splitHands && playerHand && playerHand.length === 2 && (
-              <button onClick={surrender} data-testid="bj-surrender" style={btnStyle('#666')}>ABANDON</button>
+              <RoundBtn testId="bj-surrender" label="⚑" subLabel="ABANDON" onClick={surrender} color="#888" />
             )}
           </div>
         )}
@@ -444,24 +446,24 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
           <div style={{ textAlign: 'center' }}>
             {lost && !dealerDead && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ color: '#cca366', fontSize: 12, marginBottom: 8 }}>
-                  Frustré ? Défoule-toi sur le croupier :
+                <div style={{ color: STAKE.inkSoft, fontSize: 11, marginBottom: 10, letterSpacing: 0.6 }}>
+                  DÉFOULE-TOI SUR LE CROUPIER
                 </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button onClick={() => onProjectile('tomato')} style={btnStyle('#c93030')}>🍅 Tomate</button>
-                  <button onClick={() => onProjectile('beer')} style={btnStyle('#8b6914')}>🍺 Bière</button>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <RoundBtn label="🍅" subLabel="Tomate" onClick={() => onProjectile('tomato')} color="#c93030" size={64} />
+                  <RoundBtn label="🍺" subLabel="Bière"  onClick={() => onProjectile('beer')} color="#8b6914" size={64} />
                   {weapons.length > 0 && (
-                    <button onClick={() => setShowWeaponMenu(true)} style={btnStyle('#660000')}>
-                      ⚔️ Arme
-                    </button>
+                    <RoundBtn label="⚔️" subLabel="Arme" onClick={() => setShowWeaponMenu(true)} color="#aa1a2a" size={64} />
                   )}
                 </div>
               </div>
             )}
-            <button onClick={nextRound} disabled={!canAfford}
-              style={btnStyle(casino.secondary, !canAfford)}>
-              {!canAfford ? 'FONDS INSUFFISANTS' : 'NOUVELLE PARTIE'}
-            </button>
+            <RoundBtn
+              testId="bj-next-round"
+              label={canAfford ? '▶' : '⨯'}
+              subLabel={canAfford ? 'REJOUER' : 'FONDS-'}
+              onClick={nextRound} disabled={!canAfford} color={STAKE.goldLight} size={82}
+            />
           </div>
         )}
 
@@ -476,7 +478,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
           />
         )}
       </div>
-    </div>
+    </StakeShell>
   );
 };
 

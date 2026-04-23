@@ -610,6 +610,10 @@ export default function Casino() {
           window.__openWheel = () => setShowWheel(true);
           window.__openQuests = () => setShowQuests(true);
           window.__openTrophies = () => setShowTrophies(true);
+          window.__openRoulette  = () => setScreen('roulette');
+          window.__openBlackjack = () => setScreen('blackjack');
+          window.__openPoker     = () => setScreen('poker');
+          window.__openLobby     = () => setScreen('lobby');
           window.__addBalance = (n) => setBalance((b) => b + (n || 0));
           window.__getBalance = () => balance;
           window.__getProfile = () => profile;

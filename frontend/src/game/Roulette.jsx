@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import { StakeShell, ChipRack, RoundBtn, PlacedStack } from '@/game/stake/StakeUI';
+import { STAKE } from '@/game/stake/theme';
 import sfx from '@/game/sfx';
 
 // ============== ROULETTE AMÉLIORÉE AVEC BILLE ==============
@@ -203,22 +205,24 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
   const ballY = 160 + ballRadius * Math.sin((ballAngle - 90) * Math.PI / 180);
 
   return (
-    <div style={{
-      minHeight: '100vh', background: casino.bg,
-      fontFamily: 'Georgia, serif', color: '#fff', paddingBottom: 40,
-    }}>
-      <GameHeader casino={casino} isVIP={isVIP} balance={balance} onExit={onExit} 
-        title={`ROULETTE - Min ${fmt(minBet)} B`} />
-
+    <StakeShell
+      title="FIRST PERSON ROULETTE"
+      balance={balance}
+      totalBet={totalBet}
+      minBet={minBet}
+      maxBet={50000000}
+      onExit={onExit}
+      onMenu={onExit}
+    >
       <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
         {/* Table de jeu */}
         <div style={{
-          background: `radial-gradient(ellipse at center, #0a0510 0%, #050208 80%)`,
-          border: `3px solid ${casino.primary}`,
-          borderRadius: 16, padding: 20, marginBottom: 16,
+          background: `linear-gradient(180deg, rgba(10,28,45,0.7), rgba(5,15,25,0.85))`,
+          border: `2px solid ${STAKE.gold}`,
+          borderRadius: 14, padding: 18, marginBottom: 16,
           display: 'flex', gap: 20, alignItems: 'flex-start',
           flexWrap: 'wrap', justifyContent: 'center',
-          boxShadow: `0 0 40px ${casino.primary}44, inset 0 0 40px rgba(0,0,0,0.7)`,
+          boxShadow: `0 0 30px rgba(212,175,55,0.15), inset 0 0 30px rgba(0,0,0,0.5)`,
         }}>
           {/* Croupier */}
           <div style={{ position: 'relative' }}>
@@ -399,7 +403,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
                 cursor: canBet ? 'pointer' : 'default', position: 'relative',
               }}>
               0
-              {bets['num-0'] && <ChipStack amount={bets['num-0']} />}
+              {bets['num-0'] && <PlacedStack amount={bets['num-0']} />}
             </div>
             <div>
               {numberGrid.map((row, ri) => (
@@ -418,7 +422,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
                           position: 'relative',
                         }}>
                         {n}
-                        {bets[key] && <ChipStack amount={bets[key]} />}
+                        {bets[key] && <PlacedStack amount={bets[key]} />}
                       </div>
                     );
                   })}
@@ -435,7 +439,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
                       cursor: canBet ? 'pointer' : 'default', position: 'relative',
                     }}>
                     {['1-12', '13-24', '25-36'][i]}
-                    {bets[k] && <ChipStack amount={bets[k]} />}
+                    {bets[k] && <PlacedStack amount={bets[k]} />}
                   </div>
                 ))}
               </div>
@@ -457,7 +461,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
                       cursor: canBet ? 'pointer' : 'default', position: 'relative',
                     }}>
                     {l}
-                    {bets[k] && <ChipStack amount={bets[k]} />}
+                    {bets[k] && <PlacedStack amount={bets[k]} />}
                   </div>
                 ))}
               </div>
@@ -468,53 +472,53 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
           </div>
         </div>
 
-        {/* Jetons */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-          {chipOptions.map((v) => (
-            <Chip key={v} value={v} onClick={() => setChipValue(v)}
-              selected={chipValue === v} disabled={!canBet || v > balance - totalBet} size={56} />
-          ))}
+        {/* Jetons 3D sélectionneurs */}
+        <div style={{
+          background: 'rgba(0,0,0,0.35)', borderRadius: 12,
+          padding: '10px 12px', marginBottom: 14,
+          border: `1px solid rgba(212,175,55,0.2)`,
+          display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap',
+        }}>
+          <ChipRack value={chipValue} setValue={setChipValue} minBet={minBet} vertical={false} />
         </div>
 
-        <div style={{ textAlign: 'center', marginBottom: 16, color: '#cca366' }}>
-          Mise totale : <strong style={{color: casino.secondary}}>{fmt(totalBet)} B</strong>
+        <div style={{ textAlign: 'center', marginBottom: 14, color: STAKE.inkSoft, fontSize: 12 }}>
           {totalBet < minBet && totalBet > 0 && (
-            <span style={{ color: '#ff4444', marginLeft: 8, fontSize: 12 }}>
-              (min {fmt(minBet)})
+            <span style={{ color: '#ff4444' }}>
+              (min {fmt(minBet)} B)
             </span>
           )}
         </div>
 
-        {/* Actions */}
-        <div style={{ textAlign: 'center' }}>
+        {/* Actions — boutons ronds style Stake */}
+        <div style={{ display: 'flex', gap: 14, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
           {canBet && (
             <>
-              <button onClick={clearBets} disabled={totalBet === 0}
-                style={{...btnStyle('#aa4400', totalBet === 0), marginRight: 8}}>EFFACER</button>
-              <button onClick={spin} disabled={totalBet < minBet}
-                style={btnStyle('#00aa44', totalBet < minBet)}>LANCER LA BILLE</button>
+              <RoundBtn
+                testId="roulette-clear-btn"
+                label="↶" subLabel="EFFACER"
+                onClick={clearBets} disabled={totalBet === 0} color="#cc6a2a" size={70}
+              />
+              <RoundBtn
+                testId="roulette-spin-btn"
+                label="⟳" subLabel="TOUR"
+                onClick={spin} disabled={totalBet < minBet} color={STAKE.gold} size={92}
+              />
             </>
           )}
           {winningNumber !== null && !spinning && (
-            <div>
+            <>
               {lost && !dealerDead && (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ color: '#cca366', fontSize: 12, marginBottom: 8 }}>
-                    Défoule-toi sur le croupier :
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button onClick={() => onProjectile('tomato')} style={btnStyle('#c93030')}>🍅 Tomate</button>
-                    <button onClick={() => onProjectile('beer')} style={btnStyle('#8b6914')}>🍺 Bière</button>
-                    {weapons.length > 0 && (
-                      <button onClick={() => setShowWeaponMenu(true)} style={btnStyle('#660000')}>
-                        ⚔️ Arme
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <>
+                  <RoundBtn label="🍅" subLabel="Tomate" onClick={() => onProjectile('tomato')} color="#c93030" size={64} />
+                  <RoundBtn label="🍺" subLabel="Bière" onClick={() => onProjectile('beer')} color="#8b6914" size={64} />
+                  {weapons.length > 0 && (
+                    <RoundBtn label="⚔️" subLabel="Arme" onClick={() => setShowWeaponMenu(true)} color="#aa1a2a" size={64} />
+                  )}
+                </>
               )}
-              <button onClick={nextSpin} style={btnStyle(casino.secondary)}>NOUVELLE MISE</button>
-            </div>
+              <RoundBtn testId="roulette-new-spin" label="▶" subLabel="NOUVEAU" onClick={nextSpin} color={STAKE.goldLight} size={82} />
+            </>
           )}
         </div>
 
@@ -523,7 +527,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
             onUse={(w) => { setShowWeaponMenu(false); chooseWeapon(w); }} />
         )}
       </div>
-    </div>
+    </StakeShell>
   );
 };
 

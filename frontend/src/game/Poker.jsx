@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import { StakeShell, RoundBtn } from '@/game/stake/StakeUI';
+import { STAKE } from '@/game/stake/theme';
 import sfx from '@/game/sfx';
 
 // ============== JEU POKER TEXAS HOLD'EM ==============
@@ -132,37 +134,25 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: casino.bg,
-      color: '#fff', fontFamily: 'Georgia, serif',
-      display: 'flex', flexDirection: 'column', zIndex: 500,
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: 'rgba(0,0,0,0.5)', borderBottom: `2px solid ${casino.primary}`,
-      }}>
-        <button onClick={onExit} style={{
-          padding: '8px 16px', background: 'rgba(0,0,0,0.5)',
-          border: `1px solid ${casino.secondary}`, color: casino.secondary,
-          borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
-        }}>← Sortir</button>
-        <div style={{ color: casino.secondary, fontSize: 18, fontWeight: 'bold', letterSpacing: 2 }}>
-          ♠ POKER TEXAS HOLD'EM
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, color: '#cca366' }}>Solde</div>
-          <div style={{ fontSize: 16, color: '#ffd700', fontWeight: 'bold' }}>{fmt(balance)} B</div>
-        </div>
-      </div>
-
+    <StakeShell
+      title="POKER TEXAS HOLD'EM"
+      balance={balance}
+      totalBet={ante * (multiplier || 1)}
+      minBet={minBet}
+      onExit={onExit}
+      onMenu={onExit}
+    >
       {/* Table */}
       <div style={{
         flex: 1, padding: 20,
-        background: 'radial-gradient(ellipse, #0a5020 0%, #052010 100%)',
+        background: 'radial-gradient(ellipse at center, rgba(15,42,66,0.8) 0%, rgba(5,20,32,0.95) 70%, rgba(2,10,18,1) 100%)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'space-between',
-        overflowY: 'auto',
+        overflowY: 'auto', minHeight: '70vh',
+        borderRadius: '50% 50% 20px 20px / 35% 35% 20px 20px',
+        border: `3px solid ${STAKE.gold}`,
+        margin: 12,
+        boxShadow: `0 0 30px rgba(212,175,55,0.15), inset 0 0 60px rgba(0,0,0,0.55)`,
       }}>
         {/* Croupier en haut */}
         <div style={{ marginBottom: 10 }}>
@@ -265,13 +255,15 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
             </div>
             <button onClick={newHand}
               disabled={ante < minBet || ante > balance}
+              data-testid="poker-deal-btn"
               style={{
                 width: '100%', padding: 14,
                 background: (ante >= minBet && ante <= balance)
-                  ? `linear-gradient(135deg, ${casino.primary}, ${casino.accent})` : '#444',
-                border: 'none', color: '#fff', borderRadius: 8,
-                fontSize: 16, fontWeight: 'bold', cursor: 'pointer',
-                fontFamily: 'inherit', letterSpacing: 1,
+                  ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold} 50%, ${STAKE.goldLight})` : '#444',
+                border: `1px solid ${STAKE.goldDark}`, color: '#111', borderRadius: 8,
+                fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                fontFamily: 'inherit', letterSpacing: 1.2,
+                boxShadow: (ante >= minBet && ante <= balance) ? '0 6px 18px rgba(212,175,55,0.35)' : 'none',
               }}>DISTRIBUER LES CARTES</button>
           </div>
         )}
@@ -410,7 +402,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
           </div>
         </div>
       )}
-    </div>
+    </StakeShell>
   );
 };
 
