@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WEAPONS, VEHICLES, CASINOS, TROPHIES, FOUR_HOURS, DEALER_PROFILES, fmt } from '@/game/constants';
+import { WEAPONS, VEHICLES, CASINOS, TROPHIES, FOUR_HOURS, DEALER_PROFILES, fmt, BENZBET_PENDING_KEY, BENZBET_HISTORY_KEY, resolvePendingBet } from '@/game/constants';
 import LoginScreen from '@/game/Login';
 import CharacterScreen from '@/game/Character';
 import Lobby3D from '@/game/Lobby3D';
@@ -44,6 +44,64 @@ export default function Casino() {
   // Multijoueur
   const [mpMode, setMpMode] = useState('solo'); // 'solo' | 'online'
   const [mpServerId, setMpServerId] = useState(null);
+
+  // Toast global pour les notifications de paris (BenzBet)
+  const [betToast, setBetToast] = useState(null);
+
+  // Ticker global : résout les paris BenzBet en attente dont readyAt <= now,
+  // crédite le gain, pousse le toast 5s même si le joueur n'est pas sur la machine.
+  useEffect(() => {
+    if (!profile?.name) return;
+    const username = profile.name;
+    const tick = () => {
+      try {
+        const raw = localStorage.getItem(BENZBET_PENDING_KEY(username));
+        if (!raw) return;
+        const pending = JSON.parse(raw);
+        if (!Array.isArray(pending) || pending.length === 0) return;
+        const now = Date.now();
+        const readyNow = pending.filter(p => p.readyAt <= now);
+        if (readyNow.length === 0) return;
+        const stillPending = pending.filter(p => p.readyAt > now);
+        const hist = JSON.parse(localStorage.getItem(BENZBET_HISTORY_KEY(username)) || '[]');
+        let totalPayout = 0;
+        let lastStatus = 'lost';
+        let lastOdds = 0;
+        let lastStake = 0;
+        const resolved = readyNow.map(p => {
+          const r = resolvePendingBet(p);
+          totalPayout += r.payout;
+          lastStatus = r.status;
+          lastOdds = r.totalOdds;
+          lastStake = r.stake;
+          return { ...r, ts: r.resolvedAt };
+        });
+        const newHist = [...resolved, ...hist].slice(0, 50);
+        localStorage.setItem(BENZBET_HISTORY_KEY(username), JSON.stringify(newHist));
+        localStorage.setItem(BENZBET_PENDING_KEY(username), JSON.stringify(stillPending));
+        if (totalPayout > 0) {
+          setBalance(b => b + totalPayout);
+          // Propage le gain dans profile.totalWinnings
+          setProfile(p => p ? { ...p, totalWinnings: (p.totalWinnings || 0) + totalPayout } : p);
+        }
+        // Notification 5s
+        if (readyNow.length === 1) {
+          const label = lastStatus === 'won'
+            ? `🎉 Pari gagné ! +${fmt(totalPayout)} B (cote ${(lastOdds || 0).toFixed(2)})`
+            : lastStatus === 'partial'
+              ? `⚠️ Pari partiellement gagné — +${fmt(totalPayout)} B`
+              : `❌ Pari perdu (mise ${fmt(lastStake)} B)`;
+          setBetToast({ msg: label, kind: lastStatus });
+        } else {
+          setBetToast({ msg: `🎯 ${readyNow.length} paris terminés · total ${totalPayout > 0 ? '+' : ''}${fmt(totalPayout)} B`, kind: totalPayout > 0 ? 'won' : 'lost' });
+        }
+        setTimeout(() => setBetToast(null), 5000);
+      } catch (_e) { /* noop */ }
+    };
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => clearInterval(id);
+  }, [profile?.name]);
 
   // Test hook: expose BenzBet open for E2E testing
   useEffect(() => {
@@ -638,6 +696,35 @@ export default function Casino() {
 
       {unlockedTrophy && (
         <TrophyUnlock trophy={unlockedTrophy} onClose={() => setUnlockedTrophy(null)} />
+      )}
+
+      {/* Toast global BenzBet : notifications de paris (même hors machine) */}
+      {betToast && (
+        <div
+          data-testid="bet-toast-global"
+          style={{
+            position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+            background: betToast.kind === 'won' ? 'linear-gradient(135deg, #16a34a, #15803d)'
+                       : betToast.kind === 'partial' ? 'linear-gradient(135deg, #d97706, #b45309)'
+                       : 'linear-gradient(135deg, #dc2626, #991b1b)',
+            color: '#fff',
+            padding: '14px 22px',
+            borderRadius: 10,
+            boxShadow: '0 12px 32px rgba(0,0,0,0.45), 0 0 0 2px rgba(255,255,255,0.08) inset',
+            fontWeight: 800, fontSize: 14, zIndex: 99999,
+            maxWidth: '92vw', textAlign: 'center',
+            letterSpacing: 0.2,
+            animation: 'bettoast-pop .35s cubic-bezier(.2,.9,.25,1.2)',
+          }}
+        >
+          {betToast.msg}
+          <style>{`
+            @keyframes bettoast-pop {
+              0% { transform: translate(-50%, -18px); opacity: 0; }
+              100% { transform: translate(-50%, 0); opacity: 1; }
+            }
+          `}</style>
+        </div>
       )}
     </>
   );

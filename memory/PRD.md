@@ -119,6 +119,15 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Refonte 3D BenzBet dans Lobby3D.jsx (`createBenzBet`)** : 4 totems modernes rouge/blanc (base rouge laquée 1,1 m + plateau incliné + tige blanche + écran LED haut avec texture animée "cotes LIVE") disposés sur un podium rouge 9×5,5 m avec liseré blanc. Comptoir bookmaker blanc avec bande LED rouge. Enseigne suspendue BENZBET grand format. 4 barres LED rouge/blanche au sol, 3 lumières d'ambiance (rouge, blanc, or). Zone d'interaction élargie (rayon 4,5 m).
 - **Forme récente déterministe** : `computeForm(sportId, entity)` basé sur hash32 du nom + ELO normalisé — pas de flickering entre reloads.
 
+### ✅ Implemented (Feb 2026 — LOT 1 fixes)
+- **Menu in-game fix (écran noir)** : `profile.totalWinnings` gardé par `|| 0` et `weapons.length` par `(weapons || []).length` dans `Lobby3D.jsx` L4066 + JSX du menu. Évite le crash React quand le profil est partiellement chargé.
+- **Explosions bazooka/grenades — fuite GPU corrigée** : `createExplosion()` dispose désormais les geometries/materials (flashGeo, fireGeo, shockGeo + leurs materials) une fois l'animation terminée. Garde-fou setTimeout pour nettoyer même si rAF est bloqué. Géométries allégées (sphere 16→10 segments, ring 32→20). `createBloodSplash()` : 15→8 gouttes et dispose() explicite. Plus de freeze après X explosions.
+- **BenzBet — résolution différée** : les paris ne sont plus résolus à la volée. Un pari placé est poussé dans `BENZBET_PENDING_KEY(user)` avec un `readyAt` = durée simulée du plus long match (1 min = 2 s). Le combiné n'est donc plus évalué avant la fin des matchs.
+- **Notification 5s globale** : un ticker dans `Casino.jsx` (2 s polling) résout les paris pending dont `readyAt <= now`, crédite le `balance` + `profile.totalWinnings`, et déclenche un toast plein écran 5 s (vert/orange/rouge selon won/partial/lost). Fonctionne **même si le joueur n'est pas sur la machine BenzBet** (écran lobby, jeu de table, shop, etc.).
+- **Historique enrichi** : nouvelle section "⏳ En cours" en haut de la modal Historique dans BenzBet, avec countdown et gain potentiel. Auto-refresh toutes les 2 s.
+- **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
+- **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
+
 ## Architecture
 - Stack: React (CRA + CRACO) + Three.js
 - Storage: localStorage (clé `profile:<name>`)

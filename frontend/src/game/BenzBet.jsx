@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  fmt, BENZBET_SPORTS, generateMatches, resolveMatch,
-  BENZBET_SLIP_KEY, BENZBET_HISTORY_KEY, getRankings,
+  fmt, BENZBET_SPORTS, generateMatches,
+  BENZBET_SLIP_KEY, BENZBET_HISTORY_KEY, BENZBET_PENDING_KEY,
+  getRankings, legResolveDelayMs,
 } from '@/game/constants';
 import sfx from '@/game/sfx';
 
@@ -213,12 +214,13 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
   const [stake, setStake] = useState(100);
   const [mode, setMode] = useState('simple'); // 'simple' | 'combine'
   const [history, setHistory] = useState([]);
+  const [pending, setPending] = useState([]);
   const [toast, setToast] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [liveOnly, setLiveOnly] = useState(false);
   const [slipCollapsed, setSlipCollapsed] = useState(false); // repli du panier
 
-  // Charger historique + slip persistés
+  // Charger historique + slip persistés + pending
   useEffect(() => {
     if (!username) return;
     try {
@@ -226,7 +228,23 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
       setHistory(h);
       const s = JSON.parse(localStorage.getItem(BENZBET_SLIP_KEY(username)) || '[]');
       if (Array.isArray(s)) setSlip(s);
+      const p = JSON.parse(localStorage.getItem(BENZBET_PENDING_KEY(username)) || '[]');
+      if (Array.isArray(p)) setPending(p);
     } catch (_e) { /* noop */ }
+  }, [username]);
+
+  // Rafraîchir pending/history toutes les 2s (synchro avec ticker Casino.jsx)
+  useEffect(() => {
+    if (!username) return;
+    const t = setInterval(() => {
+      try {
+        const h = JSON.parse(localStorage.getItem(BENZBET_HISTORY_KEY(username)) || '[]');
+        setHistory(h);
+        const p = JSON.parse(localStorage.getItem(BENZBET_PENDING_KEY(username)) || '[]');
+        setPending(p);
+      } catch (_e) { /* noop */ }
+    }, 2000);
+    return () => clearInterval(t);
   }, [username]);
 
   // Sauvegarder slip
@@ -349,49 +367,37 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
 
     setBalance(b => b - stake);
 
-    // Résoudre chaque pari avec probabilités RÉELLES (pas la cote)
-    const resolvedLegs = slip.map(leg => {
-      const m = leg.match;
-      const realOutcome = resolveMatch({
-        hasDraw: m.hasDraw,
-        probH: m.probH, probN: m.probN, probA: m.probA,
-      });
-      return { ...leg, realOutcome, won: realOutcome === leg.pick };
-    });
+    // Chaque leg embarque sa durée simulée restante → resolveAt individuel
+    const now = Date.now();
+    const legsWithTiming = slip.map(leg => ({
+      ...leg,
+      match: { ...leg.match, sportId: leg.match.sportId || activeSport },
+      resolveAt: now + legResolveDelayMs(leg),
+    }));
+    // Le pari combiné/simple est "ready" quand le plus tardif des legs est fini
+    const readyAt = Math.max(...legsWithTiming.map(l => l.resolveAt));
 
-    let payout = 0;
-    let status = 'lost';
-    if (effectiveMode === 'combine') {
-      const allWon = resolvedLegs.every(l => l.won);
-      if (allWon) { payout = Math.floor(stake * combinedOdds(slip)); status = 'won'; }
-    } else {
-      // Simple : chaque pari indépendant
-      payout = resolvedLegs.reduce((acc, l) => acc + (l.won ? Math.floor((stake / slip.length) * l.odds) : 0), 0);
-      status = payout > 0 ? (payout >= stake ? 'won' : 'partial') : 'lost';
-    }
-
-    if (payout > 0) setBalance(b => b + payout);
-
-    const entry = {
-      id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      ts: Date.now(),
+    const pending = {
+      id: `b-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      placedAt: now,
+      readyAt,
       mode: effectiveMode,
       stake,
-      legs: resolvedLegs,
-      totalOdds: effectiveMode === 'combine' ? combinedOdds(slip) : resolvedLegs[0].odds,
-      payout, status,
+      legs: legsWithTiming,
+      totalOdds: effectiveMode === 'combine' ? combinedOdds(slip) : (slip[0]?.odds || 0),
+      status: 'pending',
     };
-    const newHist = [entry, ...history].slice(0, 50);
-    setHistory(newHist);
-    if (username) {
-      try { localStorage.setItem(BENZBET_HISTORY_KEY(username), JSON.stringify(newHist)); } catch (_e) { /* noop */ }
-    }
+
+    // Persiste en attente : le ticker global (Casino.jsx) résoudra automatiquement
+    const currentPending = JSON.parse(localStorage.getItem(BENZBET_PENDING_KEY(username)) || '[]');
+    const nextPending = [pending, ...currentPending];
+    try { localStorage.setItem(BENZBET_PENDING_KEY(username), JSON.stringify(nextPending)); } catch (_e) { /* noop */ }
+
     setSlip([]);
-    try { sfx.play(payout > 0 ? 'win' : 'lose'); } catch (_e) { /* noop */ }
-    setToast(payout > 0
-      ? `🎉 Gain ! +${fmt(payout)} B (cote ${entry.totalOdds.toFixed(2)})`
-      : `❌ Pari perdu (mise ${fmt(stake)} B)`);
-    setTimeout(() => setToast(null), 4500);
+    try { sfx.play('chip'); } catch (_e) { /* noop */ }
+    const durSec = Math.ceil((readyAt - now) / 1000);
+    setToast(`⏳ Pari placé — résultat dans ~${durSec}s (mise ${fmt(stake)} B)`);
+    setTimeout(() => setToast(null), 3500);
   };
 
   const clearSlip = () => setSlip([]);
@@ -797,7 +803,46 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
               >Fermer</button>
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
-              {history.length === 0 ? (
+              {pending.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: PRIMARY, marginBottom: 8, textTransform: 'uppercase' }}>
+                    ⏳ En cours ({pending.length})
+                  </div>
+                  {pending.map(p => {
+                    const left = Math.max(0, Math.ceil((p.readyAt - Date.now()) / 1000));
+                    return (
+                      <div
+                        key={p.id}
+                        data-testid={`pending-bet-${p.id}`}
+                        style={{
+                          border: `1px dashed ${PRIMARY}`, borderRadius: 8, padding: 12, marginBottom: 10,
+                          background: '#fffaf5',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, color: INK_SOFT }}>
+                            {new Date(p.placedAt).toLocaleTimeString('fr-FR')} · {p.mode === 'combine' ? `Combiné ×${p.legs.length}` : 'Simple'} · Mise {fmt(p.stake)} B
+                          </span>
+                          <span style={{ fontWeight: 800, fontSize: 12, color: PRIMARY }}>
+                            ⏱ ~{left}s
+                          </span>
+                        </div>
+                        {p.legs.map((l, li) => (
+                          <div key={li} style={{ fontSize: 12, color: INK, padding: '2px 0' }}>
+                            • {l.match.home} vs {l.match.away} —
+                            <span style={{ color: PRIMARY, fontWeight: 700 }}> {oddsLabel(l.pick)} {pickTeam(l.match, l.pick)}</span>
+                            <span style={{ color: INK_SOFT }}> @ {l.odds.toFixed(2)}</span>
+                          </div>
+                        ))}
+                        <div style={{ fontSize: 11, color: INK_SOFT, marginTop: 4 }}>
+                          Gain potentiel : <b style={{ color: '#1aa34a' }}>+{fmt(Math.floor(p.stake * p.totalOdds))} B</b>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {history.length === 0 && pending.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40, color: INK_SOFT }}>
                   Aucun pari enregistré pour l'instant.
                 </div>

@@ -3537,23 +3537,20 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     try { sfx.play('explosion'); } catch (_e) { /* noop */ }
     const group = new THREE.Group();
     group.position.copy(pos);
-    // Flash initial
-    const flash = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0xffeeaa, transparent: true, opacity: 1 })
-    );
+    // Flash initial (géométries allégées)
+    const flashGeo = new THREE.SphereGeometry(0.3, 10, 8);
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffeeaa, transparent: true, opacity: 1 });
+    const flash = new THREE.Mesh(flashGeo, flashMat);
     group.add(flash);
     // Boule de feu
-    const fire = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 20, 20),
-      new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.9 })
-    );
+    const fireGeo = new THREE.SphereGeometry(0.5, 12, 10);
+    const fireMat = new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.9 });
+    const fire = new THREE.Mesh(fireGeo, fireMat);
     group.add(fire);
     // Onde de choc
-    const shock = new THREE.Mesh(
-      new THREE.RingGeometry(0.5, 0.7, 32),
-      new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
-    );
+    const shockGeo = new THREE.RingGeometry(0.5, 0.7, 20);
+    const shockMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    const shock = new THREE.Mesh(shockGeo, shockMat);
     shock.rotation.x = -Math.PI / 2;
     shock.position.y = -1;
     group.add(shock);
@@ -3564,21 +3561,34 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     scene.add(group);
     const start = Date.now();
     const duration = 700;
+    let cancelled = false;
+    const cleanup = () => {
+      if (cancelled) return;
+      cancelled = true;
+      scene.remove(group);
+      // Dispose pour éviter la fuite GPU
+      flashGeo.dispose(); flashMat.dispose();
+      fireGeo.dispose();  fireMat.dispose();
+      shockGeo.dispose(); shockMat.dispose();
+    };
     const anim = () => {
+      if (cancelled) return;
       const el = Date.now() - start;
       const t = Math.min(el / duration, 1);
-      const scale = 1 + t * 6; // grossit jusqu'à 3m de rayon
+      const scale = 1 + t * 6;
       fire.scale.setScalar(scale);
       flash.scale.setScalar(1 + t * 3);
-      flash.material.opacity = Math.max(0, 1 - t * 2);
-      fire.material.opacity = Math.max(0, 0.9 - t);
+      flashMat.opacity = Math.max(0, 1 - t * 2);
+      fireMat.opacity = Math.max(0, 0.9 - t);
       shock.scale.setScalar(1 + t * 5);
-      shock.material.opacity = Math.max(0, 0.8 - t);
+      shockMat.opacity = Math.max(0, 0.8 - t);
       light.intensity = Math.max(0, 4 * (1 - t));
       if (t < 1) requestAnimationFrame(anim);
-      else scene.remove(group);
+      else cleanup();
     };
     anim();
+    // Garde-fou : s'assure du nettoyage même si l'anim est bloquée
+    setTimeout(cleanup, duration + 500);
   };
 
   // Rayon laser instantané
@@ -3650,18 +3660,19 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     bloodGroup.position.copy(pos);
     scene.add(bloodGroup);
     
-    // 15 gouttes de sang
+    // 8 gouttes (réduit de 15 pour alléger GPU pendant les AoE)
     const drops = [];
-    for (let i = 0; i < 15; i++) {
-      const drop = new THREE.Mesh(
-        new THREE.SphereGeometry(0.04 + Math.random() * 0.05, 6, 6),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x8b0000, 
-          emissive: 0x4a0000,
-          emissiveIntensity: 0.3,
-        })
-      );
-      // Vélocité aléatoire pour gicler
+    const geos = [];
+    const mats = [];
+    for (let i = 0; i < 8; i++) {
+      const g = new THREE.SphereGeometry(0.04 + Math.random() * 0.05, 5, 4);
+      const m = new THREE.MeshStandardMaterial({ 
+        color: 0x8b0000, 
+        emissive: 0x4a0000,
+        emissiveIntensity: 0.3,
+      });
+      const drop = new THREE.Mesh(g, m);
+      geos.push(g); mats.push(m);
       const vx = (Math.random() - 0.5) * 4;
       const vy = 2 + Math.random() * 3;
       const vz = (Math.random() - 0.5) * 4;
@@ -3672,10 +3683,12 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
     const startTime = Date.now();
     bloodRef.current.push({ group: bloodGroup, drops, startTime, duration: 1500 });
     
-    // Retirer après 5s
+    // Retirer après 5s et disposer les ressources GPU
     setTimeout(() => {
       scene.remove(bloodGroup);
       bloodRef.current = bloodRef.current.filter(b => b.group !== bloodGroup);
+      geos.forEach(g => g.dispose());
+      mats.forEach(m => m.dispose());
     }, 5000);
   };
 
@@ -4063,8 +4076,8 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
   };
 
 
-  const nextTrophy = TROPHIES.find(t => t.threshold > profile.totalWinnings);
-  const earned = TROPHIES.filter(t => profile.totalWinnings >= t.threshold);
+  const nextTrophy = TROPHIES.find(t => t.threshold > (profile?.totalWinnings || 0));
+  const earned = TROPHIES.filter(t => (profile?.totalWinnings || 0) >= t.threshold);
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#000', touchAction: 'none' }}>
@@ -4617,10 +4630,10 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
                 display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                 gap: 8, marginBottom: 16,
               }}>
-                <StatCard label="Solde" value={fmt(balance) + ' B'} color="#ffd700" />
-                <StatCard label="Gains cum." value={fmt(profile.totalWinnings) + ' B'} color="#00ff88" />
+                <StatCard label="Solde" value={fmt(balance || 0) + ' B'} color="#ffd700" />
+                <StatCard label="Gains cum." value={fmt(profile?.totalWinnings || 0) + ' B'} color="#00ff88" />
                 <StatCard label="Trophées" value={`${earned.length}/${TROPHIES.length}`} color="#ff6b9d" />
-                <StatCard label="Armes" value={weapons.length} color={casino.primary} />
+                <StatCard label="Armes" value={(weapons || []).length} color={casino.primary} />
               </div>
 
               {nextTrophy && (
@@ -4634,7 +4647,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
                   </div>
                   <div style={{ background: '#333', height: 5, borderRadius: 3, overflow: 'hidden' }}>
                     <div style={{
-                      width: `${Math.min(100, (profile.totalWinnings / nextTrophy.threshold) * 100)}%`,
+                      width: `${Math.min(100, ((profile?.totalWinnings || 0) / nextTrophy.threshold) * 100)}%`,
                       height: '100%',
                       background: `linear-gradient(90deg, ${nextTrophy.color}, #fff)`,
                     }} />

@@ -513,9 +513,58 @@ export const resolveMatch = (match) => {
 // Clé storage : panier (slip) persistant
 export const BENZBET_SLIP_KEY = (name) => `benzbet:${name}:slip`;
 export const BENZBET_HISTORY_KEY = (name) => `benzbet:${name}:history`;
+export const BENZBET_PENDING_KEY = (name) => `benzbet:${name}:pending`;
 // Conservé pour compatibilité
 export const BENZBET_MATCHES = generateMatches('foot');
 export const BENZBET_KEY = (name) => `benzbet:${name}:activeBet`;
+
+// ============== DURÉE SIMULÉE DES MATCHS (ms) ==============
+// Ratio simulation : 1 minute de match = 2 s réelles (cohérent avec BenzBet.jsx)
+const MATCH_SIM_RATIO = 2000; // ms par minute de match
+export const matchTotalDurationMs = (sportId) => {
+  const mins = sportId === 'foot' || sportId === 'rugby' ? 90
+             : sportId === 'nba' ? 48
+             : sportId === 'f1' ? 90
+             : sportId === 'tennis' ? 120
+             : sportId === 'mma' ? 25
+             : 60;
+  return mins * MATCH_SIM_RATIO;
+};
+
+// Donne une durée restante (ms) à partir du moment présent avant que le match soit fini
+export const legResolveDelayMs = (leg) => {
+  const base = matchTotalDurationMs(leg.match?.sportId || 'foot');
+  // Si le match est déjà live au moment du pari on enlève sa minute déjà écoulée
+  const minuteOffset = (leg.match?._liveMinute || 0) * MATCH_SIM_RATIO;
+  // +2s de buffer pour simuler l'annonce
+  return Math.max(4000, base - minuteOffset + 2000);
+};
+
+// Résolution effective d'un pari en attente (pending) : applique le tirage probabiliste
+// sur chaque leg, calcule le payout selon le mode (simple / combiné).
+export const resolvePendingBet = (pending) => {
+  const resolvedLegs = pending.legs.map(leg => {
+    const m = leg.match;
+    const realOutcome = resolveMatch({
+      hasDraw: m.hasDraw,
+      probH: m.probH, probN: m.probN, probA: m.probA,
+    });
+    return { ...leg, realOutcome, won: realOutcome === leg.pick };
+  });
+  let payout = 0;
+  let status = 'lost';
+  if (pending.mode === 'combine') {
+    const allWon = resolvedLegs.every(l => l.won);
+    if (allWon) {
+      payout = Math.floor(pending.stake * pending.totalOdds);
+      status = 'won';
+    }
+  } else {
+    payout = resolvedLegs.reduce((acc, l) => acc + (l.won ? Math.floor((pending.stake / pending.legs.length) * l.odds) : 0), 0);
+    status = payout > 0 ? (payout >= pending.stake ? 'won' : 'partial') : 'lost';
+  }
+  return { ...pending, legs: resolvedLegs, payout, status, resolvedAt: Date.now() };
+};
 
 export const sportBtnStyle = (color) => ({
   padding: 16,
