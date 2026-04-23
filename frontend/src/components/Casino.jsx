@@ -5,6 +5,7 @@ import CharacterScreen from '@/game/Character';
 import Lobby3D from '@/game/Lobby3D';
 import Street3D from '@/game/Street3D';
 import HomeInterior3D from '@/game/HomeInterior3D';
+import CasinoHall from '@/game/CasinoHall';
 import BlackjackGame from '@/game/Blackjack';
 import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
@@ -140,19 +141,23 @@ export default function Casino() {
     } catch (e) {}
   };
 
-  const handleLogin = async (name, isNew, casinoId) => {
+  const handleLogin = async (name, isNew, appearance) => {
     let p;
     if (isNew) {
       p = {
-        name, casino: casinoId,
+        name, casino: 'vegas',  // casino par défaut, changeable plus tard dans le hall
         balance: 500, totalWinnings: 0, sessions: 0,
         createdAt: Date.now(), unlockedTrophies: [],
         weapons: [],
         vehicles: [], equippedVehicle: null,
         ownedHair: [0,1,2], ownedOutfit: [0,1,2], ownedShoes: [0,1,2],
-        hair: 0, outfit: 0, shoes: 0, skin: '#e0b48a',
-        customized: false,
+        hair: appearance?.hair ?? 0,
+        outfit: appearance?.outfit ?? 0,
+        shoes: appearance?.shoes ?? 0,
+        skin: '#e0b48a',
+        customized: true, // fait sur le login
         lastWheelSpin: 0, lastWithdraw: 0,
+        keys: [], ownedHouses: [],
       };
     } else {
       p = savedProfiles.find(s => s.name === name);
@@ -162,13 +167,8 @@ export default function Casino() {
     setProfile(p);
     setBalance(p.balance || 500);
     await saveProfile(p);
-    // Nouveau joueur non-personnalisé -> écran de personnalisation
-    if (isNew || !p.customized) {
-      setScreen('character');
-    } else {
-      // Demander choix serveur (solo / alpha / beta) avant d'entrer
-      setScreen('serverSelect');
-    }
+    // Plus de personnalisation forcée : on va direct au serverSelect
+    setScreen('serverSelect');
   };
 
   const handleServerChoice = ({ mode, serverId }) => {
@@ -179,6 +179,18 @@ export default function Casino() {
   };
 
   const handleEnterCasino = () => {
+    // Après scan d'identité à la porte, on passe par le hall d'accueil
+    // où le joueur choisit son casino (Vegas/Malta/Monaco/...)
+    setScreen('casinoHall');
+  };
+
+  const handlePickCasino = async (casinoId) => {
+    if (profile) {
+      const next = { ...profile, casino: casinoId };
+      setProfile(next);
+      await saveProfile({ ...next, balance });
+    }
+    setCasino(CASINOS[casinoId] || CASINOS.vegas);
     setScreen('lobby');
     if (profile && canSpinWheel(profile)) {
       setTimeout(() => setShowWheel(true), 500);
@@ -198,6 +210,12 @@ export default function Casino() {
 
   const handleExitToStreet = () => {
     setScreen('street');
+  };
+
+  const [characterReturnTo, setCharacterReturnTo] = useState('serverSelect');
+  const openCharacterFromMenu = () => {
+    setCharacterReturnTo('lobby');
+    setScreen('character');
   };
 
   const [activeHouseId, setActiveHouseId] = useState(null);
@@ -579,7 +597,8 @@ export default function Casino() {
             const p = { ...profile, customized: true };
             setProfile(p);
             await saveProfile(p);
-            setScreen('serverSelect');
+            setScreen(characterReturnTo);
+            setCharacterReturnTo('serverSelect'); // reset pour prochaine fois
           }}
         />
       )}
@@ -619,6 +638,16 @@ export default function Casino() {
         />
       )}
 
+      {screen === 'casinoHall' && profile && (
+        <CasinoHall
+          profile={profile}
+          balance={balance}
+          currentCasinoId={profile.casino}
+          onEnter={handlePickCasino}
+          onExit={handleExitToStreet}
+        />
+      )}
+
       {screen === 'lobby' && profile && (
         <Lobby3D
           profile={profile}
@@ -643,8 +672,8 @@ export default function Casino() {
           selectedWeapon={selectedWeapon}
           setSelectedWeapon={setSelectedWeapon}
           onShoot={() => {}}
-          onChangeCasino={() => setShowChangeCasino(true)}
-          onOpenCharacter={() => setScreen('character')}
+          onChangeCasino={() => setScreen('casinoHall')}
+          onOpenCharacter={openCharacterFromMenu}
           onToggleVehicle={handleEquipVehicle}
           onExitCasino={handleExitToStreet}
         />
@@ -669,6 +698,7 @@ export default function Casino() {
           window.__openPoker     = () => setScreen('poker');
           window.__openLobby     = () => setScreen('lobby');
           window.__openStreet    = () => setScreen('street');
+          window.__openCasinoHall = () => setScreen('casinoHall');
           window.__addBalance = (n) => setBalance((b) => b + (n || 0));
           window.__getBalance = () => balance;
           window.__getProfile = () => profile;

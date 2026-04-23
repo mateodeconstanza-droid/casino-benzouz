@@ -128,6 +128,14 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — Refonte Login + Hall Casino + Personnalisation in-game)
+- **`Login.jsx` entièrement refait** (style Stake épuré) : fond navy gradient + noise overlay, logo BENZ doré dégradé, sous-titre "CASINO · ROYAL" avec liseré or, glass-morphism card, preview avatar SVG stylisé (`MiniAvatar`) avec sélecteurs ‹ › sur Coiffure / Tenue / Chaussures, input pseudo, bouton or "COMMENCER L'AVENTURE →". Liste de profils existants en cartes avec mini-avatar + solde + gains + compteur clés.
+- **Suppression du choix de casino à l'inscription** : le nouveau joueur démarre avec casino par défaut. Le `handleLogin` signature change : `(name, isNew, appearance)` (au lieu de `casinoId`).
+- **Personnalisation depuis le menu in-game** : le bouton "👤 Personnaliser le personnage" du menu (`Lobby3D.jsx`) repasse maintenant par l'écran `CharacterScreen` complet (pause le jeu). Nouveau state `characterReturnTo` ('serverSelect' pour première fois / 'lobby' quand ouvert depuis le menu) qui ramène au bon écran après "Valider".
+- **Nouveau composant `CasinoHall.jsx`** : hall d'accueil Stake-style affiché **après le scan d'identité** à la porte. Panel latéral gauche avec la liste des casinos (Vegas, Malta, Barcelona, Prague, Monaco, Jonzac, etc.) avec drapeaux + taglines + badge "ACTUEL" or, preview central avec drapeau emoji géant, nom doré, tagline, 3 stats badges (Tables / Machines / Mise min), bouton "ENTRER DANS {CASINO}" dégradé aux couleurs du casino.
+- **Intégration flow** : ServerSelect → Street3D → clic casino → scan 5s → **`casinoHall`** → Lobby3D du casino choisi. Le bouton "🌍 Changer de casino" du menu in-game renvoie aussi au hall.
+- **`handlePickCasino`** persiste le casino choisi dans `profile.casino` et met à jour la palette `casino` utilisée par Lobby3D.
+
 ### ✅ Implemented (Feb 2026 — LOT 4 Session 2 : Intérieurs customisables + Mur Trophées)
 - **Nouveau composant `/app/frontend/src/game/HomeInterior3D.jsx`** : intérieur first-person Three.js (1 pièce ouverte avec 3 zones : salon + cuisine + chambre) dont la taille dépend du type (appart 14×10, maison 18×12, villa 22×14).
 - **5 thèmes décoratifs** (`HOME_THEMES`) : Cosy / Moderne / Luxueux / Néon / Classique. Chaque thème configure murs, sol, canapé, lit, table, couleur d'accent (avec pointlight dynamique au plafond + lampes d'ambiance).
