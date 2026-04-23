@@ -582,8 +582,144 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     };
     renderer.domElement.addEventListener('click', handleClick);
 
+    // ----- NPCs piétons (3) qui marchent sur le trottoir -----
+    const npcs = new THREE.Group();
+    const npcColors = [
+      { skin: 0xe0b48a, shirt: 0xc93a3a, pants: 0x1a2a3a },
+      { skin: 0xb88866, shirt: 0x3a8aa0, pants: 0x2a1a1a },
+      { skin: 0xd0a080, shirt: 0xe8c058, pants: 0x1a1a1a },
+    ];
+    npcColors.forEach((c, i) => {
+      const npc = new THREE.Group();
+      // Corps
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.45, 0.7, 0.3),
+        new THREE.MeshStandardMaterial({ color: c.shirt, roughness: 0.9 })
+      );
+      body.position.y = 1.15;
+      body.castShadow = true;
+      npc.add(body);
+      // Jambes
+      const legL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, 0.8, 0.18),
+        new THREE.MeshStandardMaterial({ color: c.pants })
+      );
+      legL.position.set(-0.1, 0.4, 0);
+      npc.add(legL);
+      const legR = legL.clone();
+      legR.position.x = 0.1;
+      npc.add(legR);
+      // Bras
+      const armL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.55, 0.14),
+        new THREE.MeshStandardMaterial({ color: c.shirt })
+      );
+      armL.position.set(-0.3, 1.2, 0);
+      npc.add(armL);
+      const armR = armL.clone();
+      armR.position.x = 0.3;
+      npc.add(armR);
+      // Tête
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 12, 10),
+        new THREE.MeshStandardMaterial({ color: c.skin })
+      );
+      head.position.y = 1.72;
+      head.castShadow = true;
+      npc.add(head);
+      // Cheveux simples (disque)
+      const hair = new THREE.Mesh(
+        new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x2a1a10 })
+      );
+      hair.position.y = 1.78;
+      npc.add(hair);
+
+      // Trajectoire : va et vient le long du trottoir
+      npc.position.set(-25 + i * 20, 0, -8);
+      npc.userData = {
+        parts: { legL, legR, armL, armR },
+        speed: 0.035 + Math.random() * 0.015,
+        direction: i % 2 === 0 ? 1 : -1,
+        phase: Math.random() * Math.PI * 2,
+      };
+      npcs.add(npc);
+    });
+    scene.add(npcs);
+
+    // ----- Voiture qui passe sur la route -----
+    const car = new THREE.Group();
+    const carBody = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 0.6, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0xcc0a1a, metalness: 0.6, roughness: 0.25 })
+    );
+    carBody.position.y = 0.55;
+    carBody.castShadow = true;
+    car.add(carBody);
+    // Cabine
+    const cabine = new THREE.Mesh(
+      new THREE.BoxGeometry(1.3, 0.5, 1),
+      new THREE.MeshStandardMaterial({ color: 0x0a1f3a, metalness: 0.7, roughness: 0.2 })
+    );
+    cabine.position.set(-0.1, 1.05, 0);
+    car.add(cabine);
+    // 4 roues
+    for (let wx = -1; wx <= 1; wx += 2) {
+      for (let wz = -1; wz <= 1; wz += 2) {
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28, 0.28, 0.2, 12),
+          new THREE.MeshStandardMaterial({ color: 0x0a0a0a })
+        );
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx * 0.85, 0.28, wz * 0.5);
+        car.add(wheel);
+      }
+    }
+    // Phares avant émissifs
+    for (let hx = -1; hx <= 1; hx += 2) {
+      const headL = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffaa, emissiveIntensity: 1 })
+      );
+      headL.position.set(1.25, 0.55, hx * 0.4);
+      car.add(headL);
+    }
+    car.position.set(-45, 0, -4);
+    car.userData = { speed: 0.15 };
+    scene.add(car);
+
+    // ----- Barrière casino (levée pendant le scan) -----
+    const gateGroup = new THREE.Group();
+    gateGroup.position.set(0, 0, -4.5);
+    // 2 piliers
+    for (let s = -1; s <= 1; s += 2) {
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 1.6, 0.3),
+        new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.2 })
+      );
+      post.position.set(s * 2.5, 0.8, 0);
+      gateGroup.add(post);
+    }
+    // Barre rouge/blanche qui se lève
+    const gateBar = new THREE.Group();
+    for (let b = 0; b < 5; b++) {
+      const seg = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.18, 0.18),
+        new THREE.MeshStandardMaterial({
+          color: b % 2 ? 0xffffff : 0xcc1018,
+          emissive: b % 2 ? 0xffffff : 0xcc1018,
+          emissiveIntensity: 0.25,
+        })
+      );
+      seg.position.set(-2 + b * 1, 0, 0);
+      gateBar.add(seg);
+    }
+    gateBar.position.set(0, 1.4, 0);
+    gateGroup.add(gateBar);
+    scene.add(gateGroup);
+
     // ----- Animation loop -----
-    stateRef.current = { scene, camera, renderer, clouds, birds, disposed: false };
+    stateRef.current = { scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false };
     let rafId = 0;
     const loop = () => {
       if (stateRef.current.disposed) return;
@@ -591,18 +727,44 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         c.position.x += c.userData.driftSpeed;
         if (c.position.x > 60) c.position.x = -60;
       });
-      birds.children.forEach((b, idx) => {
+      birds.children.forEach((b) => {
         b.userData.phase += 0.02;
         const r = b.userData.radius;
         b.position.x = Math.cos(b.userData.phase) * r;
         b.position.z = -20 + Math.sin(b.userData.phase) * r * 0.4;
-        // Flap wings
         const flap = Math.sin(b.userData.phase * 12) * 0.5;
         b.children[0].rotation.z = 0.4 + flap;
         b.children[1].rotation.z = -0.4 - flap;
-        // Always face direction
         b.rotation.y = -b.userData.phase + Math.PI / 2;
       });
+      // NPCs : marchent sur le trottoir avec balancement bras/jambes
+      npcs.children.forEach((n) => {
+        const ud = n.userData;
+        ud.phase += 0.14;
+        n.position.x += ud.speed * ud.direction;
+        if (n.position.x > 40) ud.direction = -1;
+        if (n.position.x < -40) ud.direction = 1;
+        n.rotation.y = ud.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
+        const swing = Math.sin(ud.phase) * 0.4;
+        if (ud.parts) {
+          ud.parts.legL.rotation.x =  swing;
+          ud.parts.legR.rotation.x = -swing;
+          ud.parts.armL.rotation.x = -swing * 0.8;
+          ud.parts.armR.rotation.x =  swing * 0.8;
+        }
+      });
+      // Voiture : fait des allers-retours sur la route
+      if (stateRef.current.car) {
+        stateRef.current.car.position.x += stateRef.current.car.userData.speed;
+        if (stateRef.current.car.position.x > 50) stateRef.current.car.position.x = -50;
+      }
+      // Barrière : s'abaisse en idle, se lève pendant le scan
+      if (stateRef.current.gateBar) {
+        const target = stateRef.current.gateOpen ? Math.PI / 2.2 : 0;
+        stateRef.current.gateBar.rotation.z = THREE.MathUtils.lerp(
+          stateRef.current.gateBar.rotation.z, target, 0.05
+        );
+      }
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(loop);
     };
@@ -632,6 +794,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       if (scanning) return;
       setScanning(true);
       setScanProgress(0);
+      stateRef.current.gateOpen = true; // lève la barrière
       const step = 50;
       let p = 0;
       const iv = setInterval(() => {
@@ -641,6 +804,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           clearInterval(iv);
           setScanning(false);
           setScanProgress(0);
+          stateRef.current.gateOpen = false; // rabaisse
           onEnterCasino?.();
         }
       }, step);

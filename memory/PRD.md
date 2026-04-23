@@ -128,6 +128,14 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — LOT 4 Session 3 + Onboarding tutoriel)
+- **NPCs piétons** (3) qui marchent le long du trottoir dans Street3D, avec corps BoxGeometry + jambes + bras + tête sphère + cheveux dômes, et **animation réaliste** de balancement bras/jambes via `Math.sin(phase)` sur `legL.rotation.x` et `armL.rotation.x`. Direction switch automatique aux bornes (-40/+40 m). 3 couleurs distinctes (rouge/bleu/jaune).
+- **Voiture rouge** qui traverse la route en continu (phares émissifs avant, 4 roues, cabine bleu nuit).
+- **Barrière d'accès au casino** : 2 piliers dorés + barre rouge/blanche à 5 segments alternés, positionnée devant l'entrée. Se lève en douceur (lerp 0 → π/2.2) pendant les 5 s du scan d'identité et redescend après. Géré via `stateRef.current.gateOpen` activé/désactivé dans `onCasinoClick`.
+- **Nouveau composant `Onboarding.jsx`** : tutoriel 5 étapes affichable par-dessus la scène Street3D (Bienvenue → Maisons → Casino → Hall → Finish) avec carte navy + barre de progression or + boutons "Passer" / "SUIVANT →" + flèche animée bouncing pointant vers la cible.
+- **Persistance** : `profile.onboardedAt` enregistré après le tutoriel. Bouton "❔ Revoir le tutoriel" dans le menu lobby qui reset `onboardedAt` et renvoie sur Street pour rejouer.
+- **Trigger auto** : `<Onboarding active={!profile.onboardedAt} onFinish={...} />` wrappé autour de Street3D — ne s'affiche qu'aux nouveaux joueurs.
+
 ### ✅ Implemented (Feb 2026 — Refonte Login + Hall Casino + Personnalisation in-game)
 - **`Login.jsx` entièrement refait** (style Stake épuré) : fond navy gradient + noise overlay, logo BENZ doré dégradé, sous-titre "CASINO · ROYAL" avec liseré or, glass-morphism card, preview avatar SVG stylisé (`MiniAvatar`) avec sélecteurs ‹ › sur Coiffure / Tenue / Chaussures, input pseudo, bouton or "COMMENCER L'AVENTURE →". Liste de profils existants en cartes avec mini-avatar + solde + gains + compteur clés.
 - **Suppression du choix de casino à l'inscription** : le nouveau joueur démarre avec casino par défaut. Le `handleLogin` signature change : `(name, isNew, appearance)` (au lieu de `casinoId`).

@@ -6,6 +6,7 @@ import Lobby3D from '@/game/Lobby3D';
 import Street3D from '@/game/Street3D';
 import HomeInterior3D from '@/game/HomeInterior3D';
 import CasinoHall from '@/game/CasinoHall';
+import Onboarding from '@/game/Onboarding';
 import BlackjackGame from '@/game/Blackjack';
 import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
@@ -618,15 +619,25 @@ export default function Casino() {
       )}
 
       {screen === 'street' && profile && (
-        <Street3D
-          profile={profile}
-          balance={balance}
-          setBalance={setBalance}
-          onEnterCasino={handleEnterCasino}
-          onBuyHouse={handleBuyHouse}
-          onExitGame={handleLogout}
-          onOpenHome={handleEnterHome}
-        />
+        <>
+          <Street3D
+            profile={profile}
+            balance={balance}
+            setBalance={setBalance}
+            onEnterCasino={handleEnterCasino}
+            onBuyHouse={handleBuyHouse}
+            onExitGame={handleLogout}
+            onOpenHome={handleEnterHome}
+          />
+          <Onboarding
+            active={!profile.onboardedAt}
+            onFinish={async () => {
+              const next = { ...profile, onboardedAt: Date.now() };
+              setProfile(next);
+              await saveProfile({ ...next, balance });
+            }}
+          />
+        </>
       )}
 
       {screen === 'home' && profile && activeHouseId && (
@@ -673,6 +684,12 @@ export default function Casino() {
           setSelectedWeapon={setSelectedWeapon}
           onShoot={() => {}}
           onChangeCasino={() => setScreen('casinoHall')}
+          onReplayTutorial={async () => {
+            const next = { ...profile, onboardedAt: 0 };
+            setProfile(next);
+            await saveProfile({ ...next, balance });
+            setScreen('street');
+          }}
           onOpenCharacter={openCharacterFromMenu}
           onToggleVehicle={handleEquipVehicle}
           onExitCasino={handleExitToStreet}
