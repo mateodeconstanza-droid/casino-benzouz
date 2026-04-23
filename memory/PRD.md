@@ -128,6 +128,19 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — LOT 4 Session 2 : Intérieurs customisables + Mur Trophées)
+- **Nouveau composant `/app/frontend/src/game/HomeInterior3D.jsx`** : intérieur first-person Three.js (1 pièce ouverte avec 3 zones : salon + cuisine + chambre) dont la taille dépend du type (appart 14×10, maison 18×12, villa 22×14).
+- **5 thèmes décoratifs** (`HOME_THEMES`) : Cosy / Moderne / Luxueux / Néon / Classique. Chaque thème configure murs, sol, canapé, lit, table, couleur d'accent (avec pointlight dynamique au plafond + lampes d'ambiance).
+- **Meubles 3D inclus** :
+  - Salon : canapé avec dossier + accoudoirs, table basse, meuble TV + écran TV émissif couleur accent, lampe d'ambiance avec pointlight
+  - Cuisine : plan de travail en L blanc marbré, 3 placards hauts, évier inox, plaques de cuisson émissives
+  - Chambre : lit avec matelas blanc + oreiller + tête de lit, table de nuit + lampe émissive avec pointlight
+  - Horloge murale déco (cuisine)
+- **Mur Trophées** (canvas 1024×640 texturé sur plane 6×3,75 m) : cadre doré + titre 🏆 + 6 statistiques auto-calculées depuis `profile.totalWinnings` et l'historique BenzBet (Gains cumulés, Plus gros gain, Meilleure streak, Cote max, Paris placés, Propriétés). **Cliquable** → modal détaillé avec grille 2×3.
+- **Persistance** : le thème choisi est sauvegardé dans `profile.ownedHouses[].customizations.theme` et repersistant entre sessions via `saveProfile()`.
+- **Intégration flow** : Street3D modal → "ENTRER CHEZ MOI" (si possédée) → screen `'home'` avec `HomeInterior3D` → bouton "← Sortir" revient en street.
+- **Caméra vivante** : léger balancement gauche-droite + haut-bas pour rendre l'immersion first-person naturelle.
+
 ### ✅ Implemented (Feb 2026 — LOT 4 Session 1 : Quartier extérieur 3D)
 - **Nouveau composant `/app/frontend/src/game/Street3D.jsx`** : scène Three.js outdoor avec ciel bleu + soleil + fog, 10 nuages qui dérivent en continu, 4 oiseaux qui volent en cercle avec battement d'ailes, route asphaltée + lignes blanches, trottoir, pelouse verte.
 - **Bâtiments 3D** :

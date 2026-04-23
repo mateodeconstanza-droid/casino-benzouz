@@ -828,7 +828,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
                   cursor: (isOwned || balance >= house.price) ? 'pointer' : 'not-allowed',
                   fontSize: 14, letterSpacing: 1,
                 }}
-              >{isOwned ? 'ENTRER (bientôt)' : 'ACHETER'}</button>
+              >{isOwned ? 'ENTRER CHEZ MOI' : 'ACHETER'}</button>
             </div>
           </div>
         </div>

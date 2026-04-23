@@ -4,6 +4,7 @@ import LoginScreen from '@/game/Login';
 import CharacterScreen from '@/game/Character';
 import Lobby3D from '@/game/Lobby3D';
 import Street3D from '@/game/Street3D';
+import HomeInterior3D from '@/game/HomeInterior3D';
 import BlackjackGame from '@/game/Blackjack';
 import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
@@ -196,6 +197,16 @@ export default function Casino() {
   };
 
   const handleExitToStreet = () => {
+    setScreen('street');
+  };
+
+  const [activeHouseId, setActiveHouseId] = useState(null);
+  const handleEnterHome = (houseId) => {
+    setActiveHouseId(houseId);
+    setScreen('home');
+  };
+  const handleExitHome = () => {
+    setActiveHouseId(null);
     setScreen('street');
   };
 
@@ -595,7 +606,16 @@ export default function Casino() {
           onEnterCasino={handleEnterCasino}
           onBuyHouse={handleBuyHouse}
           onExitGame={handleLogout}
-          onOpenHome={() => { /* TODO: LOT 4 session 2 — entrer dans la maison customisable */ }}
+          onOpenHome={handleEnterHome}
+        />
+      )}
+
+      {screen === 'home' && profile && activeHouseId && (
+        <HomeInterior3D
+          profile={profile}
+          setProfile={(next) => { setProfile(next); saveProfile({ ...next, balance }); }}
+          houseId={activeHouseId}
+          onExit={handleExitHome}
         />
       )}
 
