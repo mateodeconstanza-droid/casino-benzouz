@@ -2353,138 +2353,255 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onOpenTrop
 
     const shopObj = createShop();
 
-    // ========== KIOSQUE BENZBET ==========
+    // ========== ESPACE BENZBET MODERNE (4 totems rouge & blanc) ==========
     const createBenzBet = () => {
       const group = new THREE.Group();
       group.position.set(13, 0, -14);
-      
-      // 2 machines BenzBet identiques
-      for (let m = 0; m < 2; m++) {
+
+      // Podium / dalle rouge laquée marquant la zone
+      const podium = new THREE.Mesh(
+        new THREE.BoxGeometry(9, 0.12, 5.5),
+        new THREE.MeshStandardMaterial({ color: 0xe00e1a, metalness: 0.3, roughness: 0.25 })
+      );
+      podium.position.set(0, 0.06, 0);
+      podium.receiveShadow = true;
+      group.add(podium);
+
+      // Bord blanc sur le podium (liseré)
+      const podiumEdge = new THREE.Mesh(
+        new THREE.BoxGeometry(9.2, 0.04, 5.7),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.2, roughness: 0.35 })
+      );
+      podiumEdge.position.set(0, 0.02, 0);
+      group.add(podiumEdge);
+
+      // Création d'un totem "haut écran LED, base rouge laquée" moderne
+      const makeTotem = (x) => {
         const machine = new THREE.Group();
-        machine.position.set(-1.2 + m * 2.4, 0, 0);
-        
-        // Corps
-        const body = new THREE.Mesh(
-          new THREE.BoxGeometry(1, 2.4, 0.8),
-          new THREE.MeshStandardMaterial({ color: 0x1a1a2a, metalness: 0.5 })
+        machine.position.set(x, 0.12, -0.4);
+
+        // ----- Base rouge laquée (pupitre incliné) -----
+        const base = new THREE.Mesh(
+          new THREE.BoxGeometry(0.95, 1.1, 0.75),
+          new THREE.MeshStandardMaterial({ color: 0xcc0a18, metalness: 0.6, roughness: 0.15 })
         );
-        body.position.y = 1.2;
-        machine.add(body);
-        
-        // Écran bleu-violet
-        const screen = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.8, 0.9),
-          new THREE.MeshBasicMaterial({ color: 0x000000 })
+        base.position.y = 0.55;
+        machine.add(base);
+
+        // Liseré blanc horizontal
+        const stripe = new THREE.Mesh(
+          new THREE.BoxGeometry(0.97, 0.06, 0.77),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.25 })
         );
-        screen.position.set(0, 1.6, 0.41);
-        machine.add(screen);
-        
-        // Lumière écran
-        const screenGlow = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.75, 0.85),
-          new THREE.MeshBasicMaterial({ color: 0xff00aa })
+        stripe.position.y = 0.95;
+        machine.add(stripe);
+
+        // Plateau incliné (interface de pari)
+        const consoleTop = new THREE.Mesh(
+          new THREE.BoxGeometry(0.88, 0.05, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x0d1117, metalness: 0.7, roughness: 0.3 })
         );
-        screenGlow.position.set(0, 1.6, 0.42);
-        machine.add(screenGlow);
-        
-        // Label BENZBET
-        const bbCanvas = document.createElement('canvas');
-        bbCanvas.width = 256; bbCanvas.height = 128;
-        const bbctx = bbCanvas.getContext('2d');
-        bbctx.fillStyle = '#000';
-        bbctx.fillRect(0, 0, 256, 128);
-        bbctx.fillStyle = '#ff00aa';
-        bbctx.font = 'bold 44px Georgia';
-        bbctx.textAlign = 'center';
-        bbctx.fillText('BENZ', 128, 55);
-        bbctx.fillStyle = '#ffd700';
-        bbctx.fillText('BET', 128, 100);
-        const bbtex = new THREE.CanvasTexture(bbCanvas);
-        const bbLabel = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.7, 0.4),
-          new THREE.MeshBasicMaterial({ map: bbtex, transparent: true })
+        consoleTop.position.set(0, 1.12, 0.05);
+        consoleTop.rotation.x = -0.35;
+        machine.add(consoleTop);
+
+        // Écran tactile incliné (glow rouge léger)
+        const touch = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.78, 0.4),
+          new THREE.MeshBasicMaterial({ color: 0xff2a38 })
         );
-        bbLabel.position.set(0, 2.2, 0.42);
-        machine.add(bbLabel);
-        
-        // Fente ticket
-        const slot = new THREE.Mesh(
-          new THREE.BoxGeometry(0.5, 0.03, 0.03),
-          new THREE.MeshStandardMaterial({ color: 0x000000 })
-        );
-        slot.position.set(0, 0.6, 0.41);
-        machine.add(slot);
-        
-        // Boutons colorés
-        const btnColors = [0xff0000, 0x00ff00, 0xffff00];
+        touch.position.set(0, 1.15, 0.085);
+        touch.rotation.x = -0.35 - Math.PI / 2 + Math.PI / 2; // aligné sur top incliné
+        touch.rotation.x = -0.35;
+        machine.add(touch);
+
+        // Boutons colorés modernes sur la base
+        const btnColors = [0xffffff, 0xe00e1a, 0xffd700];
         for (let b = 0; b < 3; b++) {
           const btn = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12),
-            new THREE.MeshStandardMaterial({ color: btnColors[b], emissive: btnColors[b], emissiveIntensity: 0.5 })
+            new THREE.CylinderGeometry(0.06, 0.06, 0.035, 18),
+            new THREE.MeshStandardMaterial({
+              color: btnColors[b], emissive: btnColors[b], emissiveIntensity: 0.6, roughness: 0.25,
+            })
           );
           btn.rotation.x = Math.PI / 2;
-          btn.position.set(-0.15 + b * 0.15, 1.05, 0.42);
+          btn.position.set(-0.22 + b * 0.22, 0.7, 0.38);
           machine.add(btn);
         }
-        
-        group.add(machine);
-      }
-      
-      // Comptoir du bookmaker
+
+        // Fente tickets (imprimante)
+        const slot = new THREE.Mesh(
+          new THREE.BoxGeometry(0.45, 0.025, 0.04),
+          new THREE.MeshStandardMaterial({ color: 0x0d1117 })
+        );
+        slot.position.set(0, 0.35, 0.38);
+        machine.add(slot);
+
+        // Tige montante qui tient l'écran LED
+        const pole = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.6, 0.12),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.8, roughness: 0.15 })
+        );
+        pole.position.set(0, 1.5, -0.25);
+        machine.add(pole);
+
+        // ----- Écran LED haut (grand panneau noir avec texture animée "cotes") -----
+        const ledCanvas = document.createElement('canvas');
+        ledCanvas.width = 512; ledCanvas.height = 256;
+        const lctx = ledCanvas.getContext('2d');
+        lctx.fillStyle = '#0d1117';
+        lctx.fillRect(0, 0, 512, 256);
+        // Bandeau BenzBet
+        lctx.fillStyle = '#e00e1a';
+        lctx.fillRect(0, 0, 512, 56);
+        lctx.fillStyle = '#fff';
+        lctx.font = 'bold 34px Georgia';
+        lctx.textAlign = 'center';
+        lctx.fillText('BENZBET', 256, 40);
+        // Faux cotes LIVE
+        lctx.fillStyle = '#ffd700';
+        lctx.font = 'bold 20px monospace';
+        lctx.textAlign = 'left';
+        const odds = [
+          ['PSG - Real', '2.10  3.40  2.85'],
+          ['Celtics - Nuggets', '1.65  —   2.25'],
+          ['Sinner - Alcaraz', '1.95  —   1.88'],
+          ['Djokovic - Ruud', '1.45  —   2.70'],
+        ];
+        odds.forEach((row, i) => {
+          lctx.fillStyle = i % 2 ? '#fff' : '#ff9aa2';
+          lctx.fillText(row[0], 22, 100 + i * 36);
+          lctx.fillStyle = '#ffd700';
+          lctx.fillText(row[1], 280, 100 + i * 36);
+        });
+        // Pastille LIVE clignotante (statique image)
+        lctx.fillStyle = '#e00e1a';
+        lctx.beginPath(); lctx.arc(470, 30, 8, 0, Math.PI * 2); lctx.fill();
+        lctx.fillStyle = '#fff';
+        lctx.font = 'bold 12px Arial';
+        lctx.fillText('LIVE', 448, 34);
+
+        const ledTex = new THREE.CanvasTexture(ledCanvas);
+        const led = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.4, 0.75),
+          new THREE.MeshBasicMaterial({ map: ledTex })
+        );
+        led.position.set(0, 2.1, -0.24);
+        machine.add(led);
+
+        // Cadre blanc autour de l'écran
+        const frame = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 0.82, 0.06),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.5, roughness: 0.25 })
+        );
+        frame.position.set(0, 2.1, -0.28);
+        machine.add(frame);
+
+        // Petit logo BB rouge au pied
+        const footLogo = new THREE.Mesh(
+          new THREE.BoxGeometry(0.4, 0.08, 0.02),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35 })
+        );
+        footLogo.position.set(0, 0.15, 0.38);
+        machine.add(footLogo);
+
+        return machine;
+      };
+
+      // 4 totems alignés le long du podium
+      const xs = [-3.3, -1.1, 1.1, 3.3];
+      xs.forEach(x => group.add(makeTotem(x)));
+
+      // Comptoir bookmaker blanc laqué + liseré rouge
       const counter = new THREE.Mesh(
-        new THREE.BoxGeometry(4, 1, 1),
-        new THREE.MeshStandardMaterial({ color: 0x4a2a4a, roughness: 0.7 })
+        new THREE.BoxGeometry(6, 1, 1),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.3 })
       );
-      counter.position.set(0, 0.5, 2.5);
+      counter.position.set(0, 0.5, 2.2);
       group.add(counter);
-      
-      // Bookmaker 3D
+
+      const counterStripe = new THREE.Mesh(
+        new THREE.BoxGeometry(6.05, 0.1, 1.02),
+        new THREE.MeshStandardMaterial({ color: 0xe00e1a, emissive: 0xe00e1a, emissiveIntensity: 0.25 })
+      );
+      counterStripe.position.set(0, 0.95, 2.2);
+      group.add(counterStripe);
+
+      // Bookmaker 3D (conservé)
       const bookmaker = createDealer3D({ skin: '#d4a888', hair: '#4a2818', eyes: '#2a1808', beard: false, glasses: true, gender: 'm' });
-      bookmaker.position.set(0, 0, 3.3);
+      bookmaker.position.set(0, 0, 3.0);
       bookmaker.rotation.y = Math.PI;
       group.add(bookmaker);
-      
-      // Enseigne néon BENZBET géante
+
+      // Grande enseigne LED BENZBET rouge & blanche suspendue
       const neonCanvas = document.createElement('canvas');
       neonCanvas.width = 1024; neonCanvas.height = 256;
       const nctx = neonCanvas.getContext('2d');
-      nctx.fillStyle = '#000';
+      nctx.fillStyle = '#0d1117';
       nctx.fillRect(0, 0, 1024, 256);
-      nctx.shadowColor = '#ff00aa';
-      nctx.shadowBlur = 30;
-      nctx.fillStyle = '#ff00aa';
-      nctx.font = 'bold 120px Georgia';
-      nctx.textAlign = 'center';
-      nctx.fillText('BENZ', 360, 160);
-      nctx.fillStyle = '#ffd700';
-      nctx.fillText('BET', 720, 160);
+      // Halo rouge
+      nctx.shadowColor = '#ff2a38';
+      nctx.shadowBlur = 40;
+      nctx.fillStyle = '#e00e1a';
+      nctx.fillRect(40, 60, 944, 140);
+      nctx.shadowBlur = 0;
+      // Texte blanc
       nctx.fillStyle = '#fff';
-      nctx.font = '30px Georgia';
-      nctx.fillText('PARIS SPORTIFS', 512, 220);
+      nctx.font = 'bold 130px Georgia';
+      nctx.textAlign = 'center';
+      nctx.fillText('BENZ', 360, 170);
+      // BET dans un box blanc/rouge inversé
+      nctx.fillStyle = '#fff';
+      nctx.fillRect(540, 70, 400, 140);
+      nctx.fillStyle = '#e00e1a';
+      nctx.fillText('BET', 740, 170);
+      // Slogan
+      nctx.fillStyle = '#ffd700';
+      nctx.font = 'bold 28px Georgia';
+      nctx.fillText('PARIS SPORTIFS · COTES EN DIRECT', 512, 235);
+
       const ntex = new THREE.CanvasTexture(neonCanvas);
       const neonSign = new THREE.Mesh(
-        new THREE.PlaneGeometry(5, 1.25),
+        new THREE.PlaneGeometry(7, 1.75),
         new THREE.MeshBasicMaterial({ map: ntex, transparent: true })
       );
-      neonSign.position.set(0, 4.2, 0);
+      neonSign.position.set(0, 4.3, -0.3);
       group.add(neonSign);
-      
-      // Lumières néon
-      const nlight1 = new THREE.PointLight(0xff00aa, 1, 6);
-      nlight1.position.set(-1, 3, 1);
+
+      // Barres LED rouge & blanche décoratives au sol
+      for (let i = 0; i < 4; i++) {
+        const ledBar = new THREE.Mesh(
+          new THREE.BoxGeometry(1.6, 0.04, 0.08),
+          new THREE.MeshStandardMaterial({
+            color: i % 2 === 0 ? 0xe00e1a : 0xffffff,
+            emissive: i % 2 === 0 ? 0xe00e1a : 0xffffff,
+            emissiveIntensity: 0.55,
+          })
+        );
+        ledBar.position.set(-3.3 + i * 2.2, 0.14, 1.3);
+        group.add(ledBar);
+      }
+
+      // Lumières d'ambiance rouge / blanche
+      const nlight1 = new THREE.PointLight(0xe00e1a, 1.2, 8);
+      nlight1.position.set(-2.5, 3.2, 1);
       group.add(nlight1);
-      const nlight2 = new THREE.PointLight(0xffd700, 1, 6);
-      nlight2.position.set(1, 3, 1);
+      const nlight2 = new THREE.PointLight(0xffffff, 0.9, 8);
+      nlight2.position.set(2.5, 3.2, 1);
       group.add(nlight2);
-      
+      const nlight3 = new THREE.PointLight(0xffd700, 0.5, 6);
+      nlight3.position.set(0, 4, 0);
+      group.add(nlight3);
+
+      // Zone d'interaction élargie (couvre les 4 totems)
       const zone = new THREE.Mesh(
-        new THREE.SphereGeometry(3, 8, 8),
+        new THREE.SphereGeometry(4.5, 8, 8),
         new THREE.MeshBasicMaterial({ visible: false })
       );
       zone.userData = { zoneId: 'benzbet' };
-      zone.position.set(0, 1, 1.5);
+      zone.position.set(0, 1, 0.5);
       group.add(zone);
-      
+
       scene.add(group);
       return { zone };
     };

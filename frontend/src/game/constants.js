@@ -344,15 +344,85 @@ export const ESPORT_TEAMS = [
 ];
 
 export const BENZBET_SPORTS = [
-  { id: 'foot', label: 'Football', icon: '⚽', pool: FOOT_CLUBS, draw: true, leagues: ['Ligue des Champions', 'Premier League', 'Liga', 'Serie A', 'Bundesliga', 'Ligue 1'] },
-  { id: 'nba', label: 'Basket NBA', icon: '🏀', pool: NBA_TEAMS, draw: false, leagues: ['NBA Regular Season', 'NBA Playoffs'] },
-  { id: 'tennis', label: 'Tennis ATP', icon: '🎾', pool: TENNIS_PLAYERS, draw: false, leagues: ['Grand Chelem', 'ATP 1000', 'ATP 500'] },
-  { id: 'mma', label: 'MMA / UFC', icon: '🥊', pool: MMA_FIGHTERS, draw: false, leagues: ['UFC PPV', 'UFC Fight Night'] },
-  { id: 'hockey', label: 'Hockey NHL', icon: '🏒', pool: NHL_TEAMS, draw: false, leagues: ['NHL Regular', 'Stanley Cup'] },
-  { id: 'rugby', label: 'Rugby', icon: '🏉', pool: RUGBY_TEAMS, draw: true, leagues: ['Top 14', 'Tournoi des 6 Nations', 'Champions Cup'] },
-  { id: 'f1', label: 'Formule 1', icon: '🏎️', pool: F1_DRIVERS, draw: false, leagues: ['Grand Prix'] },
-  { id: 'esport', label: 'Esport', icon: '🎮', pool: ESPORT_TEAMS, draw: false, leagues: ['CS2 Major', 'LoL Worlds', 'BLAST Premier'] },
+  { id: 'foot', label: 'Football', icon: '⚽', pool: FOOT_CLUBS, draw: true, leagues: ['Ligue des Champions', 'Premier League', 'Liga', 'Serie A', 'Bundesliga', 'Ligue 1'], entity: 'Club', pointUnit: 'pts' },
+  { id: 'nba', label: 'Basket NBA', icon: '🏀', pool: NBA_TEAMS, draw: false, leagues: ['NBA Regular Season', 'NBA Playoffs'], entity: 'Équipe', pointUnit: 'pts' },
+  { id: 'tennis', label: 'Tennis ATP', icon: '🎾', pool: TENNIS_PLAYERS, draw: false, leagues: ['Grand Chelem', 'ATP 1000', 'ATP 500'], entity: 'Joueur', pointUnit: 'pts ATP' },
+  { id: 'mma', label: 'MMA / UFC', icon: '🥊', pool: MMA_FIGHTERS, draw: false, leagues: ['UFC PPV', 'UFC Fight Night'], entity: 'Combattant', pointUnit: 'pts UFC' },
+  { id: 'hockey', label: 'Hockey NHL', icon: '🏒', pool: NHL_TEAMS, draw: false, leagues: ['NHL Regular', 'Stanley Cup'], entity: 'Équipe', pointUnit: 'pts' },
+  { id: 'rugby', label: 'Rugby', icon: '🏉', pool: RUGBY_TEAMS, draw: true, leagues: ['Top 14', 'Tournoi des 6 Nations', 'Champions Cup'], entity: 'Équipe', pointUnit: 'pts WR' },
+  { id: 'f1', label: 'Formule 1', icon: '🏎️', pool: F1_DRIVERS, draw: false, leagues: ['Grand Prix'], entity: 'Pilote', pointUnit: 'pts championnat' },
+  { id: 'esport', label: 'Esport', icon: '🎮', pool: ESPORT_TEAMS, draw: false, leagues: ['CS2 Major', 'LoL Worlds', 'BLAST Premier'], entity: 'Équipe', pointUnit: 'pts HLTV' },
 ];
+
+// ========= CLASSEMENTS — Top 20 par sport avec forme déterministe =========
+// Hash déterministe (même résultat entre rechargements → pas de flickering)
+const hash32 = (str) => {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+const pseudoRand = (seed, n) => {
+  // PRNG mulberry32 basique, déterministe à partir d'un seed + index
+  let t = (seed + n * 0x6D2B79F5) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+// Convertit ELO (50..100) en points "réalistes" selon le sport
+const eloToPoints = (sportId, elo) => {
+  switch (sportId) {
+    case 'foot':   return Math.round((elo - 40) * 28);          // 280..1680 pts UEFA-like
+    case 'nba':    return Math.round(22 + (elo - 50) * 0.85);   // % victoires ≈ 22..65
+    case 'tennis': return Math.round((elo - 50) * 260);         // 0..13000 pts ATP
+    case 'mma':    return Math.round((elo - 50) * 120);         // 0..6000 pts UFC fict.
+    case 'hockey': return Math.round((elo - 50) * 2.4);         // points saison ~20..120
+    case 'rugby':  return +((elo - 40) * 1.2).toFixed(2);       // pts World Rugby
+    case 'f1':     return Math.round((elo - 50) * 14);          // 0..700 pts championnat
+    case 'esport': return Math.round(600 + (elo - 50) * 22);    // pts HLTV 600..1700
+    default:       return elo;
+  }
+};
+
+// Génère une forme réaliste (5 derniers) : V/N/D (ou V/D selon sport)
+// Plus l'ELO est élevé → plus de V ; seed stable sur le nom pour éviter les changements.
+const computeForm = (sportId, entity) => {
+  const seed = hash32(sportId + '|' + entity.name);
+  const winProb = Math.max(0.15, Math.min(0.92, (entity.elo - 50) / 50));
+  const drawAllowed = sportId === 'foot' || sportId === 'rugby' || sportId === 'hockey';
+  const drawProb = drawAllowed ? 0.18 : 0;
+  const out = [];
+  for (let i = 0; i < 5; i++) {
+    const r = pseudoRand(seed, i);
+    if (drawAllowed && r < drawProb) out.push('N');
+    else if (r < drawProb + winProb * (1 - drawProb)) out.push('V');
+    else out.push('D');
+  }
+  return out;
+};
+
+// Top N trié par ELO avec rang, points, forme, tendance (↑/→/↓)
+export const getRankings = (sportId, topN = 20) => {
+  const sport = BENZBET_SPORTS.find(s => s.id === sportId);
+  if (!sport) return [];
+  const sorted = [...sport.pool].sort((a, b) => b.elo - a.elo).slice(0, topN);
+  return sorted.map((e, i) => {
+    const form = computeForm(sportId, e);
+    const wins = form.filter(f => f === 'V').length;
+    const trend = wins >= 4 ? 'up' : wins <= 1 ? 'down' : 'flat';
+    return {
+      rank: i + 1,
+      name: e.name,
+      elo: e.elo,
+      points: eloToPoints(sportId, e.elo),
+      form,        // ['V','V','D','N','V']
+      trend,       // 'up' | 'flat' | 'down'
+    };
+  });
+};
 
 // ===== MOTEUR DE COTES INTELLIGENT =====
 // Normalise l'ELO en proba, applique l'avantage du terrain (foot/rugby),

@@ -1,0 +1,44 @@
+{
+  "summary": "Frontend-only validation of 3 nouvelles features BenzBet + redesign 3D BenzBet. Validated via window.__openBenzBet() dev hook (toujours exposé même au ServerSelect, ce qui est pratique). Login flow headless : seed 'profile:TestPlayer' + reload + clic SOLO; le card-deal d'auth est partiellement bypassed via dev hook. Toutes les features BenzBet demandées sont fonctionnelles : (1) bouton data-testid='benzbet-toggle-view' commute correctement les libellés '🏆 Classements' <-> '🎟️ Retour aux paris'; (2) RankingsView (data-testid='benzbet-rankings') affiche bien la grille en-têtes Rang/Club/Pts/Forme(5)/Tend., avec couronne 👑 sur #1, médailles couleur or/argent/bronze sur #1-3, points formatés fr-FR (ex: '1 568'), 5 badges V/N/D colorés (vert/orange/rouge), flèches de tendance ▲▼▬; (3) onglets sport (sport-tab-foot/nba/tennis/mma/hockey/rugby/f1/esport) commutent bien la table; (4) cotes ELO-based correctes — spot-checks confirmés : Real Madrid (96 ELO) vs Benfica (78) -> 1.22/50.00, Real Madrid vs Chelsea (85) -> 1.44/21.09, Naples (83) vs Atalanta (79) -> 1.83/7.00, Man City (95) vs Arsenal (90) -> 1.74/8.08, Atalanta (79) vs Juventus (84) -> 3.53/2.41 (équipe Juventus plus forte = cote plus basse, vérifié sur 7 matchs); (5) régression placement de pari OK : balance 500 000 -> 500 266 B après mise 100 (gain), toast 'benzbet-toast' visible, slip vidé, historique incrémenté; (6) régression collapse/expand panier OK : 'benzbet-slip-collapse' réduit le panier à 56px, 'benzbet-slip-expand' visible une fois collapsé, ré-expansion remet le bouton collapse. ZÉRO erreur console pendant tout le run BenzBet.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "RankingsView (sport=esport)",
+        "issue": "L'onglet Esport n'affiche que 18 lignes alors que la spec demande Top 20 pour chacun des 8 sports. Cause racine : ESPORT_TEAMS dans /app/frontend/src/game/constants.js (lignes 337-345) ne contient que 18 entrées (NAVI, FaZe Clan, Vitality, G2, Team Spirit, MOUZ, Complexity, Astralis, Heroic, Liquid, T1, Gen.G, JDG, BLG, Hanwha Life, Fnatic, Cloud9, 100 Thieves). Tous les autres pools (foot, nba, tennis, mma, hockey, rugby, f1) ont >=20 entrées et affichent bien 20 lignes.",
+        "selector": "[data-testid^='rank-row-esport-']",
+        "priority": "MINOR"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Vérification visuelle du redesign 3D BenzBet (4 totems rouges/blancs sur podium rouge avec écran LED)",
+        "issue": "Bloqué en headless : après reload de la page seedée, l'app revient sur l'écran de sélection de profil ('BENZOUZ ~ Casino Royal ~') et non directement sur ServerSelect/Lobby — l'automatisation Playwright ne réussit pas à propager le clic profile -> SOLO -> dismiss wheel -> entrée 3D dans la même session sans erreur. Pas un bug applicatif (le code createBenzBet de Lobby3D.jsx ~ligne 2356 est en place avec 4 cylindres totems + podium rouge + écran LED + base blanche illuminée selon code review). Recommandation : validation visuelle humaine, OU ajouter window.__teleportTo('BENZBET') (pas exposé pour l'instant — typeof === undefined).",
+        "affected_selectors": ["canvas"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_4.json"],
+  "action_items": [
+    "MINOR: Ajouter 2 équipes esport supplémentaires à ESPORT_TEAMS (constants.js L337-345) pour garantir Top 20 — par ex. 'KT Rolster', 'DRX', 'Eternal Fire', 'paiN Gaming' afin d'atteindre 20 entrées et tenir la promesse 'Top 20' affichée dans le titre RankingsView.",
+    "LOW: Exposer window.__teleportTo(zoneName) dans Lobby3D.jsx pour permettre la validation visuelle E2E du redesign 3D BenzBet (et aussi sit-down anim et card-deal cycle, déjà demandé en iter3)."
+  ],
+  "critical_code_review_comments": [
+    "BenzBet.jsx (846 LOC) dépasse la règle <700 LOC — à découper en BenzBet/MatchRow.jsx, RankingsView.jsx, Betslip.jsx, HistoryModal.jsx.",
+    "constants.js (622 LOC) commence aussi à grossir — getRankings, generateMatches, resolveMatch, eloToPoints, computeForm pourraient migrer dans /game/benzbet/odds.js pour clarifier.",
+    "Bon point : utilisation de useMemo pour getRankings (recalcul uniquement quand activeSport change).",
+    "Bon point : data-testid systématiquement présents (benzbet-toggle-view, benzbet-rankings, rank-row-<sport>-<n>, sport-tab-<id>, odds-<id>-<H|N|A>, benzbet-slip-collapse/expand, benzbet-place-bet, benzbet-toast, benzbet-balance) — testabilité excellente.",
+    "Bon point : bookmaker margin 1.06 explicitement appliqué et formule probaFromElo basée sur écart ELO/12 (cotes réalistes vérifiées).",
+    "MIN: ESPORT_TEAMS n'a que 18 entrées — la table affiche '#18 100 Thieves' comme dernière ligne et le titre 'Top 20' est trompeur. Ajouter 2 équipes ou ajuster dynamiquement le label en 'Top {rows.length}'.",
+    "Ergonomie : la légende V/N/D en bas de RankingsView est très petite — penser à une taille >=12px pour lisibilité."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend only requested)", "frontend": "95% — toutes les features BenzBet (toggle, rankings, sport tabs, ELO odds, place bet, slip collapse) = 100% OK; seul bémol = esport affiche 18/20 et redesign 3D non vérifié visuellement en headless"},
+  "test_credentials": "localStorage 'profile:TestPlayer' seedé (balance 500000, weapons knife+gun). window.__openBenzBet() / window.__closeBenzBet() exposés et fonctionnels.",
+  "seed_data_creation": "Profil local TestPlayer (Las Vegas, balance 500k, customized=true, lastWheelAt=futur lointain pour skip wheel modal).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Le hook window.__openBenzBet() ouvre BenzBet sans avoir besoin de naviguer en 3D — utilisez-le toujours pour tester BenzBet en headless. Pour les tests 3D Lobby (sit-down, card-deal, BenzBet totems visuels), il manque toujours window.__teleportTo / __setNearZone — la nav clavier ArrowUp ne propage pas en headless WebGL (déjà noté en iter3). ESPORT_TEAMS n'a que 18 entrées (constants.js L337) — la table 'Top 20' affiche 18 lignes pour le sport Esport, à corriger côté data, pas côté UI.",
+  "rca_of_the_issue": "1) esport=18 lignes : root cause = ESPORT_TEAMS pool length=18 (constants.js L337-345). Mitigation immédiate : ajouter ['KT Rolster','DRX','Eternal Fire','paiN Gaming'] avec ELO réalistes pour atteindre 20+ entrées. 2) 3D visual non vérifié headless : root cause = pas de hook teleport exposé + ArrowUp non propagé sur canvas WebGL en Playwright sans focus. Mitigation : exposer window.__teleportTo en mode dev (NODE_ENV !== 'production')."
+}

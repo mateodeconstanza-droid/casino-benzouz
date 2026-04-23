@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   fmt, BENZBET_SPORTS, generateMatches, resolveMatch,
-  BENZBET_SLIP_KEY, BENZBET_HISTORY_KEY,
+  BENZBET_SLIP_KEY, BENZBET_HISTORY_KEY, getRankings,
 } from '@/game/constants';
 import sfx from '@/game/sfx';
 
@@ -104,9 +104,110 @@ const MatchRow = ({ match, pickForMatch, onPick }) => {
   );
 };
 
+// ---------- Composant Classements ----------
+const formColors = {
+  V: { bg: '#1aa34a', label: 'V', title: 'Victoire' },
+  N: { bg: '#d97706', label: 'N', title: 'Match nul' },
+  D: { bg: '#dc2626', label: 'D', title: 'Défaite' },
+};
+
+const TrendIcon = ({ trend }) => {
+  if (trend === 'up')   return <span style={{ color: '#1aa34a', fontWeight: 800 }} title="En forme">▲</span>;
+  if (trend === 'down') return <span style={{ color: '#dc2626', fontWeight: 800 }} title="En difficulté">▼</span>;
+  return <span style={{ color: INK_SOFT, fontWeight: 800 }} title="Stable">▬</span>;
+};
+
+const RankingsView = ({ activeSport }) => {
+  const sport = BENZBET_SPORTS.find(s => s.id === activeSport);
+  const rows = useMemo(() => getRankings(activeSport, 20), [activeSport]);
+  return (
+    <div data-testid="benzbet-rankings" style={{ flex: 1, overflow: 'auto', background: LIGHT }}>
+      <div style={{
+        padding: '18px 24px', background: '#fff', borderBottom: `1px solid ${BORDER}`,
+      }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: INK }}>
+          {sport?.icon} Classement {sport?.label} — Top 20
+        </h2>
+        <div style={{ fontSize: 12, color: INK_SOFT, marginTop: 4 }}>
+          Rangs actualisés — les cotes des matchs sont calculées à partir de ces valeurs.
+        </div>
+      </div>
+      <div style={{ padding: 18 }}>
+        <div style={{
+          background: '#fff', borderRadius: 10, border: `1px solid ${BORDER}`,
+          overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+        }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '60px 1fr 110px 140px 70px',
+            gap: 8, padding: '10px 16px',
+            background: DARK, color: '#fff',
+            fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+          }}>
+            <div>Rang</div>
+            <div>{sport?.entity || 'Équipe'}</div>
+            <div style={{ textAlign: 'right' }}>{sport?.pointUnit || 'Points'}</div>
+            <div style={{ textAlign: 'center' }}>Forme (5 derniers)</div>
+            <div style={{ textAlign: 'center' }}>Tend.</div>
+          </div>
+          {rows.map((r, i) => (
+            <div
+              key={r.name}
+              data-testid={`rank-row-${activeSport}-${r.rank}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '60px 1fr 110px 140px 70px',
+                gap: 8, padding: '12px 16px', alignItems: 'center',
+                borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`,
+                background: r.rank <= 3 ? '#fffaf0' : '#fff',
+              }}
+            >
+              <div style={{
+                fontWeight: 900, fontSize: 16,
+                color: r.rank === 1 ? '#d4af37' : r.rank === 2 ? '#9a9a9a' : r.rank === 3 ? '#b5651d' : INK_SOFT,
+              }}>#{r.rank}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: INK }}>
+                {r.rank === 1 ? '👑 ' : ''}{r.name}
+              </div>
+              <div style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, color: PRIMARY }}>
+                {fmt(r.points)}
+              </div>
+              <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                {r.form.map((f, fi) => {
+                  const c = formColors[f];
+                  return (
+                    <span
+                      key={fi}
+                      title={c.title}
+                      style={{
+                        display: 'inline-flex', width: 22, height: 22, borderRadius: 4,
+                        background: c.bg, color: '#fff', fontWeight: 800, fontSize: 12,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >{c.label}</span>
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: 'center', fontSize: 16 }}>
+                <TrendIcon trend={r.trend} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: INK_SOFT, marginTop: 10, textAlign: 'center' }}>
+          Légende forme : <span style={{ background: '#1aa34a', color: '#fff', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>V</span> Victoire ·{' '}
+          <span style={{ background: '#d97706', color: '#fff', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>N</span> Nul ·{' '}
+          <span style={{ background: '#dc2626', color: '#fff', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>D</span> Défaite
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ---------- Composant principal ----------
 const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
   const [activeSport, setActiveSport] = useState('foot');
+  const [view, setView] = useState('bets'); // 'bets' | 'rankings'
   const [matchesBySport, setMatchesBySport] = useState({});
   const [slip, setSlip] = useState([]); // [{ matchId, match, pick, odds }]
   const [stake, setStake] = useState(100);
@@ -365,6 +466,16 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <button
+            data-testid="benzbet-toggle-view"
+            onClick={() => setView(v => v === 'bets' ? 'rankings' : 'bets')}
+            style={{
+              background: view === 'rankings' ? PRIMARY : 'transparent',
+              border: `1px solid ${view === 'rankings' ? PRIMARY : BORDER}`, borderRadius: 6,
+              padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+              color: view === 'rankings' ? '#fff' : INK, fontWeight: 700,
+            }}
+          >{view === 'rankings' ? '🎟️ Retour aux paris' : '🏆 Classements'}</button>
+          <button
             data-testid="benzbet-show-history"
             onClick={() => setShowHistory(true)}
             style={{
@@ -403,7 +514,8 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
         ))}
       </div>
 
-      {/* ====== Main content : matches + betslip ====== */}
+      {/* ====== Main content : matches + betslip OU classements ====== */}
+      {view === 'bets' ? (
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Liste des matches */}
         <div style={{ flex: 1, overflow: 'auto', background: LIGHT }}>
@@ -636,6 +748,9 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
           </>)}
         </div>
       </div>
+      ) : (
+        <RankingsView activeSport={activeSport} />
+      )}
 
       {/* ====== Toast résultat ====== */}
       {toast && (
