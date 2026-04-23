@@ -33,6 +33,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [toast, setToast] = useState(null);
+  const [nearbyPrompt, setNearbyPrompt] = useState(null);
+  const [aptPickerOpen, setAptPickerOpen] = useState(false);
 
   const ownedKeys = profile?.keys || [];
   const ownedHouses = profile?.ownedHouses || [];
@@ -46,8 +48,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     scene.background = new THREE.Color(0x9fd7ff); // bleu ciel clair
     scene.fog = new THREE.Fog(0x9fd7ff, 50, 130);
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.set(0, 5.5, 22);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+    // Position FPS du joueur : milieu de la rue, face au casino
+    camera.position.set(0, 2.6, 12);
+    camera.lookAt(0, 1.8, -10);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -261,6 +265,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     casinoGroup.userData = { interaction: 'casino' };
     scene.add(casinoGroup);
 
+    // === INTERACTABLES : collecte des positions pour la détection de proximité ===
+    // Note : on stocke la position WORLD en se basant sur le groupe parent
+    const interactables = [];
+    // Casino : point d'interaction sur le tapis rouge devant la barrière
+    interactables.push({ type: 'casino', pos: new THREE.Vector3(0, 0, 0), radius: 12 });
+
     // ----- Immeuble 5 appartements (gauche de la rue) -----
     const buildingGroup = new THREE.Group();
     buildingGroup.position.set(-22, 0, -14);
@@ -412,6 +422,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       // Interaction
       hg.userData = { interaction: 'house', houseId: `h-${i + 1}` };
       scene.add(hg);
+      interactables.push({ type: 'house', id: `h-${i + 1}`, pos: new THREE.Vector3(p.x, 0, p.z), radius: 8 });
     });
 
     // ----- 2 villas -----
@@ -508,7 +519,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       vg.add(label);
       vg.userData = { interaction: 'house', houseId: v.id };
       scene.add(vg);
+      interactables.push({ type: 'house', id: v.id, pos: new THREE.Vector3(v.x, 0, v.z), radius: 8 });
     });
+    // Immeuble 5 apparts — clickable pour choix d'étage
+    interactables.push({ type: 'building', id: 'apt-1', pos: new THREE.Vector3(-22, 0, -14), radius: 8 });
 
     // ----- Barricades périmètre (bornes rouges & blanches) -----
     const barrier = new THREE.Group();
@@ -554,6 +568,22 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       foliage.castShadow = true;
       scene.add(foliage);
     }
+
+    // === OBSTACLES (AABB simples pour collision) ===
+    // Format : { minX, maxX, minZ, maxZ }
+    const obstacles = [
+      { minX: -7,   maxX: 7,    minZ: -15, maxZ: -5  },   // Casino
+      { minX: -26,  maxX: -18,  minZ: -17, maxZ: -10 },   // Immeuble
+      { minX: -17,  maxX: -13,  minZ: -24, maxZ: -20 },   // Maison bleue
+      { minX: -10,  maxX: -6,   minZ: -28, maxZ: -24 },   // Maison beige
+      { minX: 10,   maxX: 14,   minZ: -24, maxZ: -20 },   // Maison rouge
+      { minX: 18,   maxX: 26,   minZ: -21, maxZ: -14 },   // Villa Marina
+      { minX: 30,   maxX: 38,   minZ: -17, maxZ: -10 },   // Villa Palmier
+    ];
+    const collidesAt = (x, z) => {
+      const r = 0.45;
+      return obstacles.some(o => x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
+    };
 
     // ----- Raycaster pour les clics -----
     const raycaster = new THREE.Raycaster();
@@ -718,11 +748,103 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     gateGroup.add(gateBar);
     scene.add(gateGroup);
 
-    // ----- Animation loop -----
-    stateRef.current = { scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false };
+    // ----- État FPS du joueur -----
+    stateRef.current = {
+      scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false,
+      // Position/rotation du joueur (FPS)
+      player: { x: 0, z: 12, rotY: 0 }, // rotY=0 → caméra regarde -Z (vers casino)
+      // État des entrées (clavier + joystick mobile)
+      input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0 },
+      interactables,
+      collidesAt,
+      // Callbacks live injectés plus bas
+      onCasinoClick: null, onHouseClick: null,
+      // Prompt de proximité
+      nearby: null,
+    };
+
+    // ----- Clavier -----
+    const keyHandler = (down) => (e) => {
+      const set = (dir, val) => { stateRef.current.input[dir] = val ? 1 : 0; };
+      const k = e.key.toLowerCase();
+      if (k === 'z' || k === 'w' || k === 'arrowup')    set('fwd', down);
+      else if (k === 's' || k === 'arrowdown')          set('back', down);
+      else if (k === 'q' || k === 'arrowleft')          set('left', down);
+      else if (k === 'd' || k === 'arrowright')         set('right', down);
+      else if (k === 'a')                               set('rotL', down);
+      else if (k === 'e' && down) {
+        // Tenter d'interagir avec le plus proche
+        const nb = stateRef.current.nearby;
+        if (nb?.type === 'casino') stateRef.current.onCasinoClick?.();
+        else if (nb?.type === 'house') stateRef.current.onHouseClick?.(nb.id);
+        else if (nb?.type === 'building') stateRef.current.onBuildingClick?.(nb.id);
+      }
+    };
+    const kd = keyHandler(true);
+    const ku = keyHandler(false);
+    window.addEventListener('keydown', kd);
+    window.addEventListener('keyup', ku);
     let rafId = 0;
+    let proxCheck = 0;
     const loop = () => {
       if (stateRef.current.disposed) return;
+      // ===== Déplacement FPS =====
+      const st = stateRef.current;
+      const p = st.player;
+      const i = st.input;
+      const SPEED = 0.16;
+      const ROT_SPEED = 0.035;
+      // Rotation caméra (strafe mobile = A)
+      if (i.rotL) p.rotY += ROT_SPEED;
+      if (i.rotR) p.rotY -= ROT_SPEED;
+      // Directions relatives
+      const fwdX = -Math.sin(p.rotY);
+      const fwdZ = -Math.cos(p.rotY);
+      const rightX =  Math.cos(p.rotY);
+      const rightZ = -Math.sin(p.rotY);
+      let dx = 0, dz = 0;
+      if (i.fwd)   { dx += fwdX;   dz += fwdZ; }
+      if (i.back)  { dx -= fwdX;   dz -= fwdZ; }
+      if (i.left)  { dx -= rightX; dz -= rightZ; }
+      if (i.right) { dx += rightX; dz += rightZ; }
+      if (dx !== 0 || dz !== 0) {
+        const len = Math.hypot(dx, dz);
+        dx = (dx / len) * SPEED;
+        dz = (dz / len) * SPEED;
+        // Tente déplacement, slide sur l'axe libre si collision
+        const nx = p.x + dx;
+        const nz = p.z + dz;
+        if (!st.collidesAt(nx, p.z)) p.x = nx;
+        if (!st.collidesAt(p.x, nz)) p.z = nz;
+        // Limites arène
+        p.x = Math.max(-46, Math.min(46, p.x));
+        p.z = Math.max(-30, Math.min(14,  p.z));
+      }
+      // Applique à la caméra
+      camera.position.set(p.x, 2.6, p.z);
+      camera.rotation.y = p.rotY;
+
+      // ===== Proximité (5 fois/s suffit) =====
+      proxCheck++;
+      if (proxCheck % 12 === 0) {
+        let nearest = null;
+        let minDist = Infinity;
+        for (const o of st.interactables) {
+          const d = Math.hypot(p.x - o.pos.x, p.z - o.pos.z);
+          if (d < o.radius && d < minDist) {
+            minDist = d;
+            nearest = o;
+          }
+        }
+        const curr = st.nearby;
+        if ((nearest && (!curr || curr.type !== nearest.type || curr.id !== nearest.id))
+            || (!nearest && curr)) {
+          st.nearby = nearest;
+          st.onNearbyChange?.(nearest);
+        }
+      }
+
+      // ===== Ambient =====
       clouds.children.forEach(c => {
         c.position.x += c.userData.driftSpeed;
         if (c.position.x > 60) c.position.x = -60;
@@ -737,7 +859,6 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         b.children[1].rotation.z = -0.4 - flap;
         b.rotation.y = -b.userData.phase + Math.PI / 2;
       });
-      // NPCs : marchent sur le trottoir avec balancement bras/jambes
       npcs.children.forEach((n) => {
         const ud = n.userData;
         ud.phase += 0.14;
@@ -753,17 +874,13 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           ud.parts.armR.rotation.x =  swing * 0.8;
         }
       });
-      // Voiture : fait des allers-retours sur la route
-      if (stateRef.current.car) {
-        stateRef.current.car.position.x += stateRef.current.car.userData.speed;
-        if (stateRef.current.car.position.x > 50) stateRef.current.car.position.x = -50;
+      if (st.car) {
+        st.car.position.x += st.car.userData.speed;
+        if (st.car.position.x > 50) st.car.position.x = -50;
       }
-      // Barrière : s'abaisse en idle, se lève pendant le scan
-      if (stateRef.current.gateBar) {
-        const target = stateRef.current.gateOpen ? Math.PI / 2.2 : 0;
-        stateRef.current.gateBar.rotation.z = THREE.MathUtils.lerp(
-          stateRef.current.gateBar.rotation.z, target, 0.05
-        );
+      if (st.gateBar) {
+        const target = st.gateOpen ? Math.PI / 2.2 : 0;
+        st.gateBar.rotation.z = THREE.MathUtils.lerp(st.gateBar.rotation.z, target, 0.05);
       }
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(loop);
@@ -774,6 +891,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       stateRef.current.disposed = true;
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', kd);
+      window.removeEventListener('keyup', ku);
       renderer.domElement.removeEventListener('click', handleClick);
       try { mount.removeChild(renderer.domElement); } catch (_e) { /* noop */ }
       renderer.dispose();
@@ -812,7 +931,25 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onHouseClick = (houseId) => {
       setSelectedHouse(houseId);
     };
+    stateRef.current.onBuildingClick = () => {
+      setAptPickerOpen(true);
+    };
+    stateRef.current.onNearbyChange = (nb) => {
+      setNearbyPrompt(nb);
+    };
   }, [scanning, onEnterCasino]);
+
+  // Helpers pour driver l'input depuis le joystick tactile
+  const setInput = (key, val) => {
+    if (stateRef.current?.input) stateRef.current.input[key] = val ? 1 : 0;
+  };
+  const tapInteract = () => {
+    const nb = stateRef.current?.nearby;
+    if (!nb) return;
+    if (nb.type === 'casino') stateRef.current.onCasinoClick?.();
+    else if (nb.type === 'house') stateRef.current.onHouseClick?.(nb.id);
+    else if (nb.type === 'building') stateRef.current.onBuildingClick?.(nb.id);
+  };
 
   const house = HOUSES.find(h => h.id === selectedHouse);
   const isOwned = house && ownedKeys.includes(house.id);
@@ -870,16 +1007,91 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         </div>
       </div>
 
-      {/* Tutorial hint */}
-      <div style={{
-        position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
-        padding: '10px 18px', borderRadius: 14,
-        background: 'rgba(10,10,15,0.82)', color: '#fff', fontSize: 13,
-        border: `1px solid rgba(212,175,55,0.4)`, letterSpacing: 0.5,
-        backdropFilter: 'blur(8px)', textAlign: 'center', zIndex: 10,
-      }}>
-        Clique sur le <b style={{ color: STAKE.gold }}>CASINO</b> pour entrer · Clique sur une <b style={{ color: '#ffb6c1' }}>maison</b> pour l'acheter
-      </div>
+      {/* Prompt de proximité + bouton E */}
+      {nearbyPrompt && !scanning && !selectedHouse && !aptPickerOpen && (
+        <div
+          data-testid="interaction-prompt"
+          style={{
+            position: 'absolute', top: '44%', left: '50%', transform: 'translate(-50%, -50%)',
+            padding: '14px 22px', borderRadius: 14,
+            background: 'rgba(10,10,15,0.85)', color: '#fff',
+            border: `2px solid ${STAKE.gold}`, letterSpacing: 0.5,
+            backdropFilter: 'blur(8px)', textAlign: 'center', zIndex: 10,
+            boxShadow: `0 0 25px ${STAKE.gold}55`,
+            animation: 'prompt-bob 1.6s ease-in-out infinite',
+          }}
+        >
+          <div style={{ fontSize: 13, color: STAKE.goldLight, marginBottom: 6 }}>
+            {nearbyPrompt.type === 'casino' ? '🎰 Entrée du casino' :
+             nearbyPrompt.type === 'building' ? '🏢 Les Résidences — Choisir un appart' :
+             (ownedKeys.includes(nearbyPrompt.id) ? '🔑 Ta propriété' : '🏠 Acheter cette propriété')}
+          </div>
+          <button
+            data-testid="interact-btn"
+            onClick={tapInteract}
+            style={{
+              padding: '10px 22px', borderRadius: 30,
+              background: `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`,
+              border: 'none', color: '#111', fontWeight: 900, fontSize: 15,
+              letterSpacing: 1.5, cursor: 'pointer',
+              boxShadow: '0 8px 20px rgba(212,175,55,0.4)',
+            }}
+          >APPUIE · E</button>
+          <style>{`
+            @keyframes prompt-bob {
+              0%,100% { transform: translate(-50%, -50%); }
+              50% { transform: translate(-50%, -56%); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Tutoriel de base quand il n'y a aucun prompt */}
+      {!nearbyPrompt && !scanning && (
+        <div style={{
+          position: 'absolute', top: 76, left: '50%', transform: 'translateX(-50%)',
+          padding: '8px 14px', borderRadius: 10,
+          background: 'rgba(10,10,15,0.75)', color: '#fff', fontSize: 12,
+          border: `1px solid rgba(212,175,55,0.3)`, backdropFilter: 'blur(6px)',
+          textAlign: 'center', zIndex: 5,
+        }}>
+          Déplace-toi avec les <b style={{ color: STAKE.gold }}>flèches</b> en bas · Approche-toi d'un bâtiment pour interagir
+        </div>
+      )}
+
+      {/* Joystick mobile : D-pad flèches */}
+      {!scanning && !selectedHouse && !aptPickerOpen && (
+        <div style={{
+          position: 'absolute', bottom: 24, left: 14, zIndex: 20,
+          display: 'grid', gridTemplateColumns: '48px 48px 48px', gridTemplateRows: '48px 48px 48px', gap: 4,
+          userSelect: 'none',
+        }}>
+          <div />
+          <DpadBtn testId="move-fwd"   label="▲" onDown={() => setInput('fwd', 1)}  onUp={() => setInput('fwd', 0)} />
+          <div />
+          <DpadBtn testId="move-left"  label="◀" onDown={() => setInput('left', 1)} onUp={() => setInput('left', 0)} />
+          <div style={{
+            background: 'rgba(10,10,15,0.4)', border: `1px solid rgba(212,175,55,0.2)`,
+            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 10, color: STAKE.inkSoft,
+          }}>MOVE</div>
+          <DpadBtn testId="move-right" label="▶" onDown={() => setInput('right', 1)} onUp={() => setInput('right', 0)} />
+          <div />
+          <DpadBtn testId="move-back"  label="▼" onDown={() => setInput('back', 1)}  onUp={() => setInput('back', 0)} />
+          <div />
+        </div>
+      )}
+
+      {/* Joystick rotation (droite) */}
+      {!scanning && !selectedHouse && !aptPickerOpen && (
+        <div style={{
+          position: 'absolute', bottom: 24, right: 14, zIndex: 20,
+          display: 'flex', gap: 6, userSelect: 'none',
+        }}>
+          <DpadBtn testId="rot-left"  label="↺" onDown={() => setInput('rotL', 1)} onUp={() => setInput('rotL', 0)} />
+          <DpadBtn testId="rot-right" label="↻" onDown={() => setInput('rotR', 1)} onUp={() => setInput('rotR', 0)} />
+        </div>
+      )}
 
       {/* Scan d'identité */}
       {scanning && (
@@ -998,6 +1210,61 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         </div>
       )}
 
+      {/* Apartment picker modal (5 appartements dans l'immeuble) */}
+      {aptPickerOpen && !scanning && (
+        <div style={{
+          position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 50, backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #0f2a42, #1d4a79)',
+            border: `2px solid ${STAKE.gold}`, borderRadius: 16,
+            padding: 20, maxWidth: 420, width: '90%', color: '#fff',
+          }}>
+            <div style={{ fontSize: 11, color: STAKE.goldLight, letterSpacing: 1.5, marginBottom: 6 }}>
+              IMMEUBLE — LES RÉSIDENCES
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 14 }}>Choisis un appartement</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+              {HOUSES.filter(h => h.type === 'apartment').map(h => {
+                const own = ownedKeys.includes(h.id);
+                return (
+                  <button
+                    key={h.id}
+                    data-testid={`apt-pick-${h.id}`}
+                    onClick={() => { setAptPickerOpen(false); setSelectedHouse(h.id); }}
+                    style={{
+                      padding: 12, borderRadius: 10,
+                      background: own ? 'rgba(26,163,74,0.18)' : 'rgba(0,0,0,0.3)',
+                      border: `1px solid ${own ? '#1aa34a' : 'rgba(212,175,55,0.3)'}`,
+                      color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>
+                      {own ? '🔑 ' : ''}Appartement {h.floor + 1} — étage {h.floor + 1}
+                    </span>
+                    <span style={{ color: own ? '#1aa34a' : STAKE.goldLight, fontWeight: 800, fontSize: 13 }}>
+                      {own ? 'À VOUS' : fmt(h.price) + ' B'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              data-testid="apt-close"
+              onClick={() => setAptPickerOpen(false)}
+              style={{
+                width: '100%', padding: 12, borderRadius: 10,
+                background: 'transparent', border: '1px solid #888',
+                color: '#aaa', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+              }}
+            >Fermer</button>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div style={{
           position: 'absolute', top: 90, left: '50%', transform: 'translateX(-50%)',
@@ -1012,3 +1279,28 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 };
 
 export default Street3D;
+
+// D-pad button — supporte touch + click ET reset fiable au quitter
+const DpadBtn = ({ label, onDown, onUp, testId }) => {
+  const handleDown = (e) => { e.preventDefault(); onDown(); };
+  const handleUp   = (e) => { e.preventDefault(); onUp(); };
+  return (
+    <button
+      data-testid={testId}
+      onPointerDown={handleDown}
+      onPointerUp={handleUp}
+      onPointerLeave={handleUp}
+      onPointerCancel={handleUp}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{
+        width: 48, height: 48, borderRadius: 10,
+        background: 'rgba(10,10,15,0.72)', border: `1.5px solid rgba(212,175,55,0.45)`,
+        color: '#f0d26a', fontSize: 20, fontWeight: 800, cursor: 'pointer',
+        touchAction: 'none', userSelect: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(6px)',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+      }}
+    >{label}</button>
+  );
+};

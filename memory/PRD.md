@@ -128,6 +128,16 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — Système de déplacement FPS Street3D)
+- **Vue first-person** : caméra à hauteur 2,6 m, position du joueur stockée dans `stateRef.current.player = {x, z, rotY}`, initialisée à `(0, 12, 0)` (face au casino).
+- **Contrôles clavier** : ZQSD / WASD / flèches directionnelles pour avancer-reculer-strafe. A = rotation gauche (optionnelle). E = interagir avec l'objet le plus proche.
+- **Joystick tactile** (`<DpadBtn>`) : D-pad 4 flèches en bas à gauche (▲ ◀ ▶ ▼) + 2 boutons rotation ↺ ↻ en bas à droite. Utilise `onPointerDown/Up/Leave/Cancel` pour reset fiable (plus de stuck après touch).
+- **Collisions AABB** : 7 obstacles (casino, immeuble, 3 maisons, 2 villas) avec slide sur l'axe libre. Rayon joueur 0,45 m. Limites de l'arène 46×30 m.
+- **Détection de proximité** (12×/s) : balaye les 7 `interactables` et met à jour `nearbyPrompt` dès que le joueur entre dans un rayon (8 m maison/villa/immeuble, 12 m casino). Déclenche un prompt visuel animé.
+- **Prompt d'interaction animé** : bulle navy/or au centre avec titre contextuel ("🎰 Entrée du casino", "🏠 Acheter cette propriété", "🔑 Ta propriété", "🏢 Les Résidences — Choisir un appart") + bouton "APPUIE · E" qui déclenche l'action.
+- **Modal Apartment picker** : cliquer sur l'immeuble ouvre un modal listant les 5 appartements (étages 1-5) avec statut (possédé / achetable 5M B).
+- **Click-raycaster conservé** en bonus pour desktop mais proximité = mode principal.
+
 ### ✅ Implemented (Feb 2026 — LOT 4 Session 3 + Onboarding tutoriel)
 - **NPCs piétons** (3) qui marchent le long du trottoir dans Street3D, avec corps BoxGeometry + jambes + bras + tête sphère + cheveux dômes, et **animation réaliste** de balancement bras/jambes via `Math.sin(phase)` sur `legL.rotation.x` et `armL.rotation.x`. Direction switch automatique aux bornes (-40/+40 m). 3 couleurs distinctes (rouge/bleu/jaune).
 - **Voiture rouge** qui traverse la route en continu (phares émissifs avant, 4 roues, cabine bleu nuit).
