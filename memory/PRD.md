@@ -128,6 +128,13 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — LOT 3 Roulette 3D Three.js)
+- **Nouveau composant `/app/frontend/src/game/Roulette3DWheel.jsx`** : roue 3D complète en Three.js avec cuvette bois, anneau doré extérieur, disque central rotatif, 37 poches rouge/noir/vert (ordre européen officiel) avec numéros texturés sur face supérieure, frets dorés séparateurs, dôme doré central type moyeu + 8 branches, bille sphérique blanche physique, pointeur doré en haut, éclairage directional + ambient + point light (ton doré).
+- **Physique bille** : animation en 3 phases — (1) piste haute 3,6 m avec léger rebond sinusoïdal, (2) descente spiralée 3,6 → 2,65 m avec rebonds, (3) atterrissage dans la poche cible après 6,5 s. La roue décélère de 2,2 à 0,3 rad/s et se cale pour que le numéro gagnant passe exactement sous le pointeur.
+- **Intégration dans `Roulette.jsx`** : ancien SVG 2D remplacé par `<Roulette3DWheel>`. `spin()` capture un `winNum`, push un `spin3DSignal++` et passe `onBallLanded` callback qui exécute les payouts officiels (×36 plein, ×3 douzaines, ×2 chances simples). Cleanup WebGL complet au dé-mount.
+- **Idle state** : la roue tourne lentement en continu hors spin pour un rendu vivant.
+- **Fix mémoire** : dispose automatique des geometries/materials/textures au unmount.
+
 ### ✅ Implemented (Feb 2026 — LOT 2 Refonte UI style Stake)
 - **Design system partagé** : `/app/frontend/src/game/stake/theme.js` (palette feutre navy + or + cyan live + 9 dénominations jetons) et `/app/frontend/src/game/stake/StakeUI.jsx` (`<StakeShell>`, `<Chip3D>`, `<ChipRack>`, `<RoundBtn>`, `<PlacedStack>`).
 - **Roulette refaite** en `StakeShell` : feutre bleu navy avec gradient radial, liseré or, 7 jetons 3D cliquables (1/5/25/100/500/1K/5K), boutons ronds EFFACER (orange) + TOUR (or XL) + NOUVEAU, mises visibles en piles `<PlacedStack>` sur les cases. Badge "EN DIRECT" cyan pulsant en haut à droite.

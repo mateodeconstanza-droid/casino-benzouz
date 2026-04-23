@@ -3,6 +3,7 @@ import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
 import { StakeShell, ChipRack, RoundBtn, PlacedStack } from '@/game/stake/StakeUI';
 import { STAKE } from '@/game/stake/theme';
+import Roulette3DWheel from '@/game/Roulette3DWheel';
 import sfx from '@/game/sfx';
 
 // ============== ROULETTE AMÉLIORÉE AVEC BILLE ==============
@@ -11,15 +12,14 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
   const [chipValue, setChipValue] = useState(minBet);
   const [spinning, setSpinning] = useState(false);
   const [winningNumber, setWinningNumber] = useState(null);
-  const [wheelRotation, setWheelRotation] = useState(0);
-  const [ballAngle, setBallAngle] = useState(0);
-  const [ballRadius, setBallRadius] = useState(140);
-  const [ballDropped, setBallDropped] = useState(false);
   const [message, setMessage] = useState('');
   const [messageColor, setMessageColor] = useState('#ffd700');
   const [lastResults, setLastResults] = useState([]);
   const [showWeaponMenu, setShowWeaponMenu] = useState(false);
-  const animRef = useRef();
+  // Signaux pour la roue 3D
+  const [spin3DSignal, setSpin3DSignal] = useState(0);
+  const [pendingWinNum, setPendingWinNum] = useState(null);
+  const pendingSnapshotRef = useRef(null);
 
   const chipOptions = minBet >= 1000000 ? [100000, 500000, 1000000, 5000000, 10000000]
                     : minBet >= 100000 ? [50000, 100000, 500000, 1000000, 5000000]
@@ -50,144 +50,72 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
 
   const spin = () => {
     if (totalBet === 0 || spinning || totalBet < minBet) return;
-    
-    // Capture SNAPSHOT des valeurs actuelles (évite les closures obsolètes)
+
+    // Snapshot
     const betsSnapshot = { ...bets };
     const totalBetSnapshot = totalBet;
-    
+
     setSpinning(true);
     setBalance(b => b - totalBetSnapshot);
     setMessage('');
-    setBallDropped(false);
     try { sfx.play('chip'); } catch (_e) { /* noop */ }
-    
+
     const winNum = ROULETTE_NUMBERS[Math.floor(Math.random() * ROULETTE_NUMBERS.length)];
-    const idx = ROULETTE_NUMBERS.indexOf(winNum);
-    const segmentAngle = 360 / ROULETTE_NUMBERS.length;
-
-    // Angles capturés AVANT l'animation (closures stables)
-    const wheelStart = wheelRotation;
-    const wheelSpinTurns = 4 + Math.random() * 2; // 4-6 tours pour la roue
-    const wheelTarget = 360 * wheelSpinTurns;
-    const wheelEnd = wheelStart + wheelTarget;
-
-    // Calcul de l'angle final de la bille pour qu'elle tombe sur winNum :
-    //   Numéros dessinés en SVG : worldAngle = idx*seg - 90 + seg/2 + wheelRotation
-    //   Bille dessinée : worldAngle = ballAngle - 90
-    //   Alignement : ballAngle = idx*seg + seg/2 + wheelRotation
-    const ballTurns = 6 + Math.floor(Math.random() * 3); // 6-8 tours
-    const ballEnd = idx * segmentAngle + segmentAngle / 2 + wheelEnd;
-    // La bille tourne dans le sens inverse (négatif) pour finir sur ballEnd
-    const ballStart = ballEnd - 360 * ballTurns;
-    // On commence la bille à ballStart pour qu'elle tourne ballTurns fois vers ballEnd
-    setBallAngle(ballStart);
-
-    const startTime = Date.now();
-    const duration = 7000; // 7 secondes
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Easing prononcé : décollage rapide puis ralentissement
-      const eased = 1 - Math.pow(1 - progress, 4);
-
-      // Animation synchronisée roue + bille par le MÊME easing
-      const currentWheel = wheelStart + (wheelEnd - wheelStart) * eased;
-      const currentBall = ballStart + (ballEnd - ballStart) * eased;
-      setWheelRotation(currentWheel);
-
-      // Micro-soubresauts de fin (amplitude < seg/20 pour ne jamais dévier du secteur)
-      let bumpOffset = 0;
-      if (progress > 0.92) {
-        const bumpPhase = (progress - 0.92) / 0.08;
-        bumpOffset = Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 0.3;
-      }
-      setBallAngle(currentBall + bumpOffset);
-
-      // Rayon : la bille descend en spirale du bord (140) vers la piste des numéros (105)
-      // Les numéros sont dessinés à r=105 dans le repère outer (SVG offset 30 + 105 * cos depuis 130)
-      // donc la bille à r=105 tombe EXACTEMENT au centre du numéro.
-      let radius = 140 - (140 - 105) * eased;
-      if (progress > 0.92) {
-        const bumpPhase = (progress - 0.92) / 0.08;
-        radius += Math.sin(bumpPhase * Math.PI * 6) * (1 - bumpPhase) * 2;
-      }
-      setBallRadius(radius);
-
-      if (progress < 1) {
-        animRef.current = requestAnimationFrame(animate);
-      } else {
-        // Snap final : bille posée EXACTEMENT au centre du secteur
-        setBallAngle(ballEnd);
-        setBallRadius(105);
-        setWheelRotation(wheelEnd);
-        setWinningNumber(winNum);
-        setLastResults(prev => [winNum, ...prev].slice(0, 8));
-
-        // ============ PAYOUTS ROULETTE EUROPÉENNE (règles réelles) ============
-        // Chaque entrée dans `win` inclut la remise de la mise (stake + profit)
-        // - Plein (straight up) : 35:1 → retour = mise × 36
-        // - Douzaines / colonnes : 2:1 → retour = mise × 3
-        // - Chances simples (rouge/noir/pair/impair/manque/passe) : 1:1 → retour = mise × 2
-        // - Si le 0 sort : TOUTES les mises extérieures perdent (chances simples, douzaines)
-        let win = 0;
-        const color = getColor(winNum);
-        const isZero = winNum === 0;
-
-        Object.entries(betsSnapshot).forEach(([key, amount]) => {
-          // Mise pleine (un numéro précis, y compris le 0) — 35:1
-          if (key === `num-${winNum}`) {
-            win += amount * 36;
-            return;
-          }
-          // Si 0 sort, toutes les mises suivantes (hors plein) perdent
-          if (isZero) return;
-
-          // Chances simples : 1:1 (retour = mise × 2)
-          if (key === 'red'  && color === 'red')  win += amount * 2;
-          else if (key === 'black' && color === 'black') win += amount * 2;
-          else if (key === 'even' && winNum % 2 === 0) win += amount * 2;
-          else if (key === 'odd'  && winNum % 2 === 1) win += amount * 2;
-          else if (key === 'low'  && winNum >= 1  && winNum <= 18) win += amount * 2;
-          else if (key === 'high' && winNum >= 19 && winNum <= 36) win += amount * 2;
-          // Douzaines : 2:1 (retour = mise × 3)
-          else if (key === 'dozen1' && winNum >= 1  && winNum <= 12) win += amount * 3;
-          else if (key === 'dozen2' && winNum >= 13 && winNum <= 24) win += amount * 3;
-          else if (key === 'dozen3' && winNum >= 25 && winNum <= 36) win += amount * 3;
-        });
-        
-        if (win > 0) {
-          setBalance(b => b + win);
-        }
-        
-        const net = win - totalBetSnapshot;
-        if (net > 0) {
-          setMessage(`GAGNÉ ! +${fmt(net)} B (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
-          setMessageColor('#00ff88');
-        } else if (net === 0) {
-          setMessage(`Équilibre (${winNum})`);
-          setMessageColor('#ffd700');
-        } else {
-          setMessage(`PERDU ${fmt(-net)} B (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
-          setMessageColor('#ff4444');
-        }
-        setSpinning(false);
-        setBets({}); // Clear le stack visuel
-      }
-    };
-    
-    animRef.current = requestAnimationFrame(animate);
+    pendingSnapshotRef.current = { betsSnapshot, totalBetSnapshot, winNum };
+    setPendingWinNum(winNum);
+    setSpin3DSignal(s => s + 1);
   };
 
-  useEffect(() => {
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-    };
-  }, []);
+  // Callback appelé quand la bille se pose dans la poche (par Roulette3DWheel)
+  const onBallLanded = React.useCallback(() => {
+    const snap = pendingSnapshotRef.current;
+    if (!snap) return;
+    const { betsSnapshot, totalBetSnapshot, winNum } = snap;
+    pendingSnapshotRef.current = null;
+
+    setWinningNumber(winNum);
+    setLastResults(prev => [winNum, ...prev].slice(0, 8));
+
+    // Payouts officiels roulette européenne
+    let win = 0;
+    const color = getColor(winNum);
+    const isZero = winNum === 0;
+    Object.entries(betsSnapshot).forEach(([key, amount]) => {
+      if (key === `num-${winNum}`) { win += amount * 36; return; }
+      if (isZero) return;
+      if (key === 'red'  && color === 'red')  win += amount * 2;
+      else if (key === 'black' && color === 'black') win += amount * 2;
+      else if (key === 'even' && winNum % 2 === 0) win += amount * 2;
+      else if (key === 'odd'  && winNum % 2 === 1) win += amount * 2;
+      else if (key === 'low'  && winNum >= 1  && winNum <= 18) win += amount * 2;
+      else if (key === 'high' && winNum >= 19 && winNum <= 36) win += amount * 2;
+      else if (key === 'dozen1' && winNum >= 1  && winNum <= 12) win += amount * 3;
+      else if (key === 'dozen2' && winNum >= 13 && winNum <= 24) win += amount * 3;
+      else if (key === 'dozen3' && winNum >= 25 && winNum <= 36) win += amount * 3;
+    });
+    if (win > 0) setBalance(b => b + win);
+    const net = win - totalBetSnapshot;
+    if (net > 0) {
+      setMessage(`GAGNÉ ! +${fmt(net)} B (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
+      setMessageColor('#00ff88');
+      try { sfx.play('win'); } catch (_e) { /* noop */ }
+    } else if (net === 0) {
+      setMessage(`Équilibre (${winNum})`);
+      setMessageColor('#ffd700');
+    } else {
+      setMessage(`PERDU ${fmt(-net)} B (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
+      setMessageColor('#ff4444');
+      try { sfx.play('lose'); } catch (_e) { /* noop */ }
+    }
+    setSpinning(false);
+    setBets({});
+  }, [setBalance]);
+
+  useEffect(() => () => { /* cleanup */ }, []);
 
   const nextSpin = () => {
-    setWinningNumber(null); setMessage('');
-    setBallRadius(140);
+    setWinningNumber(null);
+    setMessage('');
   };
 
   const lost = winningNumber !== null && message.includes('PERDU');
@@ -199,10 +127,6 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
     for (let col = 0; col < 12; col++) rowNums.push(3 - row + col * 3);
     numberGrid.push(rowNums);
   }
-
-  // Position bille en coordonnées
-  const ballX = 160 + ballRadius * Math.cos((ballAngle - 90) * Math.PI / 180);
-  const ballY = 160 + ballRadius * Math.sin((ballAngle - 90) * Math.PI / 180);
 
   return (
     <StakeShell
@@ -230,128 +154,21 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
             {flyingProjectile && <FlyingProjectile {...flyingProjectile} />}
           </div>
           
-          {/* Roue de roulette avec bille */}
-          <div style={{ position: 'relative', width: 320, height: 320 }}>
-            {/* Base en bois */}
-            <div style={{
-              position: 'absolute', inset: -15,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, #4a2a0a 0%, #1a0f04 80%)',
-              boxShadow: '0 15px 30px rgba(0,0,0,0.8)',
-            }} />
-            
-            {/* Marqueur fixe (pointeur) */}
-            <div style={{
-              position: 'absolute', top: -5, left: '50%',
-              transform: 'translateX(-50%)',
-              width: 0, height: 0,
-              borderLeft: '10px solid transparent',
-              borderRight: '10px solid transparent',
-              borderTop: '18px solid #ffd700',
-              zIndex: 20,
-            }} />
-            
-            {/* Cuvette fixe (anneau extérieur avec déflecteurs) */}
-            <div style={{
-              position: 'absolute', inset: 5,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle at 50% 30%, #2a1a0a 0%, #0a0502 70%)',
-              border: '4px solid #8b6914',
-              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.9)',
-              zIndex: 2,
-            }}>
-              {/* Déflecteurs */}
-              {[...Array(8)].map((_, i) => (
-                <div key={i} style={{
-                  position: 'absolute',
-                  top: '50%', left: '50%',
-                  width: 12, height: 4,
-                  background: '#8b6914',
-                  borderRadius: 2,
-                  transform: `translate(-50%,-50%) rotate(${i * 45}deg) translateX(125px)`,
-                  boxShadow: '0 0 4px rgba(0,0,0,0.8)',
-                }} />
-              ))}
-            </div>
-            
-            {/* La roue tournante (animée en JS pour sync parfaite avec la bille) */}
-            <div style={{
-              position: 'absolute', inset: 30,
-              transform: `rotate(${wheelRotation}deg)`,
-              transition: 'none',
-              zIndex: 3,
-            }}>
-              <svg viewBox="0 0 260 260" style={{ width: '100%', height: '100%' }}>
-                <defs>
-                  <radialGradient id="wheelInner" cx="50%" cy="50%">
-                    <stop offset="0%" stopColor="#ffd700" />
-                    <stop offset="50%" stopColor="#b8860b" />
-                    <stop offset="100%" stopColor="#4a2a00" />
-                  </radialGradient>
-                </defs>
-                {ROULETTE_NUMBERS.map((n, i) => {
-                  const angle = 360 / ROULETTE_NUMBERS.length;
-                  const startAngle = i * angle - 90;
-                  const endAngle = (i + 1) * angle - 90;
-                  const x1 = 130 + 125 * Math.cos((startAngle * Math.PI) / 180);
-                  const y1 = 130 + 125 * Math.sin((startAngle * Math.PI) / 180);
-                  const x2 = 130 + 125 * Math.cos((endAngle * Math.PI) / 180);
-                  const y2 = 130 + 125 * Math.sin((endAngle * Math.PI) / 180);
-                  const textAngle = startAngle + angle / 2;
-                  const tx = 130 + 105 * Math.cos((textAngle * Math.PI) / 180);
-                  const ty = 130 + 105 * Math.sin((textAngle * Math.PI) / 180);
-                  const color = getColor(n);
-                  const fill = color === 'red' ? '#c00000' : color === 'black' ? '#1a1a1a' : '#0a7a0a';
-                  return (
-                    <g key={i}>
-                      <path
-                        d={`M 130 130 L ${x1} ${y1} A 125 125 0 0 1 ${x2} ${y2} Z`}
-                        fill={fill} stroke="#ffd700" strokeWidth="1"
-                      />
-                      <text x={tx} y={ty} fill="white" fontSize="11" fontWeight="bold"
-                        textAnchor="middle" dominantBaseline="middle"
-                        transform={`rotate(${textAngle + 90} ${tx} ${ty})`}>
-                        {n}
-                      </text>
-                    </g>
-                  );
-                })}
-                <circle cx="130" cy="130" r="35" fill="url(#wheelInner)" stroke="#8b6914" strokeWidth="2" />
-                <circle cx="130" cy="130" r="28" fill="#1a1a1a" />
-                <circle cx="130" cy="130" r="22" fill="url(#wheelInner)" />
-                <circle cx="130" cy="130" r="8" fill="#4a2a00" />
-              </svg>
-            </div>
-            
-            {/* Bille */}
-            {spinning && (
-              <div style={{
-                position: 'absolute',
-                left: ballX, top: ballY,
-                width: 14, height: 14,
-                marginLeft: -7, marginTop: -7,
-                borderRadius: '50%',
-                background: 'radial-gradient(circle at 30% 30%, #fff, #ccc 50%, #888)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.8), inset -2px -2px 3px rgba(0,0,0,0.4)',
-                zIndex: 10,
-                transition: 'none', // animation gérée par requestAnimationFrame → pas de lag CSS
-              }} />
-            )}
-            
-            {/* Bille finale (posée au centre du secteur gagnant) */}
-            {winningNumber !== null && !spinning && (
-              <div style={{
-                position: 'absolute',
-                left: 160 + 105 * Math.cos((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
-                top: 160 + 105 * Math.sin((ROULETTE_NUMBERS.indexOf(winningNumber) * (360/37) + (360/37)/2 - 90 + wheelRotation) * Math.PI / 180),
-                width: 14, height: 14,
-                marginLeft: -7, marginTop: -7,
-                borderRadius: '50%',
-                background: 'radial-gradient(circle at 30% 30%, #fff, #ccc 50%, #888)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.8)',
-                zIndex: 10,
-              }} />
-            )}
+          {/* Roue de roulette 3D (Three.js) */}
+          <div style={{
+            position: 'relative',
+            borderRadius: 18,
+            padding: 10,
+            background: 'radial-gradient(ellipse at 50% 40%, rgba(40,20,6,0.85), rgba(10,5,2,0.95))',
+            border: `2px solid ${STAKE.goldDark}`,
+            boxShadow: '0 10px 24px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.55)',
+          }}>
+            <Roulette3DWheel
+              size={340}
+              winNumber={pendingWinNum}
+              spinSignal={spin3DSignal}
+              onLanded={onBallLanded}
+            />
           </div>
 
           {/* Derniers résultats */}
