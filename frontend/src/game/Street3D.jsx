@@ -28,6 +28,7 @@ export const HOUSES = [
 // =============================================================
 const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome }) => {
   const mountRef = useRef(null);
+  const radarRef = useRef(null);
   const stateRef = useRef({});
   const [selectedHouse, setSelectedHouse] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -882,6 +883,89 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         const target = st.gateOpen ? Math.PI / 2.2 : 0;
         st.gateBar.rotation.z = THREE.MathUtils.lerp(st.gateBar.rotation.z, target, 0.05);
       }
+
+      // ===== RADAR =====
+      if (radarRef.current) {
+        const R = 120;
+        const HALF = R / 2;
+        const SCALE = HALF / 48; // arène ~46m → rayon utile 48
+        const ctx = radarRef.current.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, R, R);
+          // Cercle fond
+          const grad = ctx.createRadialGradient(HALF, HALF, 5, HALF, HALF, HALF);
+          grad.addColorStop(0, 'rgba(20,40,70,0.85)');
+          grad.addColorStop(1, 'rgba(5,15,28,0.95)');
+          ctx.fillStyle = grad;
+          ctx.beginPath(); ctx.arc(HALF, HALF, HALF - 1, 0, Math.PI * 2); ctx.fill();
+          // Liseré doré
+          ctx.strokeStyle = 'rgba(212,175,55,0.6)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          // Croisillon
+          ctx.strokeStyle = 'rgba(212,175,55,0.18)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(HALF, 4); ctx.lineTo(HALF, R - 4);
+          ctx.moveTo(4, HALF); ctx.lineTo(R - 4, HALF);
+          ctx.stroke();
+          // Fonction : world → radar (centré sur le joueur)
+          const wr = (wx, wz) => {
+            const dx = (wx - p.x) * SCALE;
+            const dz = (wz - p.z) * SCALE;
+            return { x: HALF + dx, y: HALF + dz };
+          };
+          // Interactables
+          st.interactables.forEach(o => {
+            const { x, y } = wr(o.pos.x, o.pos.z);
+            if (Math.hypot(x - HALF, y - HALF) > HALF - 4) return;
+            let color = '#3fe6ff';
+            let sz = 5;
+            if (o.type === 'casino')   { color = '#ffd700'; sz = 7; }
+            else if (o.type === 'house') { color = '#ff99b0'; sz = 5; }
+            else if (o.type === 'building') { color = '#b48cff'; sz = 5; }
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 4;
+            ctx.fillRect(x - sz/2, y - sz/2, sz, sz);
+            ctx.shadowBlur = 0;
+          });
+          // NPCs (orange)
+          npcs.children.forEach(n => {
+            const { x, y } = wr(n.position.x, n.position.z);
+            if (Math.hypot(x - HALF, y - HALF) > HALF - 4) return;
+            ctx.fillStyle = '#ff8a3a';
+            ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+          });
+          // Voiture
+          if (st.car) {
+            const { x, y } = wr(st.car.position.x, st.car.position.z);
+            if (Math.hypot(x - HALF, y - HALF) < HALF - 4) {
+              ctx.fillStyle = '#e04a50';
+              ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+            }
+          }
+          // Joueur (centre) + cône de vision
+          ctx.fillStyle = '#3fe6ff';
+          ctx.beginPath(); ctx.arc(HALF, HALF, 4, 0, Math.PI * 2); ctx.fill();
+          // Cône devant le joueur
+          const coneLen = 14;
+          const dirX = -Math.sin(p.rotY);
+          const dirZ = -Math.cos(p.rotY);
+          ctx.strokeStyle = 'rgba(63,230,255,0.45)';
+          ctx.fillStyle = 'rgba(63,230,255,0.15)';
+          ctx.beginPath();
+          ctx.moveTo(HALF, HALF);
+          const spread = 0.55;
+          const aL = Math.atan2(dirZ, dirX) - spread;
+          const aR = Math.atan2(dirZ, dirX) + spread;
+          ctx.lineTo(HALF + Math.cos(aL) * coneLen, HALF + Math.sin(aL) * coneLen);
+          ctx.lineTo(HALF + Math.cos(aR) * coneLen, HALF + Math.sin(aR) * coneLen);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+        }
+      }
+
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(loop);
     };
@@ -1004,6 +1088,36 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           backdropFilter: 'blur(8px)', pointerEvents: 'auto',
         }}>
           💰 {fmt(balance)} B &nbsp;·&nbsp; 🔑 {ownedKeys.length}
+        </div>
+      </div>
+
+      {/* Mini-radar (top right sous le HUD) */}
+      <div style={{
+        position: 'absolute', top: 70, right: 14, zIndex: 10,
+        pointerEvents: 'none',
+      }}>
+        <canvas
+          ref={radarRef}
+          data-testid="street-radar"
+          width={120}
+          height={120}
+          style={{
+            width: 120, height: 120,
+            borderRadius: '50%',
+            filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
+          }}
+        />
+        {/* Légende compacte */}
+        <div style={{
+          marginTop: 6, padding: '4px 8px',
+          background: 'rgba(10,10,15,0.75)', borderRadius: 8,
+          fontSize: 9, color: '#aaa', textAlign: 'center',
+          border: '1px solid rgba(212,175,55,0.2)',
+          letterSpacing: 0.5,
+        }}>
+          <span style={{ color: '#ffd700' }}>■</span> Casino ·{' '}
+          <span style={{ color: '#ff99b0' }}>■</span> Maison ·{' '}
+          <span style={{ color: '#b48cff' }}>■</span> Immeuble
         </div>
       </div>
 

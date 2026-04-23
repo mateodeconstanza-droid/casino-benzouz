@@ -128,6 +128,19 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Tennis / MMA pas de nul** : déjà coché dans `constants.js` (`draw: false` pour `tennis` et `mma`) ✓
 - **Roulette payouts officiels** : déjà corrects dans `Roulette.jsx` L125-155 (straight ×36, red/black/even/odd/low/high ×2, douzaines ×3). Commentés explicitement.
 
+### ✅ Implemented (Feb 2026 — Mini-radar Street3D)
+- **Canvas radar 120×120px** en haut à droite de Street3D (sous le HUD solde/clés). Dessin via `radarRef` mis à jour à chaque frame dans la boucle Three.js.
+- **Contenu du radar** :
+  - Fond dégradé radial navy + liseré doré + croisillon axes
+  - **Joueur** : point cyan au centre + cône de vision cyan clair reflétant `player.rotY`
+  - **Casino** : carré or (plus gros, avec glow)
+  - **Maisons** : carrés rose pastel
+  - **Immeuble** : carré violet
+  - **NPCs** : petits cercles oranges (positions mises à jour live)
+  - **Voiture** : cercle rouge
+  - Clipping : les points hors rayon utile (48 m) sont coupés
+- **Légende compacte** sous le radar avec les couleurs des catégories.
+
 ### ✅ Implemented (Feb 2026 — Système de déplacement FPS Street3D)
 - **Vue first-person** : caméra à hauteur 2,6 m, position du joueur stockée dans `stateRef.current.player = {x, z, rotY}`, initialisée à `(0, 12, 0)` (face au casino).
 - **Contrôles clavier** : ZQSD / WASD / flèches directionnelles pour avancer-reculer-strafe. A = rotation gauche (optionnelle). E = interagir avec l'objet le plus proche.
