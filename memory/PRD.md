@@ -112,6 +112,13 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - `__addBalance(n)`, `__getBalance()`, `__getProfile()`
   - Documentés dans `/app/memory/test_credentials.md`
 
+### ✅ Implemented (Feb 2026 - Session courante — suite post-Vercel)
+- **Moteur de cotes ELO-based** : chaque sport dispose d'un pool d'équipes/joueurs avec ELO (50..100). Cotes calculées via `probaFromElo()` + marge bookmaker 6 % + avantage domicile 3 (foot/rugby/hockey). Validé par testing_agent : spot-checks réalistes (Real vs Benfica 1.22/50, Real vs Chelsea 1.44/21, Naples vs Atalanta 1.83/7, Man City vs Arsenal 1.74/8.08).
+- **BenzBet : onglet "Classements"** : bouton header `data-testid="benzbet-toggle-view"` qui bascule entre vue Paris et vue Classements. `RankingsView` affiche Top 20 par sport (Rang, Équipe/Joueur, Points, Forme 5 derniers V/N/D colorés, Tendance ▲/▼/▬). Couronne 👑 #1, médailles or/argent/bronze #1-3. `getRankings(sportId, 20)` exporté depuis `constants.js`.
+- **Classements Esport complet** : ESPORT_TEAMS élargi à 24 équipes (+6 : KT Rolster, DRX, Eternal Fire, paiN Gaming, Furia, GamerLegion) pour tenir la promesse "Top 20".
+- **Refonte 3D BenzBet dans Lobby3D.jsx (`createBenzBet`)** : 4 totems modernes rouge/blanc (base rouge laquée 1,1 m + plateau incliné + tige blanche + écran LED haut avec texture animée "cotes LIVE") disposés sur un podium rouge 9×5,5 m avec liseré blanc. Comptoir bookmaker blanc avec bande LED rouge. Enseigne suspendue BENZBET grand format. 4 barres LED rouge/blanche au sol, 3 lumières d'ambiance (rouge, blanc, or). Zone d'interaction élargie (rayon 4,5 m).
+- **Forme récente déterministe** : `computeForm(sportId, entity)` basé sur hash32 du nom + ELO normalisé — pas de flickering entre reloads.
+
 ## Architecture
 - Stack: React (CRA + CRACO) + Three.js
 - Storage: localStorage (clé `profile:<name>`)

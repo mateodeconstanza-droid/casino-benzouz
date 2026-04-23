@@ -341,6 +341,8 @@ export const ESPORT_TEAMS = [
   { name: 'Liquid', elo: 78 }, { name: 'T1', elo: 95 }, { name: 'Gen.G', elo: 90 },
   { name: 'JDG', elo: 89 }, { name: 'BLG', elo: 88 }, { name: 'Hanwha Life', elo: 86 },
   { name: 'Fnatic', elo: 84 }, { name: 'Cloud9', elo: 76 }, { name: '100 Thieves', elo: 72 },
+  { name: 'KT Rolster', elo: 81 }, { name: 'DRX', elo: 79 }, { name: 'Eternal Fire', elo: 77 },
+  { name: 'paiN Gaming', elo: 74 }, { name: 'Furia', elo: 82 }, { name: 'GamerLegion', elo: 75 },
 ];
 
 export const BENZBET_SPORTS = [
