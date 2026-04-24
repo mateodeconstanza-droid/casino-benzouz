@@ -258,12 +258,17 @@ export default function Casino() {
     // `prize` peut être : un nombre (ancien API) OU un objet {value, label}
     const value = typeof prize === 'object' && prize !== null ? prize.value : prize;
     const label = typeof prize === 'object' && prize !== null ? prize.label : String(value);
+    // Multiplicateur événement quotidien (mercredi → ×2)
+    const { getWheelMultiplier } = await import('@/game/dailyEvents');
+    const wheelMul = getWheelMultiplier();
     let credit = 0;
     let newProfile = { ...profile, lastWheelSpin: Date.now() };
     let notif = null;
     if (typeof value === 'number') {
-      credit = value;
-      notif = value > 0 ? `+${value.toLocaleString('fr-FR')} $` : 'Dommage !';
+      credit = value * wheelMul;
+      notif = value > 0
+        ? `+${credit.toLocaleString('fr-FR')} $${wheelMul > 1 ? ' (×2 Mercredi !)' : ''}`
+        : 'Dommage !';
     } else if (value === 'DOUBLE') {
       credit = balance; // double le solde
       notif = `💥 SOLDE ×2 ! +${balance.toLocaleString('fr-FR')} $`;

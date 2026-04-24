@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
+import { applyEventDiscount, getActiveEvents } from '@/game/dailyEvents';
 
 // ============== GAMBLELIFE STORE - armes au mur + véhicules en showroom ==============
 const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosmetic, onEquipCosmetic, onClose, casino }) => {
@@ -11,6 +12,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
   const ownedOutfit = profile.ownedOutfit || [0, 1, 2];
   const ownedShoes = profile.ownedShoes || [0, 1, 2];
   const [tab, setTab] = useState('weapons');
+  const activeEvents = getActiveEvents();
 
   // --- Rendu générique d'un catalogue cosmétique ---
   const renderCosmetics = (catalog, ownedList, cosmeticKey, labelSlot, equippedId) => (
@@ -106,6 +108,24 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
         <div style={{ textAlign: 'center', color: '#cca366', marginBottom: 14, fontSize: 12, fontStyle: 'italic' }}>
           Showroom d'exception — Armes de prestige & véhicules de luxe
         </div>
+
+        {/* Bandeau d'événements actifs visible dans le shop */}
+        {activeEvents.length > 0 && (
+          <div data-testid="shop-events-banner" style={{
+            display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center',
+            marginBottom: 12, padding: 10, borderRadius: 10,
+            background: 'rgba(255,215,0,0.08)', border: '1px dashed rgba(255,215,0,0.4)',
+          }}>
+            {activeEvents.map(ev => (
+              <div key={ev.id} style={{
+                padding: '6px 12px', borderRadius: 8,
+                background: `linear-gradient(135deg, ${ev.color}cc, ${ev.color}77)`,
+                color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: 0.4,
+                border: `1px solid ${ev.color}`,
+              }}>{ev.label}</div>
+            ))}
+          </div>
+        )}
         <div style={{ textAlign: 'center', color: casino.secondary, marginBottom: 16, fontSize: 18 }}>
           Solde : <strong>{fmt(balance)} $</strong>
         </div>
@@ -146,14 +166,27 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
               {WEAPONS.map(w => {
                 const hasIt = owned.includes(w.id);
-                const canAfford = balance >= w.price;
+                const effectivePrice = applyEventDiscount(w.price, w, 'weapon');
+                const discounted = effectivePrice < w.price;
+                const canAfford = balance >= effectivePrice;
                 return (
                   <div key={w.id} style={{
                     background: 'linear-gradient(180deg, #2a1e12, #14100a)',
-                    border: `1px solid ${hasIt ? '#00aa44' : '#4a3820'}`,
+                    border: `1px solid ${hasIt ? '#00aa44' : (discounted ? '#1aa34a' : '#4a3820')}`,
                     borderRadius: 10, padding: 12, textAlign: 'center',
                     boxShadow: '0 4px 10px rgba(0,0,0,.6)',
+                    position: 'relative',
                   }} data-testid={`shop-weapon-${w.id}`}>
+                    {discounted && !hasIt && (
+                      <div style={{
+                        position: 'absolute', top: -10, right: -10,
+                        background: 'linear-gradient(135deg, #1aa34a, #0a6a1a)',
+                        border: '2px solid #ffd700', borderRadius: 999,
+                        padding: '4px 10px', fontSize: 10, fontWeight: 900, letterSpacing: 1,
+                        color: '#fff', boxShadow: '0 4px 12px rgba(26,163,74,0.6)',
+                        transform: 'rotate(8deg)',
+                      }}>-50%</div>
+                    )}
                     <div style={{
                       background: '#0a0705', border: '1px solid #3a2a18',
                       borderRadius: 8, padding: 12, marginBottom: 8,
@@ -169,7 +202,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
                     {hasIt ? (
                       <div style={{ color: '#00ff88', fontWeight: 'bold', fontSize: 12 }}>✓ ACQUIS</div>
                     ) : (
-                      <button onClick={() => onBuy(w)} disabled={!canAfford}
+                      <button onClick={() => onBuy({ ...w, price: effectivePrice })} disabled={!canAfford}
                         data-testid={`shop-buy-weapon-${w.id}`}
                         style={{
                           padding: '8px 14px', width: '100%',
@@ -178,7 +211,11 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
                           cursor: canAfford ? 'pointer' : 'not-allowed',
                           fontFamily: 'inherit', fontWeight: 'bold', fontSize: 12,
                         }}>
-                        {canAfford ? `${fmt(w.price)} $` : 'TROP CHER'}
+                        {canAfford
+                          ? (discounted
+                              ? <>{fmt(effectivePrice)} $ <span style={{ textDecoration: 'line-through', opacity: 0.6, marginLeft: 4, fontSize: 10 }}>{fmt(w.price)}</span></>
+                              : `${fmt(effectivePrice)} $`)
+                          : 'TROP CHER'}
                       </button>
                     )}
                   </div>
@@ -203,15 +240,28 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
               {VEHICLES.map(v => {
                 const hasIt = ownedVeh.includes(v.id);
-                const canAfford = balance >= v.price;
+                const effectivePrice = applyEventDiscount(v.price, v, 'vehicle');
+                const discounted = effectivePrice < v.price;
+                const canAfford = balance >= effectivePrice;
                 const isEquipped = equippedVeh === v.id;
                 return (
                   <div key={v.id} style={{
                     background: 'linear-gradient(180deg, #1a1a20, #0d0d12)',
-                    border: `1px solid ${isEquipped ? casino.secondary : '#2a2a34'}`,
+                    border: `1px solid ${isEquipped ? casino.secondary : (discounted ? '#1aa34a' : '#2a2a34')}`,
                     borderRadius: 12, padding: 16, textAlign: 'center',
                     boxShadow: isEquipped ? `0 0 20px ${casino.secondary}55` : '0 6px 18px rgba(0,0,0,.55)',
+                    position: 'relative',
                   }} data-testid={`shop-vehicle-${v.id}`}>
+                    {discounted && !hasIt && (
+                      <div style={{
+                        position: 'absolute', top: -10, right: -10,
+                        background: 'linear-gradient(135deg, #1aa3d4, #0a6aa8)',
+                        border: '2px solid #ffd700', borderRadius: 999,
+                        padding: '4px 10px', fontSize: 10, fontWeight: 900, letterSpacing: 1,
+                        color: '#fff', boxShadow: '0 4px 12px rgba(26,163,212,0.6)',
+                        transform: 'rotate(8deg)',
+                      }}>-30%</div>
+                    )}
                     {/* Spotlit pedestal */}
                     <div style={{
                       background: 'radial-gradient(ellipse at 50% 90%, rgba(255,240,200,.22), transparent 70%)',
@@ -243,7 +293,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
                         {isEquipped ? '✓ ÉQUIPÉ' : 'Équiper'}
                       </button>
                     ) : (
-                      <button onClick={() => onBuyVehicle(v)} disabled={!canAfford}
+                      <button onClick={() => onBuyVehicle({ ...v, price: effectivePrice })} disabled={!canAfford}
                         data-testid={`shop-buy-vehicle-${v.id}`}
                         style={{
                           padding: '10px 16px', width: '100%',
@@ -252,7 +302,11 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
                           cursor: canAfford ? 'pointer' : 'not-allowed',
                           fontFamily: 'inherit', fontWeight: 'bold',
                         }}>
-                        {canAfford ? `${fmt(v.price)} $` : 'TROP CHER'}
+                        {canAfford
+                          ? (discounted
+                              ? <>{fmt(effectivePrice)} $ <span style={{ textDecoration: 'line-through', opacity: 0.6, marginLeft: 4, fontSize: 10 }}>{fmt(v.price)}</span></>
+                              : `${fmt(effectivePrice)} $`)
+                          : 'TROP CHER'}
                       </button>
                     )}
                   </div>

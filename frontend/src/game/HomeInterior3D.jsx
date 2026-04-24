@@ -80,7 +80,9 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
   // Taille selon type (villa plus grande que appart)
-  const size = house?.type === 'villa' ? { w: 22, d: 14, h: 4 }
+  // Villas = 2 étages : on simule en doublant la hauteur intérieure et en ajoutant un escalier + plateforme.
+  const isTwoFloor = house?.type === 'villa';
+  const size = isTwoFloor ? { w: 26, d: 16, h: 8 }    // villa 2 étages
             : house?.type === 'house' ? { w: 18, d: 12, h: 3.5 }
             : { w: 14, d: 10, h: 3 };
 
@@ -414,6 +416,54 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
 
     // ========== PISCINE VILLA (zone dédiée au fond du salon) ==========
     if (house?.type === 'villa') {
+      // Plateforme 2ème étage + escalier
+      const upperFloorY = 4; // hauteur étage 2
+      const upperFloor = new THREE.Mesh(
+        new THREE.BoxGeometry(size.w, 0.25, size.d * 0.55),
+        new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.7 })
+      );
+      upperFloor.position.set(0, upperFloorY, -size.d * 0.22);
+      upperFloor.receiveShadow = true;
+      upperFloor.castShadow = true;
+      scene.add(upperFloor);
+      // Garde-corps blanc moderne
+      for (let s = -1; s <= 1; s += 2) {
+        const rail = new THREE.Mesh(
+          new THREE.BoxGeometry(size.w, 1.0, 0.08),
+          new THREE.MeshStandardMaterial({ color: 0xf4f4f4, metalness: 0.3, roughness: 0.5 })
+        );
+        rail.position.set(0, upperFloorY + 0.5, s * (size.d * 0.55 / 2));
+        scene.add(rail);
+      }
+      // Escalier (10 marches)
+      const stairCount = 10;
+      const stairW = 1.6, stairD = 0.4, stairH = upperFloorY / stairCount;
+      for (let i = 0; i < stairCount; i++) {
+        const step = new THREE.Mesh(
+          new THREE.BoxGeometry(stairW, stairH, stairD),
+          new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.6 })
+        );
+        step.position.set(size.w / 2 - 1.5, stairH / 2 + i * stairH, 1.5 - i * stairD);
+        step.castShadow = true; step.receiveShadow = true;
+        scene.add(step);
+      }
+      // Lit du 2ème étage (chambre maître)
+      const masterBed = new THREE.Mesh(
+        new THREE.BoxGeometry(2.6, 0.6, 2.1),
+        new THREE.MeshStandardMaterial({ color: t.bed, roughness: 0.6 })
+      );
+      masterBed.position.set(-size.w * 0.25, upperFloorY + 0.55, -size.d * 0.3);
+      masterBed.castShadow = true;
+      scene.add(masterBed);
+      // Bureau salle de jeux étage 2
+      const deskUp = new THREE.Mesh(
+        new THREE.BoxGeometry(2.4, 0.8, 1.0),
+        new THREE.MeshStandardMaterial({ color: t.table, roughness: 0.5, metalness: 0.4 })
+      );
+      deskUp.position.set(size.w * 0.25, upperFloorY + 0.65, -size.d * 0.25);
+      scene.add(deskUp);
+
+      // Piscine 5x3 + bordures
       const poolWater = new THREE.Mesh(
         new THREE.BoxGeometry(5, 0.15, 3),
         new THREE.MeshStandardMaterial({
@@ -421,15 +471,14 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
           emissive: 0x1ea0d0, emissiveIntensity: 0.3, transparent: true, opacity: 0.85,
         })
       );
-      poolWater.position.set(size.w / 2 - 3.5, 0.1, 0);
+      poolWater.position.set(size.w / 2 - 3.5, 0.1, size.d * 0.18);
       poolWater.receiveShadow = true;
       scene.add(poolWater);
-      // Bordure piscine
       const poolBorder = new THREE.Mesh(
         new THREE.BoxGeometry(5.6, 0.3, 3.6),
         new THREE.MeshStandardMaterial({ color: 0xf0f0f2, roughness: 0.7 })
       );
-      poolBorder.position.set(size.w / 2 - 3.5, 0.12, 0);
+      poolBorder.position.set(size.w / 2 - 3.5, 0.12, size.d * 0.18);
       scene.add(poolBorder);
       // 2 chaises longues
       for (let s = -1; s <= 1; s += 2) {
@@ -437,7 +486,7 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
           new THREE.BoxGeometry(0.6, 0.4, 1.6),
           new THREE.MeshStandardMaterial({ color: 0xf4e4c0, roughness: 0.6 })
         );
-        chair.position.set(size.w / 2 - 5.5, 0.2, s * 1.2);
+        chair.position.set(size.w / 2 - 5.5, 0.2, size.d * 0.18 + s * 1.2);
         chair.castShadow = true;
         scene.add(chair);
       }

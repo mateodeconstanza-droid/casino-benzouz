@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { fmt, VEHICLES, WEAPONS } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
+import { getActiveEvents } from '@/game/dailyEvents';
 import sfx from '@/game/sfx';
 
 // =============================================================
@@ -75,6 +76,13 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
   const [bountyToast, setBountyToast] = useState(null);
   const [respawning, setRespawning] = useState(false);
+  const [activeEvents, setActiveEvents] = useState(() => getActiveEvents());
+
+  useEffect(() => {
+    // Recheck active events every minute (jour change)
+    const t = setInterval(() => setActiveEvents(getActiveEvents()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   const ownedKeys = profile?.keys || [];
   const ownedHouses = profile?.ownedHouses || [];
@@ -2035,6 +2043,39 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         >
           ☠ Kills : <span style={{ color: '#fff' }}>{hud.npcKilled}</span>
           {aimingWeapon && <span style={{ marginLeft: 10, color: STAKE.goldLight }}>🎯 {WEAPONS.find(w => w.id === aimingWeapon)?.name}</span>}
+        </div>
+      )}
+
+      {/* Bandeau "ÉVÉNEMENTS GAMBLELIFE" — visible si un event quotidien est actif */}
+      {activeEvents.length > 0 && (
+        <div
+          data-testid="street-events-banner"
+          style={{
+            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center',
+            maxWidth: '80%', pointerEvents: 'none',
+          }}
+        >
+          {activeEvents.map(ev => (
+            <div key={ev.id} style={{
+              padding: '8px 14px', borderRadius: 12,
+              background: `linear-gradient(135deg, ${ev.color}cc, ${ev.color}88)`,
+              border: `2px solid ${ev.color}`,
+              color: '#fff', fontWeight: 900, fontSize: 12, letterSpacing: 0.5,
+              boxShadow: `0 4px 14px ${ev.color}66, inset 0 0 12px rgba(255,255,255,0.1)`,
+              backdropFilter: 'blur(6px)',
+              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              animation: 'eventPulse 2.4s ease-in-out infinite',
+            }}>
+              {ev.label}
+            </div>
+          ))}
+          <style>{`
+            @keyframes eventPulse {
+              0%,100% { transform: scale(1); }
+              50%     { transform: scale(1.04); }
+            }
+          `}</style>
         </div>
       )}
 
