@@ -254,20 +254,77 @@ export default function Casino() {
     } catch (e) {}
   };
 
-  const handleWheelComplete = async (value) => {
-    const newBalance = balance + value;
+  const handleWheelComplete = async (prize) => {
+    // `prize` peut être : un nombre (ancien API) OU un objet {value, label}
+    const value = typeof prize === 'object' && prize !== null ? prize.value : prize;
+    const label = typeof prize === 'object' && prize !== null ? prize.label : String(value);
+    let credit = 0;
+    let newProfile = { ...profile, lastWheelSpin: Date.now() };
+    let notif = null;
+    if (typeof value === 'number') {
+      credit = value;
+      notif = value > 0 ? `+${value.toLocaleString('fr-FR')} $` : 'Dommage !';
+    } else if (value === 'DOUBLE') {
+      credit = balance; // double le solde
+      notif = `💥 SOLDE ×2 ! +${balance.toLocaleString('fr-FR')} $`;
+    } else if (value === 'QUINT') {
+      credit = balance * 4; // multiplie par 5 (x4 de plus)
+      notif = `🚀 SOLDE ×5 ! +${(balance * 4).toLocaleString('fr-FR')} $`;
+    } else if (value === 'WEAPON') {
+      // Donne une arme aléatoire non possédée (sinon 50k)
+      const { WEAPONS: AW } = await import('@/game/constants');
+      const owned = profile.weapons || [];
+      const remaining = AW.filter(w => !owned.includes(w.id));
+      if (remaining.length) {
+        const w = remaining[Math.floor(Math.random() * remaining.length)];
+        newProfile.weapons = [...owned, w.id];
+        notif = `🔫 ARME GAGNÉE : ${w.name}`;
+      } else {
+        credit = 50000; notif = '🔫 Arsenal complet → +50 000 $';
+      }
+    } else if (value === 'VEHICLE') {
+      const { VEHICLES: AV } = await import('@/game/constants');
+      const owned = profile.vehicles || [];
+      const remaining = AV.filter(v => !owned.includes(v.id));
+      if (remaining.length) {
+        const v = remaining[Math.floor(Math.random() * remaining.length)];
+        newProfile.vehicles = [...owned, v.id];
+        notif = `🏎 VÉHICULE GAGNÉ : ${v.name}`;
+      } else {
+        credit = 150000; notif = '🏎 Garage complet → +150 000 $';
+      }
+    } else if (value === 'HOUSE') {
+      // Débloque une maison aléatoire encore achetable
+      const { HOUSES: HS } = await import('@/game/Street3D');
+      const ownedKeys = profile.keys || [];
+      const avail = HS.filter(h => !ownedKeys.includes(h.id) && !h.creator && h.type !== 'apartment');
+      if (avail.length) {
+        const h = avail[Math.floor(Math.random() * avail.length)];
+        newProfile.keys = [...ownedKeys, h.id];
+        notif = `🏠 MAISON GAGNÉE : ${h.label}`;
+      } else {
+        credit = 1000000; notif = '🏠 Toutes possédées → +1 000 000 $';
+      }
+    } else {
+      credit = 0;
+      notif = label;
+    }
+    const newBalance = balance + credit;
     setBalance(newBalance);
-    let newProfile = {
-      ...profile,
+    newProfile = {
+      ...newProfile,
       balance: newBalance,
-      totalWinnings: profile.totalWinnings + value,
-      lastWheelSpin: Date.now(),
+      totalWinnings: profile.totalWinnings + Math.max(credit, 0),
     };
-    // Quête : "Tourner la roue de la fortune"
     newProfile = progressQuest(newProfile, 'wheel_spin', 1);
-    if (value > 0) await checkTrophies(newProfile);
+    if (credit > 0) await checkTrophies(newProfile);
     setProfile(newProfile);
     await saveProfile(newProfile);
+    // Affiche une notification globale via prompt
+    if (notif) {
+      setBetToast && setBetToast({ msg: notif, kind: 'won' });
+      setTimeout(() => setBetToast && setBetToast(null), 5000);
+    }
     setShowWheel(false);
   };
 
@@ -673,7 +730,12 @@ export default function Casino() {
       {screen === 'home' && profile && activeHouseId && (
         <HomeInterior3D
           profile={profile}
-          setProfile={(next) => { setProfile(next); saveProfile({ ...next, balance }); }}
+          setProfile={(next) => {
+            setProfile(next);
+            // Quand le joueur achète un meuble, le balance peut changer dans next.balance
+            if (typeof next?.balance === 'number') setBalance(next.balance);
+            saveProfile({ ...next, balance: next.balance ?? balance });
+          }}
           houseId={activeHouseId}
           onExit={handleExitHome}
         />

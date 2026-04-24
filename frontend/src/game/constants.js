@@ -77,14 +77,19 @@ export const CASINOS = {
 };
 
 // ============== TROPHÉES (plus dur + récompenses) ==============
+// Système de rang redesigné : seuils × 5 plus difficiles mais récompenses × 8 plus généreuses
+// + ajout de paliers Titanium/Cosmic au-dessus de Mythique
 export const TROPHIES = [
-  { threshold: 10000, name: 'Bronze', icon: '🥉', color: '#cd7f32', reward: 500 },
-  { threshold: 50000, name: 'Argent', icon: '🥈', color: '#c0c0c0', reward: 2500 },
-  { threshold: 150000, name: 'Or', icon: '🥇', color: '#ffd700', reward: 7500 },
-  { threshold: 500000, name: 'Platine', icon: '💎', color: '#e5e4e2', reward: 25000 },
-  { threshold: 1500000, name: 'Diamant', icon: '💠', color: '#b9f2ff', reward: 75000 },
-  { threshold: 5000000, name: 'Légende', icon: '👑', color: '#ff6b9d', reward: 250000 },
-  { threshold: 15000000, name: 'Mythique', icon: '🏆', color: '#ff0080', reward: 750000 },
+  { threshold:      50000, name: 'Bronze',    icon: '🥉', color: '#cd7f32', reward:      5000 },
+  { threshold:     250000, name: 'Argent',    icon: '🥈', color: '#c0c0c0', reward:     25000 },
+  { threshold:     750000, name: 'Or',        icon: '🥇', color: '#ffd700', reward:     75000 },
+  { threshold:    2500000, name: 'Platine',   icon: '💎', color: '#e5e4e2', reward:    250000 },
+  { threshold:    7500000, name: 'Diamant',   icon: '💠', color: '#b9f2ff', reward:    750000 },
+  { threshold:   25000000, name: 'Légende',   icon: '👑', color: '#ff6b9d', reward:   2500000 },
+  { threshold:   75000000, name: 'Mythique',  icon: '🏆', color: '#ff0080', reward:   7500000 },
+  { threshold:  200000000, name: 'Titanium',  icon: '⚔️', color: '#c0d0e0', reward:  25000000 },
+  { threshold:  500000000, name: 'Cosmique',  icon: '🌌', color: '#9a7aff', reward:  75000000 },
+  { threshold: 1000000000, name: 'GambleGod', icon: '✨', color: '#ffd700', reward: 250000000 },
 ];
 
 // ============== ARMES ==============
@@ -166,6 +171,34 @@ export const SHOES_CATALOG = [
   { id: 9, name: 'Baskets GambleLife or',    price: 700000,  color: '#d4af37' },
 ];
 
+// =============================================================
+// CATALOGUE MEUBLES STYLE SIMS — achetables via la machine dans chaque logement
+// =============================================================
+export const FURNITURE_CATALOG = [
+  // SALON
+  { id: 'fu-sofa-lux',      category: 'salon',   name: 'Canapé Velours Or',     icon: '🛋', price: 250000,  color: '#7a4020' },
+  { id: 'fu-tv-4k',         category: 'salon',   name: 'TV 8K Gigante',          icon: '📺', price: 800000,  color: '#0a0a0f' },
+  { id: 'fu-rug-persan',    category: 'salon',   name: 'Tapis Persan',           icon: '🪄', price: 120000,  color: '#8b1a2e' },
+  { id: 'fu-piano',         category: 'salon',   name: 'Piano à Queue',          icon: '🎹', price: 1500000, color: '#0a0a0a' },
+  // CUISINE
+  { id: 'fu-kitchen-marble',category: 'cuisine', name: 'Cuisine Marbre',         icon: '🍽', price: 500000,  color: '#f4e4d0' },
+  { id: 'fu-fridge-smart',  category: 'cuisine', name: 'Frigo Smart 600L',       icon: '🧊', price: 180000,  color: '#c0c0c8' },
+  { id: 'fu-wine-cellar',   category: 'cuisine', name: 'Cave à Vin Premium',     icon: '🍷', price: 350000,  color: '#6a1a2e' },
+  // CHAMBRE
+  { id: 'fu-bed-king',      category: 'chambre', name: 'Lit King Royal',         icon: '🛏', price: 400000,  color: '#7a5a20' },
+  { id: 'fu-dresser-wood',  category: 'chambre', name: 'Commode Bois Noir',      icon: '🪞', price: 120000,  color: '#1a0f0a' },
+  { id: 'fu-jacuzzi',       category: 'chambre', name: 'Jacuzzi Privé',          icon: '🛁', price: 2000000, color: '#1ea0d0' },
+  // SALLE DE JEUX
+  { id: 'fu-arcade',        category: 'jeux',    name: 'Borne Arcade',           icon: '🕹', price: 300000,  color: '#8b1a8b' },
+  { id: 'fu-pool-table',    category: 'jeux',    name: 'Billard',                icon: '🎱', price: 600000,  color: '#0f4a1a' },
+  { id: 'fu-ps5',           category: 'jeux',    name: 'Setup Gaming PC/PS5',    icon: '🎮', price: 450000,  color: '#0a0a0f' },
+  { id: 'fu-poker-table',   category: 'jeux',    name: 'Table Poker Casino',     icon: '♠',  price: 800000,  color: '#0f2a42' },
+  // DÉCO / LUXE
+  { id: 'fu-painting',      category: 'deco',    name: 'Tableau Picasso',        icon: '🎨', price: 3000000, color: '#d4af37' },
+  { id: 'fu-statue-gold',   category: 'deco',    name: 'Statue Or Massif',       icon: '🗿', price: 5000000, color: '#ffd700' },
+  { id: 'fu-aquarium',      category: 'deco',    name: 'Aquarium Mural',         icon: '🐠', price: 400000,  color: '#2aa6ff' },
+];
+
 // ============== CARTES ==============
 export const SUITS = ['♠', '♥', '♦', '♣'];
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -203,13 +236,24 @@ export const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 3
 export const getColor = (n) => (n === 0 ? 'green' : RED_NUMBERS.includes(n) ? 'red' : 'black');
 
 // ============== WHEEL PRIZES ==============
+// 16 cases modernes avec nouveaux gains + maison gratuite en jackpot
 export const WHEEL_PRIZES = [
-  { label: '200', value: 200, color: '#2d5016', weight: 40 },
-  { label: '5000', value: 5000, color: '#4a7c2e', weight: 25 },
-  { label: 'RIEN', value: 0, color: '#1a1a1a', weight: 20 },
-  { label: '15000', value: 15000, color: '#8b0000', weight: 10 },
-  { label: '100000', value: 100000, color: '#d4af37', weight: 4 },
-  { label: 'JACKPOT', value: 1000000, color: '#ff0080', weight: 1 },
+  { label: '500 $',      value: 500,      color: '#2d5016', weight: 28 },
+  { label: 'RIEN',       value: 0,        color: '#1a1a1a', weight: 15 },
+  { label: '5 000 $',    value: 5000,     color: '#4a7c2e', weight: 18 },
+  { label: '25 000 $',   value: 25000,    color: '#1a6aa8', weight: 12 },
+  { label: 'RIEN',       value: 0,        color: '#2a2a2a', weight: 8 },
+  { label: '50 000 $',   value: 50000,    color: '#6a1a8a', weight: 8 },
+  { label: '100 000 $',  value: 100000,   color: '#c6891a', weight: 4 },
+  { label: 'x2 SOLDE',   value: 'DOUBLE', color: '#0aa850', weight: 2 },
+  { label: '250 000 $',  value: 250000,   color: '#d4af37', weight: 2 },
+  { label: 'ARME',       value: 'WEAPON', color: '#8b1a2e', weight: 1 },
+  { label: 'VÉHICULE',   value: 'VEHICLE',color: '#1aa3d4', weight: 1 },
+  { label: '500 000 $',  value: 500000,   color: '#e8c058', weight: 0.8 },
+  { label: 'x5 SOLDE',   value: 'QUINT',  color: '#ff6a1a', weight: 0.3 },
+  { label: '1 M $',      value: 1000000,  color: '#ff0080', weight: 0.25 },
+  { label: 'JACKPOT',    value: 10000000, color: '#ffd700', weight: 0.1 },
+  { label: '★ MAISON ★', value: 'HOUSE',  color: '#d4af37', weight: 0.05 }, // gain ultra rare : une maison !
 ];
 
 // ============== HELPERS ==============

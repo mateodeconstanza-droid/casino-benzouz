@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { fmt } from '@/game/constants';
+import { fmt, FURNITURE_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { HOUSES } from '@/game/Street3D';
 
@@ -74,6 +74,8 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
   const initialTheme = owned?.customizations?.theme || (house?.type === 'villa' ? 'lux' : house?.type === 'apartment' ? 'modern' : 'cozy');
   const [theme, setTheme] = useState(initialTheme);
   const [showTrophies, setShowTrophies] = useState(false);
+  const [showFurnStore, setShowFurnStore] = useState(false);
+  const [furnTab, setFurnTab] = useState('salon');
 
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
@@ -358,6 +360,103 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     clock.position.set(0, 3.0, -size.d / 2 + 0.05);
     scene.add(clock);
 
+    // ========== MEUBLES ACHETÉS PAR LE JOUEUR (placés automatiquement) ==========
+    // On place chaque meuble acheté à une position libre prédéfinie par catégorie.
+    const ownedFurn = ((profile?.ownedHouses || []).find(h => h.id === houseId)?.customizations?.furniture) || [];
+    const slotCounts = { salon: 0, cuisine: 0, chambre: 0, jeux: 0, deco: 0 };
+    const slotPositions = {
+      salon:   [[ -size.w / 2 + 2.5, 0,  size.d / 2 - 2.5], [ -size.w / 2 + 4,   0,  size.d / 2 - 4.5]],
+      cuisine: [[  size.w / 2 - 2.5, 0, -size.d / 2 + 2.5], [  size.w / 2 - 4,   0, -size.d / 2 + 4.5]],
+      chambre: [[ -size.w / 2 + 2.5, 0, -size.d / 2 + 2.5], [ -size.w / 2 + 4,   0, -size.d / 2 + 4.5]],
+      jeux:    [[  size.w / 2 - 2.5, 0,  size.d / 2 - 2.5], [  size.w / 2 - 4,   0,  size.d / 2 - 4.5]],
+      deco:    [[ 0, 0,  size.d / 2 - 3.5 ], [ 0, 0, -size.d / 2 + 3.5 ], [ -size.w / 2 + 1, size.h - 1, 0 ]],
+    };
+    ownedFurn.forEach((furnId) => {
+      const def = FURNITURE_CATALOG.find(f => f.id === furnId);
+      if (!def) return;
+      const slots = slotPositions[def.category] || slotPositions.deco;
+      const slotIdx = slotCounts[def.category] % slots.length;
+      const [fx, fy, fz] = slots[slotIdx];
+      slotCounts[def.category]++;
+      // Représentation 3D simple : boîte colorée + emoji en label flottant
+      const fg = new THREE.Group();
+      fg.position.set(fx, fy, fz);
+      // Taille et couleur selon la catégorie/piece
+      const dim = def.category === 'deco' ? [0.8, 1.2, 0.3]
+                : def.category === 'cuisine' ? [1.5, 1.2, 0.8]
+                : def.category === 'chambre' ? [1.8, 0.7, 2.2]
+                : def.category === 'jeux'    ? [1.3, 1.3, 0.8]
+                : [1.8, 0.9, 1.0]; // salon
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(...dim),
+        new THREE.MeshStandardMaterial({
+          color: def.color, roughness: 0.55, metalness: 0.3,
+          emissive: def.color, emissiveIntensity: 0.08,
+        })
+      );
+      box.position.y = dim[1] / 2;
+      box.castShadow = true; box.receiveShadow = true;
+      fg.add(box);
+      // Label emoji au-dessus
+      const ecv = document.createElement('canvas');
+      ecv.width = 128; ecv.height = 128;
+      const ectx = ecv.getContext('2d');
+      ectx.font = '80px sans-serif';
+      ectx.textAlign = 'center'; ectx.fillStyle = '#fff';
+      ectx.fillText(def.icon, 64, 92);
+      const etex = new THREE.CanvasTexture(ecv);
+      const esprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: etex, transparent: true }));
+      esprite.position.set(0, dim[1] + 0.5, 0);
+      esprite.scale.set(0.7, 0.7, 0.7);
+      fg.add(esprite);
+      scene.add(fg);
+    });
+
+    // ========== PISCINE VILLA (zone dédiée au fond du salon) ==========
+    if (house?.type === 'villa') {
+      const poolWater = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 0.15, 3),
+        new THREE.MeshStandardMaterial({
+          color: 0x1ea0d0, metalness: 0.8, roughness: 0.12,
+          emissive: 0x1ea0d0, emissiveIntensity: 0.3, transparent: true, opacity: 0.85,
+        })
+      );
+      poolWater.position.set(size.w / 2 - 3.5, 0.1, 0);
+      poolWater.receiveShadow = true;
+      scene.add(poolWater);
+      // Bordure piscine
+      const poolBorder = new THREE.Mesh(
+        new THREE.BoxGeometry(5.6, 0.3, 3.6),
+        new THREE.MeshStandardMaterial({ color: 0xf0f0f2, roughness: 0.7 })
+      );
+      poolBorder.position.set(size.w / 2 - 3.5, 0.12, 0);
+      scene.add(poolBorder);
+      // 2 chaises longues
+      for (let s = -1; s <= 1; s += 2) {
+        const chair = new THREE.Mesh(
+          new THREE.BoxGeometry(0.6, 0.4, 1.6),
+          new THREE.MeshStandardMaterial({ color: 0xf4e4c0, roughness: 0.6 })
+        );
+        chair.position.set(size.w / 2 - 5.5, 0.2, s * 1.2);
+        chair.castShadow = true;
+        scene.add(chair);
+      }
+      // Palmier décoratif
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.2, 2.4, 8),
+        new THREE.MeshStandardMaterial({ color: 0x5a3a18 })
+      );
+      trunk.position.set(size.w / 2 - 1.5, 1.2, -size.d / 2 + 2);
+      scene.add(trunk);
+      const leaves = new THREE.Mesh(
+        new THREE.SphereGeometry(0.9, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x2a9a3a })
+      );
+      leaves.position.set(size.w / 2 - 1.5, 2.7, -size.d / 2 + 2);
+      leaves.scale.y = 0.5;
+      scene.add(leaves);
+    }
+
     // === Caméra orbit légèrement pour montrer 3D ===
     const raycaster = new THREE.Raycaster();
     const mouseV = new THREE.Vector2();
@@ -504,6 +603,139 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       }}>
         Clique sur le <b style={{ color: STAKE.gold }}>mur trophées</b> pour voir le détail · Change de thème en bas
       </div>
+
+      {/* Bouton Machine Ameublement (haut droite) */}
+      <button
+        data-testid="home-furn-btn"
+        onClick={() => setShowFurnStore(true)}
+        style={{
+          position: 'absolute', top: 70, right: 14, zIndex: 20,
+          padding: '12px 18px', borderRadius: 14,
+          background: `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`,
+          border: `2px solid ${STAKE.goldLight}`, color: '#111',
+          fontWeight: 900, fontSize: 13, cursor: 'pointer', letterSpacing: 1,
+          boxShadow: '0 6px 18px rgba(212,175,55,0.5)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >🛍 AMEUBLEMENT</button>
+
+      {/* Modal Machine Ameublement — catalogue achetable style Sims */}
+      {showFurnStore && (
+        <div style={{
+          position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 200, backdropFilter: 'blur(8px)',
+        }} data-testid="home-furn-modal">
+          <div style={{
+            background: 'linear-gradient(135deg, #1a0f18, #0d060e)',
+            border: `2px solid ${STAKE.gold}`, borderRadius: 16,
+            padding: 20, maxWidth: 820, width: '94%', maxHeight: '92vh',
+            overflowY: 'auto', color: '#fff',
+          }}>
+            <div style={{
+              fontSize: 22, fontWeight: 900, textAlign: 'center',
+              color: STAKE.goldLight, letterSpacing: 2, marginBottom: 4,
+            }}>🛍 MACHINE AMEUBLEMENT 🛍</div>
+            <div style={{ textAlign: 'center', fontSize: 12, color: STAKE.inkSoft, marginBottom: 14 }}>
+              Achète des meubles et place-les dans ton logement
+            </div>
+            {/* Tabs catégorie */}
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+              {[
+                ['salon',  '🛋 Salon'],
+                ['cuisine','🍽 Cuisine'],
+                ['chambre','🛏 Chambre'],
+                ['jeux',   '🎮 Salle jeux'],
+                ['deco',   '🎨 Déco'],
+              ].map(([k, l]) => (
+                <button
+                  key={k}
+                  data-testid={`furn-tab-${k}`}
+                  onClick={() => setFurnTab(k)}
+                  style={{
+                    padding: '8px 14px', borderRadius: 8,
+                    background: furnTab === k
+                      ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`
+                      : 'rgba(255,255,255,0.05)',
+                    color: furnTab === k ? '#111' : STAKE.goldLight,
+                    border: `1px solid ${STAKE.gold}50`,
+                    cursor: 'pointer', fontWeight: 800, fontSize: 12,
+                  }}>{l}</button>
+              ))}
+            </div>
+            {/* Grille items */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+              {FURNITURE_CATALOG.filter(f => f.category === furnTab).map(item => {
+                const ownedFurniture = ((profile.ownedHouses || [])
+                  .find(h => h.id === houseId)?.customizations?.furniture) || [];
+                const hasIt = ownedFurniture.includes(item.id);
+                const playerBal = profile.balance || 0;
+                const canAfford = playerBal >= item.price;
+                return (
+                  <div key={item.id} style={{
+                    padding: 12, borderRadius: 10,
+                    background: 'rgba(20,10,20,0.8)',
+                    border: `1px solid ${hasIt ? '#00aa44' : 'rgba(212,175,55,0.3)'}`,
+                    textAlign: 'center',
+                  }} data-testid={`furn-${item.id}`}>
+                    <div style={{ fontSize: 38, marginBottom: 6 }}>{item.icon}</div>
+                    <div style={{
+                      width: 40, height: 8, margin: '0 auto 8px',
+                      background: `#${item.color.toString(16).padStart(6,'0')}`,
+                      borderRadius: 4, border: '1px solid rgba(255,255,255,0.2)',
+                    }} />
+                    <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>{item.name}</div>
+                    {hasIt ? (
+                      <div style={{ color: '#00ff88', fontWeight: 900, fontSize: 12 }}>✓ POSSÉDÉ</div>
+                    ) : (
+                      <button
+                        data-testid={`furn-buy-${item.id}`}
+                        disabled={!canAfford}
+                        onClick={() => {
+                          if (!canAfford) return;
+                          const newBal = playerBal - item.price;
+                          const next = {
+                            ...profile,
+                            balance: newBal,
+                            ownedHouses: (profile.ownedHouses || []).map(h =>
+                              h.id === houseId ? {
+                                ...h,
+                                customizations: {
+                                  ...(h.customizations || {}),
+                                  furniture: [...(h.customizations?.furniture || []), item.id],
+                                },
+                              } : h),
+                          };
+                          setProfile(next);
+                        }}
+                        style={{
+                          width: '100%', padding: '7px 10px',
+                          background: canAfford
+                            ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`
+                            : '#444',
+                          border: 'none', borderRadius: 6, color: canAfford ? '#111' : '#888',
+                          fontWeight: 900, fontSize: 11, letterSpacing: 0.5,
+                          cursor: canAfford ? 'pointer' : 'not-allowed',
+                        }}>
+                        {canAfford ? `${fmt(item.price)} $` : 'TROP CHER'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              data-testid="furn-close"
+              onClick={() => setShowFurnStore(false)}
+              style={{
+                width: '100%', marginTop: 14, padding: 12, borderRadius: 8,
+                background: 'rgba(255,255,255,0.08)',
+                border: `1px solid ${STAKE.gold}50`, color: STAKE.goldLight,
+                fontWeight: 900, cursor: 'pointer', fontSize: 13, letterSpacing: 1,
+              }}>FERMER</button>
+          </div>
+        </div>
+      )}
 
       {/* Modal détail trophées */}
       {showTrophies && (

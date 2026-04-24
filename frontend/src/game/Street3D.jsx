@@ -86,9 +86,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     // ----- Scene / Camera / Renderer -----
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x9fd7ff); // bleu ciel clair
-    scene.fog = new THREE.Fog(0x9fd7ff, 50, 130);
+    // Fog plus lointain pour ville étendue x10
+    scene.fog = new THREE.Fog(0x9fd7ff, 150, 550);
 
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 900);
     // Position FPS du joueur : milieu de la rue, face au casino
     camera.position.set(0, 2.6, 12);
     camera.lookAt(0, 1.8, -10);
@@ -167,18 +168,28 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
     scene.add(birds);
 
-    // ----- Sol (route + herbe) -----
+    // ----- Sol : asphalte ville (pas de pelouse verte !) -----
     const groundGrass = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshStandardMaterial({ color: 0x4a8f3a, roughness: 0.95 })
+      new THREE.PlaneGeometry(1000, 1000),
+      new THREE.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.95 })
     );
     groundGrass.rotation.x = -Math.PI / 2;
     groundGrass.receiveShadow = true;
     scene.add(groundGrass);
 
-    // Route asphalte devant les bâtiments
+    // Quartier central — herbe/parc verte uniquement autour du casino (zone centrale)
+    const centralPark = new THREE.Mesh(
+      new THREE.PlaneGeometry(110, 65),
+      new THREE.MeshStandardMaterial({ color: 0x4a8f3a, roughness: 0.95 })
+    );
+    centralPark.rotation.x = -Math.PI / 2;
+    centralPark.position.set(0, 0.005, -12);
+    centralPark.receiveShadow = true;
+    scene.add(centralPark);
+
+    // Route principale devant les bâtiments (agrandie)
     const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(80, 10),
+      new THREE.PlaneGeometry(800, 10),
       new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85 })
     );
     road.rotation.x = -Math.PI / 2;
@@ -186,8 +197,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     road.receiveShadow = true;
     scene.add(road);
 
-    // Lignes blanches discontinues
-    for (let i = -38; i <= 38; i += 4) {
+    // Lignes blanches discontinues (sur toute la longueur)
+    for (let i = -380; i <= 380; i += 4) {
       const line = new THREE.Mesh(
         new THREE.PlaneGeometry(2.2, 0.25),
         new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
@@ -197,7 +208,49 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       scene.add(line);
     }
 
-    // Trottoir
+    // Rues perpendiculaires (grille urbaine — tous les 80 m)
+    for (let rx = -360; rx <= 360; rx += 80) {
+      // Route Nord-Sud
+      const r = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 800),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85 })
+      );
+      r.rotation.x = -Math.PI / 2;
+      r.position.set(rx, 0.012, 0);
+      scene.add(r);
+      // Lignes jaunes
+      for (let iz = -390; iz <= 390; iz += 5) {
+        const l = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.25, 2.2),
+          new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
+        );
+        l.rotation.x = -Math.PI / 2;
+        l.position.set(rx, 0.02, iz);
+        scene.add(l);
+      }
+    }
+    // Routes Est-Ouest supplémentaires
+    for (let rz = -380; rz <= 380; rz += 80) {
+      if (rz === -4) continue; // déjà la route principale
+      const r = new THREE.Mesh(
+        new THREE.PlaneGeometry(800, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85 })
+      );
+      r.rotation.x = -Math.PI / 2;
+      r.position.set(0, 0.012, rz);
+      scene.add(r);
+      for (let ix = -390; ix <= 390; ix += 5) {
+        const l = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.2, 0.25),
+          new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
+        );
+        l.rotation.x = -Math.PI / 2;
+        l.position.set(ix, 0.02, rz);
+        scene.add(l);
+      }
+    }
+
+    // Trottoir devant casino
     const sidewalkFront = new THREE.Mesh(
       new THREE.BoxGeometry(80, 0.15, 2),
       new THREE.MeshStandardMaterial({ color: 0xb0b4b7, roughness: 0.9 })
@@ -1053,66 +1106,166 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     gateGroup.add(gateBar);
     scene.add(gateGroup);
 
-    // ========== FAKE BACKGROUND BUILDINGS (non-interactables, décor urbain) ==========
-    // Gratte-ciels + immeubles fake derrière la barrière arrière (z < -35)
+    // ========== FAKE BACKGROUND BUILDINGS (non-interactables, décor urbain massif) ==========
+    // Ville procédurale étendue × 10 : grille 800×800 remplie de buildings pour combler tout le vide
     const bgBuildings = new THREE.Group();
-    const bgColors = [0x4a5a6a, 0x6a5a4a, 0x5a4a6a, 0x3a4a5a, 0x6a4a3a, 0x4a6a5a, 0x5a5a5a, 0x7a6a5a];
-    for (let i = 0; i < 22; i++) {
-      const w = 4 + Math.random() * 5;
-      const h = 10 + Math.random() * 22;
-      const d = 4 + Math.random() * 4;
-      const col = bgColors[i % bgColors.length];
+    const bgColors = [0x4a5a6a, 0x6a5a4a, 0x5a4a6a, 0x3a4a5a, 0x6a4a3a, 0x4a6a5a, 0x5a5a5a, 0x7a6a5a, 0x8a7a6a, 0x4a3a5a];
+    // On génère ~350 bâtiments répartis sur toute la ville (hors zone centrale jouable)
+    // Zone jouable centrale étendue : x ∈ [-360, 360], z ∈ [-360, 360] (×~7.5 par axe)
+    // Mais on protège le PARK CENTRAL [-55, 55] × [-45, 20] pour les maisons interactives
+    const isInCentralProtected = (x, z) => (x > -58 && x < 58 && z > -46 && z < 22);
+    // Semence déterministe pour éviter des variations
+    let seed = 1337;
+    const rand = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+    const tryPlaceBuilding = () => {
+      // Tire une position dans la grille urbaine, évite les routes (tous les 80m) et la zone protégée
+      const bx = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
+      const bz = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
+      if (isInCentralProtected(bx, bz)) return null;
+      // Évite les routes (bande de ±7m autour des multiples de 80)
+      const onRoadX = Math.abs(((bx + 400) % 80) - 40) < 9;
+      const onRoadZ = Math.abs(((bz + 400) % 80) - 40) < 9;
+      if (onRoadX || onRoadZ) return null;
+      return { x: bx, z: bz };
+    };
+    let placed = 0;
+    let attempts = 0;
+    while (placed < 280 && attempts < 2000) {
+      attempts++;
+      const pos = tryPlaceBuilding();
+      if (!pos) continue;
+      const w = 5 + rand() * 8;
+      const h = 6 + rand() * 38; // immeubles jusqu'à ~44m
+      const d = 5 + rand() * 8;
+      const col = bgColors[Math.floor(rand() * bgColors.length)];
       const bg = new THREE.Mesh(
         new THREE.BoxGeometry(w, h, d),
         new THREE.MeshStandardMaterial({ color: col, roughness: 0.85 })
       );
-      // Positions derrière la ligne arrière (z<-38) et sur les côtés lointains
-      let bx, bz;
-      if (i < 14) {
-        bx = -60 + i * 9;
-        bz = -44 - Math.random() * 15;
-      } else if (i < 18) {
-        bx = -70 + (i - 14) * 2;
-        bz = -10 + (i - 14) * 8;
-      } else {
-        bx = 60 + (i - 18) * 2;
-        bz = -10 + (i - 18) * 8;
-      }
-      bg.position.set(bx, h / 2, bz);
+      bg.position.set(pos.x, h / 2, pos.z);
+      bg.castShadow = true; bg.receiveShadow = true;
       bgBuildings.add(bg);
-      // Fenêtres lumineuses aléatoires (texture émissive simple)
-      const rows = Math.floor(h / 1.8);
-      const cols = Math.floor(w / 1.5);
+      // Fenêtres émissives stylisées (2 faces seulement pour perf)
+      const rows = Math.floor(h / 2.2);
+      const cols = Math.floor(w / 1.6);
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (Math.random() < 0.55) continue;
+          if (rand() < 0.4) continue;
+          const winColor = rand() < 0.15 ? 0x3fe6ff : 0xffd88a;
           const win = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.55, 0.9),
-            new THREE.MeshBasicMaterial({ color: 0xffd88a, transparent: true, opacity: 0.75 })
+            new THREE.PlaneGeometry(0.5, 1.2),
+            new THREE.MeshBasicMaterial({ color: winColor, transparent: true, opacity: 0.85 })
           );
           win.position.set(
-            bx - w / 2 + 0.6 + c * 1.3,
-            1.2 + r * 1.6,
-            bz + d / 2 + 0.02
+            pos.x - w / 2 + 0.6 + c * 1.4,
+            1.4 + r * 2,
+            pos.z + d / 2 + 0.02
           );
           bgBuildings.add(win);
         }
       }
-      // Toit plat couleur différente
+      // Toit plat gris
       const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 0.2, 0.3, d + 0.2),
+        new THREE.BoxGeometry(w + 0.3, 0.3, d + 0.3),
         new THREE.MeshStandardMaterial({ color: 0x2a2a2a })
       );
-      roof.position.set(bx, h + 0.15, bz);
+      roof.position.set(pos.x, h + 0.15, pos.z);
       bgBuildings.add(roof);
+      placed++;
     }
     scene.add(bgBuildings);
 
-    // ========== BARRIÈRE DE MORT (marge autour de la zone de jeu étendue) ==========
-    // Limites jouables : x ∈ [-48, 48], z ∈ [-38, 14]
-    // Death zone : x < -55, x > 55, z < -45, z > 22 (marge de ~5m)
-    const isInDeathZone = (x, z) => (x < -55 || x > 55 || z < -45 || z > 22);
-    const isNearBarrier = (x, z) => (x < -48 || x > 48 || z < -38 || z > 14);
+    // ====== 4 ÉCRANS PUBLICITAIRES GAMBLELIFE dans la ville ======
+    // Positions : 4 coins autour de la zone centrale, visibles de loin
+    const billboardPositions = [
+      { x: -140,  z: -60,  rotY: Math.PI / 4 },     // NO
+      { x:  140,  z: -60,  rotY: -Math.PI / 4 },    // NE
+      { x: -140,  z:  80,  rotY: -Math.PI / 4 },    // SO
+      { x:  140,  z:  80,  rotY: Math.PI / 4 },     // SE
+    ];
+    const bbMessages = [
+      { title: 'GAMBLELIFE CASINO', sub: '★ Jackpot 500M $ ★', cta: 'ENTRE MAINTENANT →' },
+      { title: 'CHASSE À LA PRIME', sub: '+500K $ par WANTED', cta: 'ÉQUIPE TON ARME' },
+      { title: 'ROUE DE LA FORTUNE', sub: 'Gagne une VILLA gratuite', cta: 'VIENS TOURNER' },
+      { title: 'GAMBLEBET — SPORT', sub: 'Cotes × 10 sur PSG', cta: 'PARIE LIVE 24/7' },
+    ];
+    billboardPositions.forEach((pos, bi) => {
+      const msg = bbMessages[bi];
+      const bb = new THREE.Group();
+      bb.position.set(pos.x, 0, pos.z);
+      bb.rotation.y = pos.rotY;
+      // Pylônes métalliques
+      for (let s = -1; s <= 1; s += 2) {
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28, 0.34, 16, 10),
+          new THREE.MeshStandardMaterial({ color: 0x3a3a40, metalness: 0.7, roughness: 0.4 })
+        );
+        pole.position.set(s * 5, 8, 0);
+        pole.castShadow = true;
+        bb.add(pole);
+      }
+      // Cadre d'écran
+      const frame = new THREE.Mesh(
+        new THREE.BoxGeometry(14, 8, 0.6),
+        new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, metalness: 0.5, roughness: 0.35,
+          emissive: 0xd4af37, emissiveIntensity: 0.08,
+        })
+      );
+      frame.position.y = 14;
+      frame.castShadow = true;
+      bb.add(frame);
+      // Écran émissif (canvas → texture)
+      const bcv = document.createElement('canvas');
+      bcv.width = 1024; bcv.height = 512;
+      const bcx = bcv.getContext('2d');
+      // fond dégradé doré/noir animé (statique mais beau)
+      const grad = bcx.createLinearGradient(0, 0, 1024, 512);
+      grad.addColorStop(0, '#8b0000');
+      grad.addColorStop(0.5, '#1a0a00');
+      grad.addColorStop(1, '#d4af37');
+      bcx.fillStyle = grad; bcx.fillRect(0, 0, 1024, 512);
+      // Logo/étoiles
+      bcx.fillStyle = 'rgba(255,215,0,0.45)';
+      for (let i = 0; i < 12; i++) {
+        bcx.beginPath();
+        bcx.arc(50 + i * 80, 50 + (i % 2) * 400, 4 + (i % 3), 0, Math.PI * 2);
+        bcx.fill();
+      }
+      bcx.shadowColor = '#ffd700'; bcx.shadowBlur = 40;
+      bcx.fillStyle = '#ffd700';
+      bcx.font = 'bold 90px Georgia';
+      bcx.textAlign = 'center';
+      bcx.fillText(msg.title, 512, 180);
+      bcx.shadowBlur = 0;
+      bcx.fillStyle = '#fff';
+      bcx.font = 'bold 60px Georgia';
+      bcx.fillText(msg.sub, 512, 290);
+      bcx.fillStyle = '#3fe6ff';
+      bcx.font = 'bold 52px Georgia';
+      bcx.fillText(msg.cta, 512, 420);
+      const bbTex = new THREE.CanvasTexture(bcv);
+      const bbScreen = new THREE.Mesh(
+        new THREE.PlaneGeometry(13, 7),
+        new THREE.MeshBasicMaterial({ map: bbTex })
+      );
+      bbScreen.position.set(0, 14, 0.35);
+      bb.add(bbScreen);
+      // Lumière spot devant
+      const bbLight = new THREE.PointLight(0xffd700, 1.2, 35);
+      bbLight.position.set(0, 14, 5);
+      bb.add(bbLight);
+      scene.add(bb);
+    });
+
+    // ========== BARRIÈRE DE MORT (agrandie × 10) ==========
+    // Limites jouables très larges : x ∈ [-400, 400], z ∈ [-400, 400]
+    // Death zone : hors [-440, 440] sur les 2 axes (~40m de grâce)
+    const isInDeathZone = (x, z) => (x < -440 || x > 440 || z < -440 || z > 440);
+    const isNearBarrier = (x, z) => (x < -400 || x > 400 || z < -400 || z > 400);
 
     // ========== VEHICLE RIG (skateboard/bike/hoverboard) ==========
     let vehicleRig = null;
