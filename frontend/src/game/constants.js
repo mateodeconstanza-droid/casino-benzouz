@@ -106,8 +106,9 @@ export const WEAPONS = [
 // ============== VÉHICULES ==============
 // Marche = 1x, Skateboard = 2x, Vélo = 3x
 export const VEHICLES = [
-  { id: 'skateboard', name: 'Skateboard Benz', price: 1000000,  speedMul: 2, emoji: '🛹', desc: 'Plateau carbone, roues uréthane – 2× plus rapide qu\'à pied' },
-  { id: 'bike',       name: 'Vélo Benz Turbo',  price: 5000000,  speedMul: 3, emoji: '🚴', desc: 'Cadre titane, assistance secrète – 3× plus rapide qu\'à pied' },
+  { id: 'skateboard', name: 'Skateboard Benz', price: 1000000,  speedMul: 2,   emoji: '🛹', desc: 'Plateau carbone, roues uréthane – 2× plus rapide qu\'à pied' },
+  { id: 'bike',       name: 'Vélo Benz Turbo',  price: 5000000,  speedMul: 3,   emoji: '🚴', desc: 'Cadre titane, assistance secrète – 3× plus rapide qu\'à pied' },
+  { id: 'hoverboard', name: 'Overboard Benz',   price: 25000000, speedMul: 4.2, emoji: '🛸', desc: 'Lévitation magnétique, propulseurs LED – 4× plus rapide qu\'à pied' },
 ];
 
 // ============== CATALOGUE PERSONNALISATION PERSONNAGE ==============

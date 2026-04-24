@@ -66,15 +66,20 @@ const CasinoHall = ({ profile, balance, currentCasinoId, onEnter, onExit }) => {
       {/* CONTENU : panel latéral + preview */}
       <div style={{
         position: 'relative', zIndex: 2, flex: 1,
-        display: 'flex', overflow: 'hidden', flexWrap: 'wrap',
+        display: 'flex', overflow: 'auto', flexWrap: 'wrap',
+        flexDirection: window.innerWidth < 768 ? 'column' : 'row',
       }}>
         {/* Panel latéral : liste des casinos */}
         <div
           data-testid="hall-list"
           style={{
-            width: 300, maxWidth: '100%', flex: '0 0 300px',
+            width: window.innerWidth < 768 ? '100%' : 300,
+            maxWidth: '100%',
+            flex: window.innerWidth < 768 ? '0 0 auto' : '0 0 300px',
+            maxHeight: window.innerWidth < 768 ? 220 : 'none',
             background: 'rgba(5,12,22,0.65)',
-            borderRight: '1px solid rgba(212,175,55,0.2)',
+            borderRight: window.innerWidth < 768 ? 'none' : '1px solid rgba(212,175,55,0.2)',
+            borderBottom: window.innerWidth < 768 ? '1px solid rgba(212,175,55,0.2)' : 'none',
             overflow: 'auto', padding: '12px 10px',
             backdropFilter: 'blur(8px)',
           }}
@@ -119,19 +124,20 @@ const CasinoHall = ({ profile, balance, currentCasinoId, onEnter, onExit }) => {
 
         {/* Preview du casino sélectionné */}
         <div style={{
-          flex: 1, minWidth: 280, padding: 18,
+          flex: 1, minWidth: 280, padding: 14,
           display: 'flex', flexDirection: 'column',
           background: `radial-gradient(ellipse at 50% 0%, ${c.primary}22 0%, transparent 60%)`,
+          overflow: 'auto',
         }}>
           <div
             data-testid="hall-preview"
             style={{
-              flex: 1, borderRadius: 16, padding: 20,
+              borderRadius: 16, padding: 16,
               background: `linear-gradient(160deg, ${c.primary}18, ${c.accent}08)`,
               border: `2px solid ${c.primary}`,
               boxShadow: `0 0 35px ${c.primary}33, inset 0 0 40px rgba(0,0,0,0.5)`,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              position: 'relative', overflow: 'hidden', minHeight: 260,
+              position: 'relative', overflow: 'hidden', minHeight: 220, marginBottom: 12,
             }}
           >
             {/* Motifs déco */}

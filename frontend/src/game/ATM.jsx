@@ -18,11 +18,11 @@ const ATM = ({ profile, balance, setBalance, saveProfile, setProfile, onClose, c
   if (lastCycleStart === 0 || cycleAge >= FIVE_MIN) {
     // Nouveau cycle : 1 retrait possible
     nbLeft = 1;
-    nextAmount = 15000;
+    nextAmount = 50000;
     cycleResetIn = 0;
   } else {
     nbLeft = Math.max(0, 1 - withdrawsThisCycle);
-    nextAmount = 15000;
+    nextAmount = 50000;
     cycleResetIn = lastCycleStart + FIVE_MIN - now;
   }
 

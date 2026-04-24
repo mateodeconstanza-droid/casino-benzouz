@@ -248,10 +248,24 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
         const totalDuration = 6.5; // s
         const t = Math.min(elapsed / totalDuration, 1);
 
-        // Rotation roue : décélère doucement
-        const wheelSpeed = 2.2 * (1 - t * 0.85); // rad/s
-        st.wheelAngle += wheelSpeed * 0.016;
-        wheel.rotation.y = st.wheelAngle;
+        // Rotation roue : décélère — STOP NET à t=0.9 et cale sur la cible
+        // (évite la désynchro visuelle ball/pocket)
+        if (t < 0.9) {
+          const wheelSpeed = 2.2 * (1 - t * 0.85);
+          st.wheelAngle += wheelSpeed * 0.016;
+          wheel.rotation.y = st.wheelAngle;
+        } else {
+          // À partir de t=0.9 on fige la roue sur sa position finale
+          if (st.targetNum !== null) {
+            const pocket = st.pocketPositions.find(p => p.num === st.targetNum);
+            if (pocket) {
+              const targetWorldAngle = -Math.PI / 2;
+              const finalWheelAngle = targetWorldAngle - pocket.angle;
+              st.wheelAngle = finalWheelAngle;
+              wheel.rotation.y = finalWheelAngle;
+            }
+          }
+        }
 
         // Bille : angle, rayon, hauteur
         const ballSpeed = -(5.5 * Math.pow(1 - t, 1.4));
@@ -264,24 +278,19 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
         } else if (t < 0.9) {
           // Phase 2 : descente vers la piste des poches avec rebonds
           const localT = (t - 0.55) / 0.35;
-          st.ballRadius = 3.6 - localT * 0.95; // 3.6 -> 2.65
+          st.ballRadius = 3.6 - localT * 0.95;
           st.ballY = 0.55 - localT * 0.3 + Math.abs(Math.sin(localT * Math.PI * 4)) * 0.1;
         } else {
-          // Phase 3 : atterrissage dans la poche cible
+          // Phase 3 : atterrissage dans la poche cible (roue déjà calée)
           const landT = Math.min((t - 0.9) / 0.1, 1);
           if (st.targetNum !== null) {
             const pocket = st.pocketPositions.find(p => p.num === st.targetNum);
             if (pocket) {
               const targetWorldAngle = -Math.PI / 2;
-              const desiredBallAngle = targetWorldAngle;
               const desiredRadius = 2.65;
-              st.ballAngle = lerpAngle(st.ballAngle, desiredBallAngle, landT * 0.18);
-              st.ballRadius = THREE.MathUtils.lerp(st.ballRadius, desiredRadius, landT * 0.25);
-              st.ballY = THREE.MathUtils.lerp(st.ballY, 0.22, landT * 0.25);
-
-              const finalWheelAngle = targetWorldAngle - pocket.angle;
-              st.wheelAngle = THREE.MathUtils.lerp(st.wheelAngle, finalWheelAngle, landT * 0.15);
-              wheel.rotation.y = st.wheelAngle;
+              st.ballAngle = lerpAngle(st.ballAngle, targetWorldAngle, landT * 0.28);
+              st.ballRadius = THREE.MathUtils.lerp(st.ballRadius, desiredRadius, landT * 0.35);
+              st.ballY = THREE.MathUtils.lerp(st.ballY, 0.22, landT * 0.35);
             }
           }
         }
