@@ -6,8 +6,27 @@ import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
 import sfx from '@/game/sfx';
 
 // =============================================================
-// HOUSE CATALOG — 10 propriétés (5 appart / 3 maisons / 2 villas)
+// HOUSE CATALOG — 32 propriétés (5 appart + 3 maisons + 2 villas + 22 maisons étendues)
 // =============================================================
+// Les 20 "sh-XX" sont en 3 rangées derrière la 1ère ligne de maisons, dans la play area.
+const _sidePositions = (() => {
+  const arr = [];
+  // Rangée 2 (z=-30) — 7 maisons
+  for (let i = 0; i < 7; i++) arr.push({ x: -39 + i * 13, z: -30 });
+  // Rangée 3 (z=-33) — 7 maisons décalées
+  for (let i = 0; i < 7; i++) arr.push({ x: -32 + i * 11, z: -33 });
+  // Rangée 4 (z=-36) — 6 maisons (derrière, juste avant death barrier à z=-37)
+  for (let i = 0; i < 6; i++) arr.push({ x: -30 + i * 12, z: -36 });
+  return arr;
+})();
+
+const _sideNames = [
+  'Pavillon Azur', 'Loft Doré', 'Cottage Pin', 'Bungalow Sable', 'Maison Rose',
+  'Loft Gris', 'Villa Mauve', 'Loft Turquoise', 'Chalet Cèdre', 'Maison Iris',
+  'Loft Ouest A', 'Loft Est A', 'Loft Ouest B', 'Loft Est B', 'Loft Ouest C',
+  'Loft Est C', 'Loft Ouest D', 'Loft Est D', 'Loft Ouest E', 'Loft Est E',
+];
+
 export const HOUSES = [
   // Immeuble avec 5 appartements (mêmes coords, étages différents)
   { id: 'apt-1', label: 'Appartement 1',  type: 'apartment', price:   5000000, floor: 0, x:  -22, z: -14 },
@@ -22,6 +41,15 @@ export const HOUSES = [
   // 2 villas
   { id: 'v-1',   label: 'Villa Marina',   type: 'villa',     price: 100000000, x:   18, z: -20 },
   { id: 'v-2',   label: 'Villa Palmier',  type: 'villa',     price: 100000000, x:   28, z: -15 },
+  // 20 maisons/lofts latéraux (prix variés selon rareté)
+  ..._sidePositions.map((pos, i) => ({
+    id: `sh-${i + 1}`,
+    label: _sideNames[i],
+    type: i < 10 ? 'house' : (i % 2 === 0 ? 'villa' : 'house'),
+    price: i < 10 ? 8000000 : (i % 2 === 0 ? 80000000 : 15000000),
+    x: pos.x,
+    z: pos.z,
+  })),
 ];
 
 // =============================================================
@@ -41,6 +69,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
   const [aimingWeapon, setAimingWeapon] = useState(null); // weapon id si on vise
   const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
+  const [bountyToast, setBountyToast] = useState(null);
   const [respawning, setRespawning] = useState(false);
 
   const ownedKeys = profile?.keys || [];
@@ -548,10 +577,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       band.position.set(x, 1.25, z);
       barrier.add(band);
     };
-    // Ligne arrière derrière bâtiments (z = -34)
-    for (let x = -48; x <= 48; x += 4) addPost(x, -34);
-    // Lignes latérales
-    for (let z = -34; z <= 8; z += 4) { addPost(-48, z); addPost(48, z); }
+    // Ligne arrière (z=-38, après les nouvelles maisons)
+    for (let x = -48; x <= 48; x += 4) addPost(x, -38);
+    // Lignes latérales (étendues jusqu'à z=-38)
+    for (let z = -38; z <= 8; z += 4) { addPost(-48, z); addPost(48, z); }
     // Ligne front route (z=8 devant joueur)
     for (let x = -48; x <= 48; x += 4) addPost(x, 8);
     scene.add(barrier);
@@ -591,33 +620,27 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       return obstacles.some(o => x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
     };
 
-    // ----- Maisons supplémentaires décoratives (étendent la rue) -----
-    // 20 maisons alignées gauche et droite, couleurs et toits variés
+    // ----- Maisons supplémentaires décoratives + interactables (étendent la rue) -----
     const extraColors = [
       { wall: 0x7a9ac8, roof: 0x1a2a4a }, { wall: 0xd8a868, roof: 0x6a3018 },
       { wall: 0x8ab06a, roof: 0x3a5a1a }, { wall: 0xe0b4aa, roof: 0x8b2a2a },
       { wall: 0xc0c0c0, roof: 0x3a3a3a }, { wall: 0xa0889a, roof: 0x3a1a3a },
       { wall: 0xb8d4e8, roof: 0x2a5a7a }, { wall: 0xe8ca98, roof: 0x8a5a30 },
     ];
-    const extraHousePositions = [];
-    // Rangée arrière (z=-28..-30) : 10 maisons derrière la première rangée
-    for (let i = 0; i < 10; i++) {
-      extraHousePositions.push({ x: -42 + i * 9, z: -30 - (i % 2) * 2 });
-    }
-    // Rangées très latérales (côté rue étendue)
-    for (let i = 0; i < 5; i++) {
-      extraHousePositions.push({ x: -55 - i * 6, z: -12 + (i % 2) * 6 });
-      extraHousePositions.push({ x:  55 + i * 6, z: -12 + (i % 2) * 6 });
-    }
-    extraHousePositions.forEach((p, idx) => {
+    // On utilise les positions du catalogue HOUSES pour garantir cohérence avec le popup achat
+    const sideHouses = HOUSES.filter(h => h.id.startsWith('sh-'));
+    sideHouses.forEach((sh, idx) => {
       const c = extraColors[idx % extraColors.length];
+      const ownedSh = ownedKeys.includes(sh.id);
       const g = new THREE.Group();
-      g.position.set(p.x, 0, p.z);
+      g.position.set(sh.x, 0, sh.z);
+      const bodyW = 4.5 + (idx % 3);
+      const bodyH = 3.5 + (idx % 2);
       const body = new THREE.Mesh(
-        new THREE.BoxGeometry(4.5 + (idx % 3), 3.5 + (idx % 2), 4),
+        new THREE.BoxGeometry(bodyW, bodyH, 4),
         new THREE.MeshStandardMaterial({ color: c.wall, roughness: 0.85 })
       );
-      body.position.y = 1.75 + ((idx % 2) * 0.25);
+      body.position.y = bodyH / 2 + ((idx % 2) * 0.25);
       body.castShadow = true; body.receiveShadow = true;
       g.add(body);
       const roof = new THREE.Mesh(
@@ -625,28 +648,52 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         new THREE.MeshStandardMaterial({ color: c.roof })
       );
       roof.rotation.y = Math.PI / 4;
-      roof.position.y = 4.2 + ((idx % 2) * 0.25);
+      roof.position.y = bodyH + 0.7 + ((idx % 2) * 0.25);
       g.add(roof);
-      // Porte + fenêtre simples
+      // Porte (doré si possédée)
       const door = new THREE.Mesh(
         new THREE.BoxGeometry(0.9, 1.8, 0.12),
-        new THREE.MeshStandardMaterial({ color: 0x2a1a0a })
+        new THREE.MeshStandardMaterial({
+          color: ownedSh ? 0xd4af37 : 0x2a1a0a,
+          metalness: ownedSh ? 0.9 : 0, roughness: ownedSh ? 0.2 : 0.7,
+        })
       );
       door.position.set(0, 0.9, 2.05);
       g.add(door);
       const winMat = new THREE.MeshStandardMaterial({
-        color: 0xffd88a, emissive: 0xffbe2a, emissiveIntensity: 0.25,
+        color: ownedSh ? 0xffd88a : 0x8faabc,
+        emissive: ownedSh ? 0xffbe2a : 0,
+        emissiveIntensity: ownedSh ? 0.4 : 0.1,
       });
       for (let w = 0; w < 2; w++) {
         const win = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.12), winMat);
         win.position.set(-1.4 + w * 2.8, 2.1, 2.05);
         g.add(win);
       }
+      // Label prix flottant — petit
+      const lcv = document.createElement('canvas');
+      lcv.width = 512; lcv.height = 128;
+      const lcx = lcv.getContext('2d');
+      lcx.fillStyle = 'rgba(10,10,15,0.9)'; lcx.fillRect(0, 0, 512, 128);
+      lcx.fillStyle = ownedSh ? '#1aa34a' : '#ffd700';
+      lcx.font = 'bold 30px Georgia'; lcx.textAlign = 'center';
+      lcx.fillText(sh.label, 256, 50);
+      lcx.fillStyle = '#fff'; lcx.font = '22px Georgia';
+      lcx.fillText(ownedSh ? '★ À VOUS ★' : fmt(sh.price) + ' B', 256, 92);
+      const labelTex = new THREE.CanvasTexture(lcv);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.2, 0.9),
+        new THREE.MeshBasicMaterial({ map: labelTex, transparent: true })
+      );
+      label.position.set(0, bodyH + 2.5, 0);
+      g.add(label);
+      g.userData = { interaction: 'house', houseId: sh.id };
       scene.add(g);
-      // Ajoute les obstacles correspondants
+      interactables.push({ type: 'house', id: sh.id, pos: new THREE.Vector3(sh.x, 0, sh.z), radius: 6 });
+      // Collision AABB
       obstacles.push({
-        minX: p.x - 2.5, maxX: p.x + 2.5,
-        minZ: p.z - 2, maxZ: p.z + 2,
+        minX: sh.x - bodyW / 2 - 0.3, maxX: sh.x + bodyW / 2 + 0.3,
+        minZ: sh.z - 2.3, maxZ: sh.z + 2.3,
       });
     });
 
@@ -772,6 +819,9 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
       // Trajectoire : va et vient le long du trottoir, positions variées
       npc.position.set(-38 + i * 10, 0, -8 + (i % 2 === 0 ? 0 : 16));
+      // Bounty : 40 % des NPCs sont "wanted" avec une prime affichée
+      const isWanted = i % 5 === 0 || i % 5 === 2; // 4 sur 8 (0, 2, 5, 7)
+      const bountyAmount = isWanted ? [25000, 50000, 100000, 250000, 500000][i % 5] : 0;
       npc.userData = {
         parts: { legL, legR, armL, armR },
         speed: 0.035 + Math.random() * 0.025,
@@ -779,9 +829,42 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         phase: Math.random() * Math.PI * 2,
         alive: true,
         health: 100,
-        // Dessin Corps pour raycast tir
         bodyMesh: body,
+        isWanted,
+        bounty: bountyAmount,
       };
+      // Halo + panneau "WANTED" au-dessus
+      if (isWanted) {
+        // Halo rouge au sol
+        const halo = new THREE.Mesh(
+          new THREE.RingGeometry(0.7, 1.1, 24),
+          new THREE.MeshBasicMaterial({ color: 0xff1a24, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+        );
+        halo.rotation.x = -Math.PI / 2;
+        halo.position.y = 0.03;
+        npc.add(halo);
+        npc.userData.halo = halo;
+        // Panneau "WANTED" avec prime
+        const wcv = document.createElement('canvas');
+        wcv.width = 256; wcv.height = 80;
+        const wcx = wcv.getContext('2d');
+        wcx.fillStyle = 'rgba(40,0,0,0.95)'; wcx.fillRect(0, 0, 256, 80);
+        wcx.strokeStyle = '#ffd700'; wcx.lineWidth = 4;
+        wcx.strokeRect(2, 2, 252, 76);
+        wcx.fillStyle = '#ff3a3a'; wcx.font = 'bold 22px Georgia'; wcx.textAlign = 'center';
+        wcx.fillText('WANTED', 128, 30);
+        wcx.fillStyle = '#ffd700'; wcx.font = 'bold 28px Georgia';
+        wcx.fillText(`+${fmt(bountyAmount)} B`, 128, 62);
+        const wtex = new THREE.CanvasTexture(wcv);
+        const wsign = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.6, 0.6),
+          new THREE.MeshBasicMaterial({ map: wtex, transparent: true, depthTest: false })
+        );
+        wsign.position.y = 2.4;
+        // Toujours face à la caméra : on fera billboard dans la boucle via n.userData.sign
+        npc.add(wsign);
+        npc.userData.sign = wsign;
+      }
       npcs.add(npc);
     });
     scene.add(npcs);
@@ -912,11 +995,11 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
     scene.add(bgBuildings);
 
-    // ========== BARRIÈRE DE MORT (5m invisible autour de la zone de jeu) ==========
-    // Limites jouables : x ∈ [-46, 46], z ∈ [-32, 14]
-    // Death zone : x < -51, x > 51, z < -37, z > 19 (5m de grâce puis mort)
-    const isInDeathZone = (x, z) => (x < -51 || x > 51 || z < -37 || z > 19);
-    const isNearBarrier = (x, z) => (x < -46 || x > 46 || z < -32 || z > 14);
+    // ========== BARRIÈRE DE MORT (marge autour de la zone de jeu étendue) ==========
+    // Limites jouables : x ∈ [-48, 48], z ∈ [-38, 14]
+    // Death zone : x < -55, x > 55, z < -45, z > 22 (marge de ~5m)
+    const isInDeathZone = (x, z) => (x < -55 || x > 55 || z < -45 || z > 22);
+    const isNearBarrier = (x, z) => (x < -48 || x > 48 || z < -38 || z > 14);
 
     // ========== VEHICLE RIG (skateboard/bike/hoverboard) ==========
     let vehicleRig = null;
@@ -1096,7 +1179,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
               n.userData.alive = false;
               n.rotation.x = -Math.PI / 2; // tombe au sol
               n.position.y = -0.8;
-              st.onNpcKilled && st.onNpcKilled();
+              // Cache le panneau WANTED et le halo
+              if (n.userData.sign) n.userData.sign.visible = false;
+              if (n.userData.halo) n.userData.halo.visible = false;
+              st.onNpcKilled && st.onNpcKilled(n.userData.bounty || 0, n.userData.isWanted);
             }
             break;
           }
@@ -1171,6 +1257,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           ud.parts.legR.rotation.x = -swing;
           ud.parts.armL.rotation.x = -swing * 0.8;
           ud.parts.armR.rotation.x =  swing * 0.8;
+        }
+        // Billboard du panneau WANTED : face à la caméra + pulse du halo
+        if (ud.sign) {
+          // Le NPC a une rotation.y non nulle ; on neutralise en mettant sign.rotation.y à l'inverse
+          // de sorte que le panneau regarde toujours la caméra (approximation)
+          const camToNpcY = Math.atan2(camera.position.x - n.position.x, camera.position.z - n.position.z);
+          ud.sign.rotation.y = camToNpcY - n.rotation.y;
+        }
+        if (ud.halo) {
+          const s = 0.85 + Math.abs(Math.sin(tNow * 0.004)) * 0.35;
+          ud.halo.scale.set(s, s, s);
         }
       });
       if (st.car) {
@@ -1319,8 +1416,13 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onNearbyChange = (nb) => {
       setNearbyPrompt(nb);
     };
-    stateRef.current.onNpcKilled = () => {
+    stateRef.current.onNpcKilled = (bounty = 0, wasWanted = false) => {
       setHud(h => ({ ...h, npcKilled: h.npcKilled + 1 }));
+      if (bounty > 0 && wasWanted) {
+        setBalance(b => b + bounty);
+        setBountyToast({ amount: bounty });
+        setTimeout(() => setBountyToast(null), 3000);
+      }
     };
     stateRef.current.onPlayerDeath = () => {
       setRespawning(true);
@@ -1689,6 +1791,33 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
               Respawn au spawn...
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Bounty toast — récompense après kill d'un NPC WANTED */}
+      {bountyToast && (
+        <div
+          data-testid="street-bounty-toast"
+          style={{
+            position: 'absolute', top: '28%', left: '50%', transform: 'translateX(-50%)',
+            padding: '16px 24px', borderRadius: 14,
+            background: 'linear-gradient(135deg, #0a6a1a, #1aa34a)',
+            border: `3px solid ${STAKE.gold}`, color: '#fff',
+            fontWeight: 900, fontSize: 20, letterSpacing: 1.5,
+            zIndex: 400, boxShadow: '0 0 40px rgba(26,163,74,0.65), 0 10px 30px rgba(0,0,0,0.5)',
+            textAlign: 'center', animation: 'bounty-pop 0.4s cubic-bezier(.2,.9,.25,1.2)',
+          }}
+        >
+          <div style={{ fontSize: 11, color: STAKE.goldLight, letterSpacing: 2, marginBottom: 4 }}>
+            ★ PRIME ENCAISSÉE ★
+          </div>
+          <div style={{ fontSize: 26 }}>+{fmt(bountyToast.amount)} B</div>
+          <style>{`
+            @keyframes bounty-pop {
+              0% { transform: translate(-50%, 20px); opacity: 0; }
+              100% { transform: translate(-50%, 0); opacity: 1; }
+            }
+          `}</style>
         </div>
       )}
 
