@@ -209,6 +209,20 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Poker refait** : table ovale bordée or avec fond radial bleu sombre, dos de cartes visibles sur le dealer, slot cartes communes/joueur en pointillés, bouton "DISTRIBUER LES CARTES" dégradé or.
 - **Hooks dev ajoutés** dans `Casino.jsx` : `window.__openRoulette()`, `__openBlackjack()`, `__openPoker()`, `__openLobby()` pour faciliter les campagnes de tests.
 
+### ✅ Implemented (Feb 2026 — SPRINT 2 : Ville massive × 10 + Écrans pub + Roue moderne)
+- **Zone de jeu × 10** : sol 1000×1000 m (vs 200×200), fog 150→550 (vs 50→130), camera far 900 (vs 200). Play zone étendue x/z ∈ [-400, 400], death barrier à ±440.
+- **Ville procédurale urbaine** : ~280 bâtiments générés via `tryPlaceBuilding()` avec semence déterministe. Grille urbaine complète : rues principales tous les 80 m (Est-Ouest + Nord-Sud) avec lignes jaunes. Sol passé d'herbe verte 100% → asphalte gris (park central 110×65 seulement). Buildings de 6 à 44 m de haut avec fenêtres émissives or/cyan, toits plats, évitent les routes et zone protégée.
+- **4 écrans publicitaires 3D** dans la ville : positions NO/NE/SO/SE (×140 m) avec pylônes métalliques + cadre or émissif + écran canvas 1024×512 (dégradé rouge→or + étoiles + titre en néon + sous-titre + CTA cyan). Messages : "GAMBLELIFE CASINO" · "CHASSE À LA PRIME" · "ROUE DE LA FORTUNE — Gagne une VILLA gratuite" · "GAMBLEBET SPORT".
+- **Roue de la fortune modernisée** (`Wheel.jsx` réécrit) : **16 cases** (vs 6), taille × 1.6 (min(540, 95vw) vs 340px), nouveaux gains : `SOLDE × 2` / `SOLDE × 5` / `ARME gratuite` / `VÉHICULE gratuit` / **`★ MAISON ★` gratuite (weight 0.05)** / `JACKPOT` 10 M / 1 M / 500 K etc. 24 LED pulsantes, double anneau, centre avec logo GambleLife. `handleWheelComplete` gère tous les nouveaux types (débloque arme/véhicule/maison aléatoire, ou x2/x5 solde).
+
+### ✅ Implemented (Feb 2026 — SPRINT 3 : Rang plus dur + Meubles Sims + Villa piscine)
+- **Rang plus dur × 5 et récompenses × 10** : nouveaux paliers dans `TROPHIES` → Bronze à 50 000 (vs 10 000), Mythique à 75 000 000 (vs 15 000 000), ajout de **Titanium** (200 M), **Cosmique** (500 M), **GambleGod** (1 Md). Récompenses scalées : Bronze 5 000 $, Mythique 7.5 M $, GambleGod 250 M $.
+- **Catalogue meubles Sims** : `FURNITURE_CATALOG` avec 17 items × 5 catégories (salon / cuisine / chambre / salle jeux / déco). Piano à queue (1.5 M), Jacuzzi (2 M), Billard (600 K), Tableau Picasso (3 M), Statue Or (5 M), TV 8K (800 K), etc.
+- **Machine Ameublement 3D dans chaque logement** : bouton 🛍 AMEUBLEMENT (`data-testid="home-furn-btn"`) en haut droite de `HomeInterior3D`. Ouvre modal avec 5 tabs catégorie + grille achetable. Meubles achetés persistés dans `profile.ownedHouses[].customizations.furniture[]`.
+- **Rendu 3D des meubles achetés** : chaque meuble possédé apparaît dans le logement avec un box coloré + emoji sprite au-dessus. Placement automatique par catégorie (4 slots/catégorie).
+- **Villa = piscine + chaises longues + palmier** : pour les maisons `type: 'villa'` on ajoute une piscine 5×3 avec matériau émissif bleu + bordure blanche + 2 chaises longues beige + 1 palmier décoratif (tronc cylindre + feuilles sphère verte).
+- **Hook dev `window.__openHome(houseId)`** ajouté pour les tests E2E (bypass du parcours Street → porte).
+
 ### ✅ Implemented (Feb 2026 — SPRINT 1 : Rebrand GambleLife + Fixes critiques)
 - **Rebrand total** : `Benz Casino` / `BENZ` / `Benz Royal` / `BenzBet` / `Benz Boutique` / `Benzouz` / `BenzCoins` → **GambleLife** / **GAMBLELIFE** / **GambleBet** / **GambleLife Store** / **$** / **Dollars**. 90+ occurrences réécrites via sed (textes UI, produits "Skateboard GambleLife", armes "UZI GambleLife Or", etc.).
 - **Monnaie unifiée en dollars** : `} B` → `} $` partout (83 occurrences en JSX). Les fmt numériques restent (pas de conversion de taux — c'est juste un relabel symbolique).

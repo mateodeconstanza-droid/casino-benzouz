@@ -808,6 +808,12 @@ export default function Casino() {
           window.__openLobby     = () => setScreen('lobby');
           window.__openStreet    = () => setScreen('street');
           window.__openCasinoHall = () => setScreen('casinoHall');
+          window.__openHome = (houseId) => {
+            // Ouvre le logement donné sans passer par la rue. Bypass owner check for tests.
+            const id = houseId || (profile?.ownedHouses?.[0]?.id) || 'bj-apt';
+            setActiveHouseId(id);
+            setScreen('home');
+          };
           window.__addBalance = (n) => setBalance((b) => b + (n || 0));
           window.__getBalance = () => balance;
           window.__getProfile = () => profile;
