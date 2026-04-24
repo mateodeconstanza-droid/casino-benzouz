@@ -1713,7 +1713,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         setRespawning(false);
       }, 1500);
     };
-  }, [scanning, onEnterCasino]);
+  }, [scanning, onEnterCasino]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Équiper / retirer le véhicule (persiste dans profile)
   const toggleVehicle = () => {
