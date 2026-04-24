@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { fmt } from '@/game/constants';
+import { fmt, VEHICLES, WEAPONS } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
+import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
+import sfx from '@/game/sfx';
 
 // =============================================================
 // HOUSE CATALOG — 10 propriétés (5 appart / 3 maisons / 2 villas)
@@ -26,7 +28,7 @@ export const HOUSES = [
 // Composant Street3D — Scène extérieure
 // Props : profile, balance, setBalance, onEnterCasino(), onBuyHouse(houseId), onExitGame()
 // =============================================================
-const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome }) => {
+const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, setProfile }) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
   const stateRef = useRef({});
@@ -36,6 +38,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [toast, setToast] = useState(null);
   const [nearbyPrompt, setNearbyPrompt] = useState(null);
   const [aptPickerOpen, setAptPickerOpen] = useState(false);
+  const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
+  const [aimingWeapon, setAimingWeapon] = useState(null); // weapon id si on vise
+  const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
+  const [respawning, setRespawning] = useState(false);
 
   const ownedKeys = profile?.keys || [];
   const ownedHouses = profile?.ownedHouses || [];
@@ -570,8 +576,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       scene.add(foliage);
     }
 
-    // === OBSTACLES (AABB simples pour collision) ===
-    // Format : { minX, maxX, minZ, maxZ }
+    // === OBSTACLES (AABB simples pour collision) — déclaré tôt pour autres pushes ===
     const obstacles = [
       { minX: -7,   maxX: 7,    minZ: -15, maxZ: -5  },   // Casino
       { minX: -26,  maxX: -18,  minZ: -17, maxZ: -10 },   // Immeuble
@@ -585,6 +590,100 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const r = 0.45;
       return obstacles.some(o => x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
     };
+
+    // ----- Maisons supplémentaires décoratives (étendent la rue) -----
+    // 20 maisons alignées gauche et droite, couleurs et toits variés
+    const extraColors = [
+      { wall: 0x7a9ac8, roof: 0x1a2a4a }, { wall: 0xd8a868, roof: 0x6a3018 },
+      { wall: 0x8ab06a, roof: 0x3a5a1a }, { wall: 0xe0b4aa, roof: 0x8b2a2a },
+      { wall: 0xc0c0c0, roof: 0x3a3a3a }, { wall: 0xa0889a, roof: 0x3a1a3a },
+      { wall: 0xb8d4e8, roof: 0x2a5a7a }, { wall: 0xe8ca98, roof: 0x8a5a30 },
+    ];
+    const extraHousePositions = [];
+    // Rangée arrière (z=-28..-30) : 10 maisons derrière la première rangée
+    for (let i = 0; i < 10; i++) {
+      extraHousePositions.push({ x: -42 + i * 9, z: -30 - (i % 2) * 2 });
+    }
+    // Rangées très latérales (côté rue étendue)
+    for (let i = 0; i < 5; i++) {
+      extraHousePositions.push({ x: -55 - i * 6, z: -12 + (i % 2) * 6 });
+      extraHousePositions.push({ x:  55 + i * 6, z: -12 + (i % 2) * 6 });
+    }
+    extraHousePositions.forEach((p, idx) => {
+      const c = extraColors[idx % extraColors.length];
+      const g = new THREE.Group();
+      g.position.set(p.x, 0, p.z);
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(4.5 + (idx % 3), 3.5 + (idx % 2), 4),
+        new THREE.MeshStandardMaterial({ color: c.wall, roughness: 0.85 })
+      );
+      body.position.y = 1.75 + ((idx % 2) * 0.25);
+      body.castShadow = true; body.receiveShadow = true;
+      g.add(body);
+      const roof = new THREE.Mesh(
+        new THREE.ConeGeometry(3.5, 1.5, 4),
+        new THREE.MeshStandardMaterial({ color: c.roof })
+      );
+      roof.rotation.y = Math.PI / 4;
+      roof.position.y = 4.2 + ((idx % 2) * 0.25);
+      g.add(roof);
+      // Porte + fenêtre simples
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 1.8, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0x2a1a0a })
+      );
+      door.position.set(0, 0.9, 2.05);
+      g.add(door);
+      const winMat = new THREE.MeshStandardMaterial({
+        color: 0xffd88a, emissive: 0xffbe2a, emissiveIntensity: 0.25,
+      });
+      for (let w = 0; w < 2; w++) {
+        const win = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.12), winMat);
+        win.position.set(-1.4 + w * 2.8, 2.1, 2.05);
+        g.add(win);
+      }
+      scene.add(g);
+      // Ajoute les obstacles correspondants
+      obstacles.push({
+        minX: p.x - 2.5, maxX: p.x + 2.5,
+        minZ: p.z - 2, maxZ: p.z + 2,
+      });
+    });
+
+    // Voitures garées (décor)
+    for (let i = 0; i < 5; i++) {
+      const parked = new THREE.Group();
+      const cx = -36 + i * 18;
+      const cz = 3.5;
+      const pBody = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 0.55, 1),
+        new THREE.MeshStandardMaterial({
+          color: [0x3a3a3a, 0xc0c0c0, 0x2a4a8a, 0x6a1a2a, 0xd8a858][i],
+          metalness: 0.6, roughness: 0.3,
+        })
+      );
+      pBody.position.y = 0.5;
+      parked.add(pBody);
+      const pCab = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.45, 0.9),
+        new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.7 })
+      );
+      pCab.position.set(-0.05, 0.95, 0);
+      parked.add(pCab);
+      for (let wx = -1; wx <= 1; wx += 2) {
+        for (let wz = -1; wz <= 1; wz += 2) {
+          const w = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.25, 0.25, 0.18, 10),
+            new THREE.MeshStandardMaterial({ color: 0x0a0a0a })
+          );
+          w.rotation.z = Math.PI / 2;
+          w.position.set(wx * 0.8, 0.25, wz * 0.45);
+          parked.add(w);
+        }
+      }
+      parked.position.set(cx, 0, cz);
+      scene.add(parked);
+    }
 
     // ----- Raycaster pour les clics -----
     const raycaster = new THREE.Raycaster();
@@ -613,12 +712,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     };
     renderer.domElement.addEventListener('click', handleClick);
 
-    // ----- NPCs piétons (3) qui marchent sur le trottoir -----
+    // ----- NPCs piétons (8) qui marchent sur le trottoir -----
     const npcs = new THREE.Group();
     const npcColors = [
       { skin: 0xe0b48a, shirt: 0xc93a3a, pants: 0x1a2a3a },
       { skin: 0xb88866, shirt: 0x3a8aa0, pants: 0x2a1a1a },
       { skin: 0xd0a080, shirt: 0xe8c058, pants: 0x1a1a1a },
+      { skin: 0xc89b78, shirt: 0x6a2a8a, pants: 0x1a1a2a },
+      { skin: 0xd8b99a, shirt: 0x1aa34a, pants: 0x2a2a1a },
+      { skin: 0xa87a5a, shirt: 0xd4af37, pants: 0x1a1a1a },
+      { skin: 0xe0b48a, shirt: 0x0a6aa8, pants: 0x3a1a1a },
+      { skin: 0xcca080, shirt: 0xcc4a1a, pants: 0x1a2a3a },
     ];
     npcColors.forEach((c, i) => {
       const npc = new THREE.Group();
@@ -666,13 +770,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       hair.position.y = 1.78;
       npc.add(hair);
 
-      // Trajectoire : va et vient le long du trottoir
-      npc.position.set(-25 + i * 20, 0, -8);
+      // Trajectoire : va et vient le long du trottoir, positions variées
+      npc.position.set(-38 + i * 10, 0, -8 + (i % 2 === 0 ? 0 : 16));
       npc.userData = {
         parts: { legL, legR, armL, armR },
-        speed: 0.035 + Math.random() * 0.015,
+        speed: 0.035 + Math.random() * 0.025,
         direction: i % 2 === 0 ? 1 : -1,
         phase: Math.random() * Math.PI * 2,
+        alive: true,
+        health: 100,
+        // Dessin Corps pour raycast tir
+        bodyMesh: body,
       };
       npcs.add(npc);
     });
@@ -749,20 +857,142 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     gateGroup.add(gateBar);
     scene.add(gateGroup);
 
+    // ========== FAKE BACKGROUND BUILDINGS (non-interactables, décor urbain) ==========
+    // Gratte-ciels + immeubles fake derrière la barrière arrière (z < -35)
+    const bgBuildings = new THREE.Group();
+    const bgColors = [0x4a5a6a, 0x6a5a4a, 0x5a4a6a, 0x3a4a5a, 0x6a4a3a, 0x4a6a5a, 0x5a5a5a, 0x7a6a5a];
+    for (let i = 0; i < 22; i++) {
+      const w = 4 + Math.random() * 5;
+      const h = 10 + Math.random() * 22;
+      const d = 4 + Math.random() * 4;
+      const col = bgColors[i % bgColors.length];
+      const bg = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.85 })
+      );
+      // Positions derrière la ligne arrière (z<-38) et sur les côtés lointains
+      let bx, bz;
+      if (i < 14) {
+        bx = -60 + i * 9;
+        bz = -44 - Math.random() * 15;
+      } else if (i < 18) {
+        bx = -70 + (i - 14) * 2;
+        bz = -10 + (i - 14) * 8;
+      } else {
+        bx = 60 + (i - 18) * 2;
+        bz = -10 + (i - 18) * 8;
+      }
+      bg.position.set(bx, h / 2, bz);
+      bgBuildings.add(bg);
+      // Fenêtres lumineuses aléatoires (texture émissive simple)
+      const rows = Math.floor(h / 1.8);
+      const cols = Math.floor(w / 1.5);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (Math.random() < 0.55) continue;
+          const win = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.55, 0.9),
+            new THREE.MeshBasicMaterial({ color: 0xffd88a, transparent: true, opacity: 0.75 })
+          );
+          win.position.set(
+            bx - w / 2 + 0.6 + c * 1.3,
+            1.2 + r * 1.6,
+            bz + d / 2 + 0.02
+          );
+          bgBuildings.add(win);
+        }
+      }
+      // Toit plat couleur différente
+      const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.2, 0.3, d + 0.2),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a2a })
+      );
+      roof.position.set(bx, h + 0.15, bz);
+      bgBuildings.add(roof);
+    }
+    scene.add(bgBuildings);
+
+    // ========== BARRIÈRE DE MORT (5m invisible autour de la zone de jeu) ==========
+    // Limites jouables : x ∈ [-46, 46], z ∈ [-32, 14]
+    // Death zone : x < -51, x > 51, z < -37, z > 19 (5m de grâce puis mort)
+    const isInDeathZone = (x, z) => (x < -51 || x > 51 || z < -37 || z > 19);
+    const isNearBarrier = (x, z) => (x < -46 || x > 46 || z < -32 || z > 14);
+
+    // ========== VEHICLE RIG (skateboard/bike/hoverboard) ==========
+    let vehicleRig = null;
+    const vehicleOffsetY = 0; // ajusté selon le type
+    const attachVehicle = (vid) => {
+      if (vehicleRig) {
+        scene.remove(vehicleRig);
+        vehicleRig.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+        });
+        vehicleRig = null;
+      }
+      if (!vid) return;
+      vehicleRig = buildVehicleRig(vid);
+      scene.add(vehicleRig);
+    };
+
+    // ========== BULLETS & PROJECTILES (combat dans la rue) ==========
+    const bullets = []; // {mesh, dir(Vec3), speed, ttl, damage}
+    const bloodBursts = []; // {mesh, ttl, scaleRate}
+    const spawnBullet = (origin, dir, weapon) => {
+      const color = weapon === 'bazooka' ? 0xff6600
+                  : weapon === 'knife'   ? 0xffffff
+                  : 0xffff66;
+      const size = weapon === 'bazooka' ? 0.25 : 0.1;
+      const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(size, 8, 6),
+        new THREE.MeshBasicMaterial({ color })
+      );
+      bullet.position.copy(origin);
+      scene.add(bullet);
+      // Ajouter une traîne émissive pour le bazooka
+      if (weapon === 'bazooka') {
+        const glow = new THREE.PointLight(0xff6600, 1.5, 4);
+        bullet.add(glow);
+      }
+      bullets.push({
+        mesh: bullet,
+        dir: dir.clone().normalize(),
+        speed: weapon === 'bazooka' ? 0.7 : weapon === 'knife' ? 0.5 : 1.1,
+        ttl: 80,
+        damage: weapon === 'bazooka' ? 200 : weapon === 'shotgun' ? 60 : weapon === 'knife' ? 40 : 45,
+        weapon,
+      });
+    };
+    stateRef.current.spawnBulletFromCamera = (weaponId) => {
+      const origin = new THREE.Vector3(camera.position.x, 1.7, camera.position.z);
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      origin.addScaledVector(dir, 0.5);
+      spawnBullet(origin, dir, weaponId);
+      try { sfx.play(weaponId === 'knife' ? 'card' : 'chip'); } catch (_e) { /* noop */ }
+    };
+
     // ----- État FPS du joueur -----
     stateRef.current = {
+      ...(stateRef.current || {}),
       scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false,
       // Position/rotation du joueur (FPS)
-      player: { x: 0, z: 12, rotY: 0 }, // rotY=0 → caméra regarde -Z (vers casino)
+      player: { x: 0, z: 12, rotY: 0, speedMul: 1, alive: true, health: 100 },
       // État des entrées (clavier + joystick mobile)
-      input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0 },
+      input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0, shoot: 0 },
       interactables,
       collidesAt,
+      isNearBarrier, isInDeathZone,
+      bullets, bloodBursts, bgBuildings, vehicleRig,
+      attachVehicle,
       // Callbacks live injectés plus bas
-      onCasinoClick: null, onHouseClick: null,
+      onCasinoClick: null, onHouseClick: null, onNpcKilled: null, onPlayerDeath: null,
       // Prompt de proximité
       nearby: null,
     };
+
+    // Si le joueur a déjà un véhicule équipé au montage, on l'attache
+    if (profile?.equippedVehicle) attachVehicle(profile.equippedVehicle);
 
     // ----- Clavier -----
     const keyHandler = (down) => (e) => {
@@ -787,13 +1017,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     window.addEventListener('keyup', ku);
     let rafId = 0;
     let proxCheck = 0;
+    let lastT = performance.now();
     const loop = () => {
       if (stateRef.current.disposed) return;
+      const tNow = performance.now();
+      const dt = Math.min(0.05, (tNow - lastT) / 1000);
+      lastT = tNow;
       // ===== Déplacement FPS =====
       const st = stateRef.current;
       const p = st.player;
       const i = st.input;
-      const SPEED = 0.16;
+      const SPEED = 0.16 * (p.speedMul || 1);
       const ROT_SPEED = 0.035;
       // Rotation caméra (strafe mobile = A)
       if (i.rotL) p.rotY += ROT_SPEED;
@@ -808,22 +1042,85 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       if (i.back)  { dx -= fwdX;   dz -= fwdZ; }
       if (i.left)  { dx -= rightX; dz -= rightZ; }
       if (i.right) { dx += rightX; dz += rightZ; }
-      if (dx !== 0 || dz !== 0) {
+      const moving = (dx !== 0 || dz !== 0) && p.alive;
+      if (moving) {
         const len = Math.hypot(dx, dz);
         dx = (dx / len) * SPEED;
         dz = (dz / len) * SPEED;
-        // Tente déplacement, slide sur l'axe libre si collision
         const nx = p.x + dx;
         const nz = p.z + dz;
         if (!st.collidesAt(nx, p.z)) p.x = nx;
         if (!st.collidesAt(p.x, nz)) p.z = nz;
-        // Limites arène
-        p.x = Math.max(-46, Math.min(46, p.x));
-        p.z = Math.max(-30, Math.min(14,  p.z));
+      }
+      // Death zone check (hors jeu prolongé = mort)
+      if (p.alive && st.isInDeathZone && st.isInDeathZone(p.x, p.z)) {
+        p.alive = false;
+        st.onPlayerDeath && st.onPlayerDeath();
       }
       // Applique à la caméra
       camera.position.set(p.x, 2.6, p.z);
       camera.rotation.y = p.rotY;
+
+      // ===== Véhicule : suivre le joueur et animer =====
+      if (st.vehicleRig) {
+        st.vehicleRig.position.set(p.x, 0, p.z);
+        st.vehicleRig.rotation.y = p.rotY + Math.PI; // oriente face à la direction caméra
+        const speedScalar = moving ? 1 : 0.05;
+        animateVehicleRig(st.vehicleRig, speedScalar, tNow / 1000);
+      }
+
+      // ===== Bullets =====
+      for (let bi = st.bullets.length - 1; bi >= 0; bi--) {
+        const b = st.bullets[bi];
+        b.mesh.position.addScaledVector(b.dir, b.speed);
+        b.ttl--;
+        // Hit NPCs
+        let hit = false;
+        for (const n of npcs.children) {
+          if (!n.userData.alive) continue;
+          const dx2 = n.position.x - b.mesh.position.x;
+          const dz2 = n.position.z - b.mesh.position.z;
+          const dy2 = 1.2 - b.mesh.position.y;
+          if (dx2 * dx2 + dz2 * dz2 + dy2 * dy2 < 0.9) {
+            n.userData.health -= b.damage;
+            // Burst de sang
+            const burst = new THREE.Mesh(
+              new THREE.SphereGeometry(0.12, 8, 6),
+              new THREE.MeshBasicMaterial({ color: 0xaa0a14, transparent: true, opacity: 0.9 })
+            );
+            burst.position.set(n.position.x, 1.4, n.position.z);
+            scene.add(burst);
+            st.bloodBursts.push({ mesh: burst, ttl: 40, scaleRate: 1.08 });
+            hit = true;
+            if (n.userData.health <= 0) {
+              n.userData.alive = false;
+              n.rotation.x = -Math.PI / 2; // tombe au sol
+              n.position.y = -0.8;
+              st.onNpcKilled && st.onNpcKilled();
+            }
+            break;
+          }
+        }
+        if (hit || b.ttl <= 0 || b.mesh.position.y < -0.5 || Math.abs(b.mesh.position.x) > 90 || Math.abs(b.mesh.position.z) > 90) {
+          scene.remove(b.mesh);
+          b.mesh.geometry.dispose();
+          b.mesh.material.dispose();
+          st.bullets.splice(bi, 1);
+        }
+      }
+      // Fade blood bursts
+      for (let bi = st.bloodBursts.length - 1; bi >= 0; bi--) {
+        const bb = st.bloodBursts[bi];
+        bb.ttl--;
+        bb.mesh.scale.multiplyScalar(bb.scaleRate);
+        bb.mesh.material.opacity *= 0.95;
+        if (bb.ttl <= 0) {
+          scene.remove(bb.mesh);
+          bb.mesh.geometry.dispose();
+          bb.mesh.material.dispose();
+          st.bloodBursts.splice(bi, 1);
+        }
+      }
 
       // ===== Proximité (5 fois/s suffit) =====
       proxCheck++;
@@ -862,6 +1159,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       });
       npcs.children.forEach((n) => {
         const ud = n.userData;
+        if (!ud.alive) return; // PNJ mort → reste au sol
         ud.phase += 0.14;
         n.position.x += ud.speed * ud.direction;
         if (n.position.x > 40) ud.direction = -1;
@@ -1021,7 +1319,70 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onNearbyChange = (nb) => {
       setNearbyPrompt(nb);
     };
+    stateRef.current.onNpcKilled = () => {
+      setHud(h => ({ ...h, npcKilled: h.npcKilled + 1 }));
+    };
+    stateRef.current.onPlayerDeath = () => {
+      setRespawning(true);
+      setTimeout(() => {
+        // Respawn au spawn initial
+        if (stateRef.current?.player) {
+          stateRef.current.player.x = 0;
+          stateRef.current.player.z = 12;
+          stateRef.current.player.rotY = 0;
+          stateRef.current.player.alive = true;
+          stateRef.current.player.health = 100;
+        }
+        setHud(h => ({ ...h, health: 100 }));
+        setRespawning(false);
+      }, 1500);
+    };
   }, [scanning, onEnterCasino]);
+
+  // Équiper / retirer le véhicule (persiste dans profile)
+  const toggleVehicle = () => {
+    if (!profile) return;
+    const list = profile.vehicles || [];
+    if (list.length === 0) {
+      setToast("🛍 Achète un véhicule à la boutique du casino d'abord !");
+      setTimeout(() => setToast(null), 2600);
+      return;
+    }
+    if (ridingOn) {
+      // Descend
+      stateRef.current.attachVehicle && stateRef.current.attachVehicle(null);
+      if (stateRef.current.player) stateRef.current.player.speedMul = 1;
+      if (setProfile) setProfile({ ...profile, equippedVehicle: null });
+      setRidingOn(false);
+    } else {
+      // Monte : prend le plus rapide équipé
+      const best = VEHICLES.filter(v => list.includes(v.id)).sort((a, b) => b.speedMul - a.speedMul)[0];
+      if (!best) return;
+      stateRef.current.attachVehicle && stateRef.current.attachVehicle(best.id);
+      if (stateRef.current.player) stateRef.current.player.speedMul = best.speedMul;
+      if (setProfile) setProfile({ ...profile, equippedVehicle: best.id });
+      setRidingOn(true);
+    }
+  };
+
+  // Changer de véhicule directement
+  const equipSpecificVehicle = (vid) => {
+    if (!profile) return;
+    const list = profile.vehicles || [];
+    if (!list.includes(vid)) return;
+    const def = VEHICLES.find(v => v.id === vid);
+    if (!def) return;
+    stateRef.current.attachVehicle && stateRef.current.attachVehicle(vid);
+    if (stateRef.current.player) stateRef.current.player.speedMul = def.speedMul;
+    if (setProfile) setProfile({ ...profile, equippedVehicle: vid });
+    setRidingOn(true);
+  };
+
+  // Tirer avec une arme (visée)
+  const fireWeapon = () => {
+    if (!aimingWeapon || !stateRef.current.spawnBulletFromCamera) return;
+    stateRef.current.spawnBulletFromCamera(aimingWeapon);
+  };
 
   // Helpers pour driver l'input depuis le joystick tactile
   const setInput = (key, val) => {
@@ -1204,6 +1565,130 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         }}>
           <DpadBtn testId="rot-left"  label="↺" onDown={() => setInput('rotL', 1)} onUp={() => setInput('rotL', 0)} />
           <DpadBtn testId="rot-right" label="↻" onDown={() => setInput('rotR', 1)} onUp={() => setInput('rotR', 0)} />
+        </div>
+      )}
+
+      {/* Panneau véhicule + combat (bottom-center au-dessus des joysticks) */}
+      {!scanning && !selectedHouse && !aptPickerOpen && (
+        <div style={{
+          position: 'absolute', bottom: 110, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 20, display: 'flex', gap: 8, alignItems: 'center',
+          pointerEvents: 'auto',
+        }}>
+          {/* Toggle véhicule */}
+          <button
+            data-testid="street-vehicle-toggle"
+            onClick={toggleVehicle}
+            style={{
+              padding: '10px 14px', borderRadius: 30, border: `2px solid ${STAKE.gold}`,
+              background: ridingOn ? 'linear-gradient(135deg, #0a6aa8, #083a66)' : 'rgba(10,10,15,0.75)',
+              color: ridingOn ? '#3fe6ff' : STAKE.goldLight, fontWeight: 900, fontSize: 12,
+              cursor: 'pointer', letterSpacing: 0.8, backdropFilter: 'blur(6px)',
+              boxShadow: ridingOn ? '0 0 20px rgba(63,230,255,0.5)' : '0 4px 10px rgba(0,0,0,0.4)',
+            }}
+          >
+            {ridingOn ? '🛹 DESCENDRE' : '🛹 MONTER'}
+          </button>
+          {/* Sélecteur véhicule (si plusieurs possédés) */}
+          {(profile?.vehicles || []).length > 1 && ridingOn && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(profile.vehicles).map(vid => {
+                const def = VEHICLES.find(v => v.id === vid);
+                if (!def) return null;
+                const active = profile.equippedVehicle === vid;
+                return (
+                  <button
+                    key={vid}
+                    data-testid={`veh-pick-${vid}`}
+                    onClick={() => equipSpecificVehicle(vid)}
+                    style={{
+                      width: 38, height: 38, borderRadius: 19,
+                      border: active ? `2px solid ${STAKE.gold}` : '1px solid #555',
+                      background: active ? 'rgba(212,175,55,0.25)' : 'rgba(10,10,15,0.7)',
+                      color: '#fff', cursor: 'pointer', fontSize: 16,
+                    }}
+                  >{def.emoji}</button>
+                );
+              })}
+            </div>
+          )}
+          {/* Sélecteur arme */}
+          {(profile?.weapons || []).length > 0 && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {(profile.weapons).slice(0, 4).map(wid => {
+                const def = WEAPONS.find(w => w.id === wid);
+                if (!def) return null;
+                const active = aimingWeapon === wid;
+                const iconMap = { knife: '🔪', machete: '🔪', gun: '🔫', shotgun: '🔫', bazooka: '🚀', flamethrower: '🔥', throwknife: '🗡️', crossbow: '🏹', uzi: '🔫', grenade: '💣', laserrifle: '⚡' };
+                const ico = iconMap[wid] || '⚔️';
+                return (
+                  <button
+                    key={wid}
+                    data-testid={`weapon-pick-${wid}`}
+                    onClick={() => setAimingWeapon(active ? null : wid)}
+                    style={{
+                      width: 40, height: 40, borderRadius: 8,
+                      border: active ? '2px solid #ff4444' : '1px solid #555',
+                      background: active ? 'rgba(180,40,40,0.35)' : 'rgba(10,10,15,0.7)',
+                      color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 800,
+                    }}
+                    title={def.name}
+                  >{ico}</button>
+                );
+              })}
+              {aimingWeapon && (
+                <button
+                  data-testid="street-fire-btn"
+                  onPointerDown={(e) => { e.preventDefault(); fireWeapon(); }}
+                  style={{
+                    padding: '10px 16px', borderRadius: 30,
+                    background: 'linear-gradient(135deg, #8b0000, #4a0000)',
+                    border: '2px solid #ff4444', color: '#fff',
+                    fontWeight: 900, fontSize: 13, cursor: 'pointer',
+                    boxShadow: '0 0 18px rgba(255,68,68,0.5)',
+                  }}
+                >🔫 TIRER</button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* HUD combat : kills + avertissement barrière */}
+      {(hud.npcKilled > 0 || aimingWeapon) && (
+        <div
+          data-testid="street-combat-hud"
+          style={{
+            position: 'absolute', top: 70, left: 14, zIndex: 10,
+            padding: '6px 12px', borderRadius: 8,
+            background: 'rgba(10,10,15,0.8)', border: '1px solid rgba(255,68,68,0.3)',
+            color: '#ff9999', fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+          }}
+        >
+          ☠ Kills : <span style={{ color: '#fff' }}>{hud.npcKilled}</span>
+          {aimingWeapon && <span style={{ marginLeft: 10, color: STAKE.goldLight }}>🎯 {WEAPONS.find(w => w.id === aimingWeapon)?.name}</span>}
+        </div>
+      )}
+
+      {/* Respawn overlay (mort par sortie de zone) */}
+      {respawning && (
+        <div
+          data-testid="street-respawn"
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(40,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 250, backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 64, marginBottom: 12 }}>💀</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#ff4444', letterSpacing: 2 }}>
+              HORS ZONE
+            </div>
+            <div style={{ fontSize: 13, color: '#fff', marginTop: 10, opacity: 0.8 }}>
+              Respawn au spawn...
+            </div>
+          </div>
         </div>
       )}
 

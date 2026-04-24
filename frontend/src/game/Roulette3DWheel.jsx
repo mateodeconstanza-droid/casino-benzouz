@@ -213,13 +213,23 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
     pointer.position.set(0, 0.55, -3.75);
     scene.add(pointer);
 
+    // Pointer sits at world angle = -π/2 (position (0, *, -R))
+    const POINTER_WORLD_ANGLE = -Math.PI / 2;
+    // Compute the wheelAngle that places `pocketAngle` exactly under the pointer.
+    // World angle of a local point at angle θ when wheel has rotation.y = α : world = θ - α
+    // So to get world = pointerAngle, we need α = θ - pointerAngle (i.e. θ + π/2)
+    const wheelAngleForPocket = (pocketAngle) => pocketAngle - POINTER_WORLD_ANGLE;
+
     // ---------- State globale ----------
     stateRef.current = {
       renderer, scene, camera, wheel, ball,
       pocketPositions,
       spinning: false,
       wheelAngle: 0,
+      wheelStartAngle: 0,
+      wheelFinalAngle: 0,
       ballAngle: 0,
+      ballStartAngle: 0,
       ballRadius: 3.6,
       ballY: 0.55,
       startedAt: 0,
@@ -227,6 +237,8 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
       lastSignal: spinSignal,
       onLandedCB: onLanded,
       disposed: false,
+      wheelAngleForPocket,
+      POINTER_WORLD_ANGLE,
     };
 
     let rafId = 0;
@@ -245,77 +257,61 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
       } else {
         // ===== ANIMATION DU SPIN =====
         const elapsed = (now - st.startedAt) / 1000;
-        const totalDuration = 6.5; // s
+        const totalDuration = 6.5;
         const t = Math.min(elapsed / totalDuration, 1);
+        const ease = 1 - Math.pow(1 - t, 3); // cubic ease-out (0→1)
 
-        // Rotation roue : décélère — STOP NET à t=0.9 et cale sur la cible
-        // (évite la désynchro visuelle ball/pocket)
-        if (t < 0.9) {
-          const wheelSpeed = 2.2 * (1 - t * 0.85);
-          st.wheelAngle += wheelSpeed * 0.016;
-          wheel.rotation.y = st.wheelAngle;
-        } else {
-          // À partir de t=0.9 on fige la roue sur sa position finale
-          if (st.targetNum !== null) {
-            const pocket = st.pocketPositions.find(p => p.num === st.targetNum);
-            if (pocket) {
-              const targetWorldAngle = -Math.PI / 2;
-              const finalWheelAngle = targetWorldAngle - pocket.angle;
-              st.wheelAngle = finalWheelAngle;
-              wheel.rotation.y = finalWheelAngle;
-            }
-          }
-        }
+        // Rotation roue : lerp easé entre angle de départ et angle final (calculé au spin start)
+        // Cela GARANTIT que la poche cible s'aligne sous le pointeur à t=1.
+        st.wheelAngle = st.wheelStartAngle + (st.wheelFinalAngle - st.wheelStartAngle) * ease;
+        wheel.rotation.y = st.wheelAngle;
 
-        // Bille : angle, rayon, hauteur
-        const ballSpeed = -(5.5 * Math.pow(1 - t, 1.4));
-        st.ballAngle += ballSpeed * 0.016;
-
+        // Bille : angle, rayon, hauteur — aussi en interpolation pour se poser dans la poche
         if (t < 0.55) {
-          // Phase 1 : bille sur la piste haute extérieure
+          // Phase 1 : bille sur la piste haute extérieure, tourne vite
+          const spinT = t / 0.55;
+          const ballSpeed = -5.5 * (1 - spinT * 0.3);
+          st.ballAngle += ballSpeed * 0.016;
           st.ballRadius = 3.6;
           st.ballY = 0.55 + Math.sin(elapsed * 7) * 0.02;
-        } else if (t < 0.9) {
-          // Phase 2 : descente vers la piste des poches avec rebonds
-          const localT = (t - 0.55) / 0.35;
-          st.ballRadius = 3.6 - localT * 0.95;
-          st.ballY = 0.55 - localT * 0.3 + Math.abs(Math.sin(localT * Math.PI * 4)) * 0.1;
-        } else {
-          // Phase 3 : atterrissage dans la poche cible (roue déjà calée)
-          const landT = Math.min((t - 0.9) / 0.1, 1);
-          if (st.targetNum !== null) {
-            const pocket = st.pocketPositions.find(p => p.num === st.targetNum);
-            if (pocket) {
-              const targetWorldAngle = -Math.PI / 2;
-              const desiredRadius = 2.65;
-              st.ballAngle = lerpAngle(st.ballAngle, targetWorldAngle, landT * 0.28);
-              st.ballRadius = THREE.MathUtils.lerp(st.ballRadius, desiredRadius, landT * 0.35);
-              st.ballY = THREE.MathUtils.lerp(st.ballY, 0.22, landT * 0.35);
-            }
-          }
-        }
-
-        if (t >= 0.97 && st.targetNum !== null) {
-          const pocket = st.pocketPositions.find(p => p.num === st.targetNum);
-          if (pocket) {
-            const worldAngle = st.wheelAngle + pocket.angle;
-            const rPos = 2.65;
-            ball.position.set(Math.cos(worldAngle) * rPos, 0.22, Math.sin(worldAngle) * rPos);
-          }
-        } else {
           ball.position.set(Math.cos(st.ballAngle) * st.ballRadius, st.ballY, Math.sin(st.ballAngle) * st.ballRadius);
+        } else {
+          // Phase 2 : descente vers la poche cible (angle world fixe = POINTER_WORLD_ANGLE)
+          const localT = (t - 0.55) / 0.45;
+          const landEase = 1 - Math.pow(1 - localT, 2);
+          // Tourne encore un peu en décélérant, puis s'aligne sur l'angle cible monde
+          const ballSpeed = -3.5 * (1 - localT);
+          st.ballAngle += ballSpeed * 0.016;
+          // Lerp angulaire vers le pointeur
+          const snapped = lerpAngle(st.ballAngle, st.POINTER_WORLD_ANGLE, Math.pow(landEase, 2) * 0.35);
+          // Rayon et hauteur convergent vers la poche (Y=0.22, R=2.65)
+          const r = THREE.MathUtils.lerp(3.6, 2.65, landEase);
+          const bounce = localT < 0.85 ? Math.abs(Math.sin(localT * Math.PI * 3)) * 0.08 * (1 - localT) : 0;
+          const y = THREE.MathUtils.lerp(0.55, 0.22, landEase) + bounce;
+          if (localT > 0.75) {
+            // Sur les derniers 25% on verrouille l'angle au pointeur
+            st.ballAngle = st.POINTER_WORLD_ANGLE;
+            ball.position.set(Math.cos(st.POINTER_WORLD_ANGLE) * r, y, Math.sin(st.POINTER_WORLD_ANGLE) * r);
+          } else {
+            st.ballAngle = snapped;
+            ball.position.set(Math.cos(snapped) * r, y, Math.sin(snapped) * r);
+          }
         }
 
         if (t >= 1) {
+          // Verrouillage final explicite : roue alignée + bille dans la poche
           st.spinning = false;
           if (st.targetNum !== null) {
-            const pocket = st.pocketPositions.find(p => p.num === st.targetNum);
-            if (pocket) {
-              const targetWorldAngle = -Math.PI / 2;
-              st.wheelAngle = targetWorldAngle - pocket.angle;
-              wheel.rotation.y = st.wheelAngle;
-              ball.position.set(Math.cos(targetWorldAngle) * 2.65, 0.22, Math.sin(targetWorldAngle) * 2.65);
-            }
+            st.wheelAngle = st.wheelFinalAngle;
+            wheel.rotation.y = st.wheelFinalAngle;
+            ball.position.set(
+              Math.cos(st.POINTER_WORLD_ANGLE) * 2.65,
+              0.22,
+              Math.sin(st.POINTER_WORLD_ANGLE) * 2.65
+            );
+            st.ballAngle = st.POINTER_WORLD_ANGLE;
+            st.ballRadius = 2.65;
+            st.ballY = 0.22;
           }
           if (typeof st.onLandedCB === 'function') st.onLandedCB();
         }
@@ -348,10 +344,23 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
     if (!st || !st.renderer) return;
     if (spinSignal === 0) return;
     if (winNumber === null || winNumber === undefined) return;
+    const pocket = st.pocketPositions.find(p => p.num === winNumber);
+    if (!pocket) return;
     st.targetNum = winNumber;
     st.spinning = true;
     st.startedAt = performance.now();
     st.onLandedCB = onLanded;
+    // Calcule l'angle final de la roue qui aligne la poche cible sous le pointeur
+    // + ajoute plusieurs tours complets pour l'effet visuel (au moins 4 tours)
+    const targetWheelAngle = st.wheelAngleForPocket(pocket.angle);
+    const current = st.wheelAngle;
+    // Normalise pour que finalAngle > current d'au moins 4 tours
+    const TWO_PI = Math.PI * 2;
+    let delta = ((targetWheelAngle - current) % TWO_PI + TWO_PI) % TWO_PI;
+    const extraSpins = 4 + Math.floor(Math.random() * 2); // 4 ou 5 tours
+    st.wheelStartAngle = current;
+    st.wheelFinalAngle = current + delta + TWO_PI * extraSpins;
+    st.ballStartAngle = st.ballAngle;
   }, [spinSignal, winNumber, onLanded]);
 
   return (

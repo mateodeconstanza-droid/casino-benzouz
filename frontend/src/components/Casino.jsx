@@ -622,6 +622,11 @@ export default function Casino() {
         <>
           <Street3D
             profile={profile}
+            setProfile={(nextOrFn) => {
+              const next = typeof nextOrFn === 'function' ? nextOrFn(profile) : nextOrFn;
+              setProfile(next);
+              saveProfile({ ...next, balance });
+            }}
             balance={balance}
             setBalance={setBalance}
             onEnterCasino={handleEnterCasino}

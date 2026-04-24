@@ -209,6 +209,14 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Poker refait** : table ovale bordée or avec fond radial bleu sombre, dos de cartes visibles sur le dealer, slot cartes communes/joueur en pointillés, bouton "DISTRIBUER LES CARTES" dégradé or.
 - **Hooks dev ajoutés** dans `Casino.jsx` : `window.__openRoulette()`, `__openBlackjack()`, `__openPoker()`, `__openLobby()` pour faciliter les campagnes de tests.
 
+### ✅ Implemented (Feb 2026 — Vehicules, Combat Street, Roulette Sync)
+- **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
+- **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`.
+- **Véhicules 3D fonctionnels** : `VehicleRig.js` intégré à `Street3D.jsx`. Toggle "MONTER/DESCENDRE" dans le HUD bas. Sélecteur d'emoji 🛹/🚴/🛸 si plusieurs possédés. Multiplicateur de vitesse appliqué (×2/×3/×4.2). Le rig suit la position/rotation du joueur et anime roues + rider via `animateVehicleRig(rig, speed, t)`. Persistance dans `profile.equippedVehicle`.
+- **Street3D combat** : ajout de `bullets[]` + `bloodBursts[]` avec physique simple. Bouton "🔫 TIRER" apparaît quand une arme est sélectionnée. Les NPCs ont `health`/`alive` ; à 0 ils tombent au sol. Compteur "☠ Kills" en HUD.
+- **Street3D expansion** : NPCs passés de 3 → 8 (couleurs variées). 20 maisons décoratives supplémentaires (rangée arrière + latérales). 22 bâtiments fake en arrière-plan avec fenêtres émissives. 5 voitures garées. Barrière de mort à x±51 / z<−37 / z>19 avec écran "HORS ZONE" + respawn automatique.
+- **Poker double at Turn fix** : bouton `DOUBLER ×2` amélioré (grisé si solde insuffisant, cursor "not-allowed", message d'erreur clair). Testids ajoutés : `poker-double-btn`, `poker-see-river-btn`, `poker-fold-turn-btn`. SFX au doubling.
+
 ## Architecture
 - Stack: React (CRA + CRACO) + Three.js
 - Storage: localStorage (clé `profile:<name>`)

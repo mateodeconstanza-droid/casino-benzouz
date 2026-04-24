@@ -77,24 +77,29 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
     setBoard([...board, turn]);
     setDeck(deck.slice(2));
     setPhase('turn');
-    setMessage('Turn révélée. Tu peux te coucher ou doubler pour voir la River.');
+    setMessage('Turn révélée. Tu peux voir la River, doubler (×2) pour la River, ou te coucher.');
+    try { sfx.play('card'); } catch (_e) { /* noop */ }
   };
 
   const doubleTurn = () => {
+    // Double la mise au Turn → paie ante*multiplier, multiplier *= 2, révèle River et showdown
     const extraCost = ante * multiplier;
     if (extraCost > balance) {
-      setMessage('Solde insuffisant pour doubler');
+      setMessage(`❌ Solde insuffisant pour doubler (besoin ${fmt(extraCost)} B)`);
       return;
     }
     setBalance(b => b - extraCost);
-    setMultiplier(m => m * 2);
+    const newMul = multiplier * 2;
+    setMultiplier(newMul);
     // Révéler la river
     const river = deck[1];
     setBoard([...board, river]);
     setDeck(deck.slice(2));
     setPhase('river');
-    // Puis showdown immédiat
-    setTimeout(() => showdown([...board, river]), 800);
+    setMessage(`💪 Mise doublée → ×${newMul}. River révélée !`);
+    try { sfx.play('chip'); } catch (_e) { /* noop */ }
+    // Puis showdown après un court délai
+    setTimeout(() => showdown([...board, river]), 1000);
   };
 
   const skipToRiver = () => {
@@ -319,21 +324,28 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
               Doubler la mise (×2) pour la River ou te coucher ?
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={doubleTurn}
+              <button
+                data-testid="poker-double-btn"
+                onClick={doubleTurn}
                 disabled={ante * multiplier > balance}
                 style={{
                   flex: 1, padding: 12,
                   background: 'linear-gradient(135deg, #ffd700, #b8860b)',
                   color: '#000', border: 'none', borderRadius: 6,
-                  fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit',
+                  fontWeight: 'bold', cursor: ante * multiplier > balance ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit', opacity: ante * multiplier > balance ? 0.55 : 1,
                 }}>DOUBLER ×2 ({fmt(ante * multiplier)} B)</button>
-              <button onClick={skipToRiver} style={{
+              <button
+                data-testid="poker-see-river-btn"
+                onClick={skipToRiver} style={{
                 flex: 1, padding: 12,
                 background: 'rgba(100,100,100,0.4)',
                 border: '1px solid #666', color: '#ccc',
                 borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 'bold',
               }}>VOIR RIVER</button>
-              <button onClick={fold} style={{
+              <button
+                data-testid="poker-fold-turn-btn"
+                onClick={fold} style={{
                 flex: 1, padding: 12,
                 background: 'rgba(180,40,40,0.4)', border: '1px solid #aa3030',
                 color: '#ff9999', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 'bold',

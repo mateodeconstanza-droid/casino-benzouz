@@ -35,6 +35,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     wheel: () => onOpenWheel(),
     shop: () => onOpenShop(),
     benzbet: () => onOpenBenzBet(),
+    exit: () => onExitCasino && onExitCasino(),
   };
   
   // État touches pour mobile
@@ -2613,6 +2614,72 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
       barObj.zone, toiletObj.zone, atmObj.zone, wheelObj.zone, shopObj.zone, benzBetObj.zone,
     ];
 
+    // ========== PORTE DE SORTIE 3D (retour à la rue) ==========
+    // Positionnée près du spawn (z=14), face au joueur, encadrée or.
+    const exitDoorGroup = new THREE.Group();
+    exitDoorGroup.position.set(0, 0, 17.5);
+    // Cadre doré (pilier gauche/droit + linteau)
+    const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 1, roughness: 0.15, emissive: 0x2a1a00, emissiveIntensity: 0.3 });
+    for (let s = -1; s <= 1; s += 2) {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.22, 3.4, 0.22), doorFrameMat);
+      pillar.position.set(s * 1.25, 1.7, 0);
+      exitDoorGroup.add(pillar);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.22, 0.22), doorFrameMat);
+    lintel.position.set(0, 3.4, 0);
+    exitDoorGroup.add(lintel);
+    // Panneau de porte (bois + émissif léger pour signaler l'interaction)
+    const doorPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(2.1, 3, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x6a3a1a, metalness: 0.2, roughness: 0.7, emissive: 0x3a1a00, emissiveIntensity: 0.25 })
+    );
+    doorPanel.position.set(0, 1.6, 0);
+    exitDoorGroup.add(doorPanel);
+    // Poignée dorée
+    const handle = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 1, roughness: 0.15 })
+    );
+    handle.position.set(0.7, 1.6, 0.1);
+    exitDoorGroup.add(handle);
+    // Enseigne lumineuse "SORTIE" au-dessus
+    const exitSignCvs = document.createElement('canvas');
+    exitSignCvs.width = 512; exitSignCvs.height = 128;
+    const escx = exitSignCvs.getContext('2d');
+    escx.fillStyle = '#0a0f1a'; escx.fillRect(0, 0, 512, 128);
+    escx.shadowColor = '#3fe6ff'; escx.shadowBlur = 30;
+    escx.fillStyle = '#3fe6ff'; escx.font = 'bold 72px Georgia'; escx.textAlign = 'center';
+    escx.fillText('SORTIE', 256, 86);
+    escx.shadowBlur = 0;
+    escx.fillStyle = '#fff'; escx.font = 'italic 22px Georgia';
+    escx.fillText('← retour rue', 256, 118);
+    const exitSignTex = new THREE.CanvasTexture(exitSignCvs);
+    const exitSignMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.2, 0.8),
+      new THREE.MeshBasicMaterial({ map: exitSignTex, transparent: true })
+    );
+    exitSignMesh.position.set(0, 3.95, 0.01);
+    exitDoorGroup.add(exitSignMesh);
+    // Flèches verte clignotantes au sol
+    const exitArrow = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.85, 24),
+      new THREE.MeshBasicMaterial({ color: 0x3fe6ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    );
+    exitArrow.rotation.x = -Math.PI / 2;
+    exitArrow.position.set(0, 0.04, 0.8);
+    exitDoorGroup.add(exitArrow);
+    exitDoorGroup.userData.__pulseArrow = exitArrow;
+    scene.add(exitDoorGroup);
+    // Zone d'interaction (invisible)
+    const exitZone = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 3, 2),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    exitZone.position.set(0, 1.5, 17.5);
+    exitZone.userData = { zoneId: 'exit' };
+    scene.add(exitZone);
+    interactZones.push(exitZone);
+
     // Colonnes décoratives
     [[-10, 10], [10, 10], [-10, -10], [10, -10]].forEach(([x, z]) => {
       const col = new THREE.Mesh(
@@ -3169,6 +3236,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     wheel: { icon: '🎡', name: 'ROUE FORTUNE' },
     shop: { icon: '🏎', name: 'BENZ BOUTIQUE' },
     benzbet: { icon: '🎟️', name: 'BENZBET' },
+    exit: { icon: '🚪', name: 'SORTIE — VERS LA RUE' },
   };
 
   // Gestion tactile des flèches (hold-to-move)
