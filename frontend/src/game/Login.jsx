@@ -85,7 +85,7 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
     backgroundSize: '3px 3px',
   };
 
-  // Logo "BENZ" stylisé
+  // Logo "GAMBLELIFE" stylisé
   const Logo = () => (
     <div style={{ textAlign: 'center', marginBottom: 18 }}>
       <div style={{
@@ -94,7 +94,7 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
         WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         textShadow: '0 4px 20px rgba(212,175,55,0.3)',
         fontFamily: 'Georgia, serif',
-      }}>BENZ</div>
+      }}>GAMBLELIFE</div>
       <div style={{
         fontSize: 13, color: STAKE.inkSoft, letterSpacing: 3, marginTop: -4,
         textTransform: 'uppercase',
@@ -148,7 +148,7 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <div style={{ fontWeight: 700 }}>{p.name}</div>
                   <div style={{ fontSize: 11, color: STAKE.inkSoft }}>
-                    💰 {fmt(p.balance || 0)} B · 🏆 {fmt(p.totalWinnings || 0)} B · 🔑 {(p.keys || []).length}
+                    💰 {fmt(p.balance || 0)} $ · 🏆 {fmt(p.totalWinnings || 0)} $ · 🔑 {(p.keys || []).length}
                   </div>
                 </div>
                 <div style={{ color: STAKE.gold, fontSize: 18 }}>→</div>

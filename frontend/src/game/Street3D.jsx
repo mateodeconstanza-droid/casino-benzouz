@@ -23,11 +23,15 @@ const _sidePositions = (() => {
 const _sideNames = [
   'Pavillon Azur', 'Loft Doré', 'Cottage Pin', 'Bungalow Sable', 'Maison Rose',
   'Loft Gris', 'Villa Mauve', 'Loft Turquoise', 'Chalet Cèdre', 'Maison Iris',
-  'Loft Ouest A', 'Loft Est A', 'Loft Ouest B', 'Loft Est B', 'Loft Ouest C',
+  'Loft Ouest A', 'Loft Est A', 'Loft Ouest $', 'Loft Est $', 'Loft Ouest C',
   'Loft Est C', 'Loft Ouest D', 'Loft Est D', 'Loft Ouest E', 'Loft Est E',
 ];
 
 export const HOUSES = [
+  // ★ PROPRIÉTÉS CRÉATEUR ByJaze — 1 $ chacune, marquées "★ ByJaze"
+  { id: 'bj-apt',   label: '★ Appart ByJaze',  type: 'apartment', price: 1, floor: 2,  x: -22, z: -14, creator: true },
+  { id: 'bj-house', label: '★ Maison ByJaze',  type: 'house',     price: 1,            x:   0, z: -26, creator: true },
+  { id: 'bj-villa', label: '★ Villa ByJaze',   type: 'villa',     price: 1,            x:  42, z:  -6, creator: true },
   // Immeuble avec 5 appartements (mêmes coords, étages différents)
   { id: 'apt-1', label: 'Appartement 1',  type: 'apartment', price:   5000000, floor: 0, x:  -22, z: -14 },
   { id: 'apt-2', label: 'Appartement 2',  type: 'apartment', price:   5000000, floor: 1, x:  -22, z: -14 },
@@ -235,7 +239,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     sctx.fillText('CASINO', 512, 170);
     sctx.shadowBlur = 0;
     sctx.fillStyle = '#fff'; sctx.font = 'bold 28px Georgia';
-    sctx.fillText('★ BENZ ROYAL ★', 512, 220);
+    sctx.fillText('★ GAMBLELIFE ROYAL ★', 512, 220);
     const signTex = new THREE.CanvasTexture(signCanvas);
     const signMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(12, 3),
@@ -366,7 +370,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     blctx.fillStyle = '#ffd700'; blctx.font = 'bold 36px Georgia'; blctx.textAlign = 'center';
     blctx.fillText('LES RÉSIDENCES', 256, 50);
     blctx.fillStyle = '#fff'; blctx.font = '22px Georgia';
-    blctx.fillText('5 APPARTEMENTS · 5M B', 256, 90);
+    blctx.fillText('5 APPARTEMENTS · 5M $', 256, 90);
     const bLabelTex = new THREE.CanvasTexture(bLabelCvs);
     const bLabel = new THREE.Mesh(
       new THREE.PlaneGeometry(4, 1), new THREE.MeshBasicMaterial({ map: bLabelTex, transparent: true })
@@ -446,7 +450,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       lcx.font = 'bold 34px Georgia'; lcx.textAlign = 'center';
       lcx.fillText(houseColors[i].label, 256, 48);
       lcx.fillStyle = '#fff'; lcx.font = '24px Georgia';
-      lcx.fillText(owned ? '★ À VOUS ★' : '10 000 000 B', 256, 92);
+      lcx.fillText(owned ? '★ À VOUS ★' : '10 000 000 $', 256, 92);
       const labelTex = new THREE.CanvasTexture(lcv);
       const label = new THREE.Mesh(
         new THREE.PlaneGeometry(4, 1),
@@ -545,7 +549,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       lcx.font = 'bold 34px Georgia'; lcx.textAlign = 'center';
       lcx.fillText(v.name, 256, 48);
       lcx.fillStyle = '#fff'; lcx.font = '24px Georgia';
-      lcx.fillText(owned ? '★ À VOUS ★' : '100 000 000 B', 256, 92);
+      lcx.fillText(owned ? '★ À VOUS ★' : '100 000 000 $', 256, 92);
       const labelTex = new THREE.CanvasTexture(lcv);
       const label = new THREE.Mesh(
         new THREE.PlaneGeometry(4.5, 1.2),
@@ -559,6 +563,127 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     });
     // Immeuble 5 apparts — clickable pour choix d'étage
     interactables.push({ type: 'building', id: 'apt-1', pos: new THREE.Vector3(-22, 0, -14), radius: 8 });
+
+    // === OBSTACLES (AABB simples pour collision) — déclaré tôt pour autres pushes ===
+    const obstacles = [
+      { minX: -7,   maxX: 7,    minZ: -15, maxZ: -5  },   // Casino
+      { minX: -26,  maxX: -18,  minZ: -17, maxZ: -10 },   // Immeuble
+      { minX: -17,  maxX: -13,  minZ: -24, maxZ: -20 },   // Maison bleue
+      { minX: -10,  maxX: -6,   minZ: -28, maxZ: -24 },   // Maison beige
+      { minX: 10,   maxX: 14,   minZ: -24, maxZ: -20 },   // Maison rouge
+      { minX: 18,   maxX: 26,   minZ: -21, maxZ: -14 },   // Villa Marina
+      { minX: 30,   maxX: 38,   minZ: -17, maxZ: -10 },   // Villa Palmier
+    ];
+    const collidesAt = (x, z) => {
+      const r = 0.45;
+      return obstacles.some(o => x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
+    };
+
+    // ===== ★ MAISONS CRÉATEUR ByJaze (bj-*) — 1 $ chacune, style doré distinctif =====
+    const creatorProps = HOUSES.filter(h => h.creator && h.type !== 'apartment');
+    creatorProps.forEach((bh) => {
+      const owned = ownedKeys.includes(bh.id);
+      const isVilla = bh.type === 'villa';
+      const g = new THREE.Group();
+      g.position.set(bh.x, 0, bh.z);
+      // Base
+      const bodyW = isVilla ? 8 : 5.5;
+      const bodyH = isVilla ? 6 : 4;
+      const bodyD = isVilla ? 7 : 5;
+      const base = new THREE.Mesh(
+        new THREE.BoxGeometry(bodyW, bodyH, bodyD),
+        new THREE.MeshStandardMaterial({
+          color: 0x1a1a1f, metalness: 0.5, roughness: 0.4,
+          emissive: 0x2a1f08, emissiveIntensity: 0.3,
+        })
+      );
+      base.position.y = bodyH / 2;
+      base.castShadow = true; base.receiveShadow = true;
+      g.add(base);
+      // Finitions dorées (lisérés lumineux)
+      const goldStrip = new THREE.Mesh(
+        new THREE.BoxGeometry(bodyW + 0.1, 0.12, bodyD + 0.1),
+        new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 1, roughness: 0.15, emissive: 0xd4af37, emissiveIntensity: 0.6 })
+      );
+      goldStrip.position.y = bodyH - 0.15;
+      g.add(goldStrip);
+      // Toit
+      if (isVilla) {
+        // Villa moderne : toit plat + deuxième niveau plus petit
+        const upper = new THREE.Mesh(
+          new THREE.BoxGeometry(bodyW - 1.5, 2.4, bodyD - 1.5),
+          new THREE.MeshStandardMaterial({ color: 0x2a2a2f, metalness: 0.6, roughness: 0.35 })
+        );
+        upper.position.y = bodyH + 1.2;
+        g.add(upper);
+      } else {
+        const roof = new THREE.Mesh(
+          new THREE.ConeGeometry(4.2, 1.8, 4),
+          new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 1, roughness: 0.2 })
+        );
+        roof.rotation.y = Math.PI / 4;
+        roof.position.y = bodyH + 0.9;
+        g.add(roof);
+      }
+      // Porte dorée glow
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 2.5, 0.16),
+        new THREE.MeshStandardMaterial({
+          color: 0xd4af37, metalness: 1, roughness: 0.15,
+          emissive: 0xffd700, emissiveIntensity: 0.8,
+        })
+      );
+      door.position.set(0, 1.25, bodyD / 2 + 0.05);
+      g.add(door);
+      // Fenêtres émissives cyan
+      for (let fl = 0; fl < (isVilla ? 2 : 1); fl++) {
+        for (let w = 0; w < 3; w++) {
+          const win = new THREE.Mesh(
+            new THREE.BoxGeometry(1.1, 1.3, 0.14),
+            new THREE.MeshStandardMaterial({
+              color: 0x3fe6ff, emissive: 0x3fe6ff, emissiveIntensity: 0.9,
+            })
+          );
+          win.position.set(-2.5 + w * 2.5, 2 + fl * 2.5, bodyD / 2 + 0.05);
+          g.add(win);
+        }
+      }
+      // Piscine pour villa (bassin bleu devant)
+      if (isVilla) {
+        const pool = new THREE.Mesh(
+          new THREE.BoxGeometry(4, 0.05, 2.5),
+          new THREE.MeshStandardMaterial({ color: 0x1ea0d0, emissive: 0x1ea0d0, emissiveIntensity: 0.4, metalness: 0.5, roughness: 0.2 })
+        );
+        pool.position.set(-bodyW / 2 - 3, 0.08, bodyD / 2 - 1.5);
+        g.add(pool);
+      }
+      // Label flottant doré
+      const lcv = document.createElement('canvas');
+      lcv.width = 512; lcv.height = 140;
+      const lcx = lcv.getContext('2d');
+      lcx.fillStyle = 'rgba(10,10,15,0.95)'; lcx.fillRect(0, 0, 512, 140);
+      lcx.strokeStyle = '#ffd700'; lcx.lineWidth = 4; lcx.strokeRect(3, 3, 506, 134);
+      lcx.fillStyle = '#ffd700'; lcx.font = 'bold 30px Georgia'; lcx.textAlign = 'center';
+      lcx.fillText('★ CRÉATEUR ByJaze ★', 256, 48);
+      lcx.fillStyle = '#fff'; lcx.font = 'bold 26px Georgia';
+      lcx.fillText(bh.label.replace('★ ', ''), 256, 82);
+      lcx.fillStyle = owned ? '#1aa34a' : '#ffd700'; lcx.font = 'bold 30px Georgia';
+      lcx.fillText(owned ? 'À VOUS' : '1 $', 256, 120);
+      const labelTex = new THREE.CanvasTexture(lcv);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 1.2),
+        new THREE.MeshBasicMaterial({ map: labelTex, transparent: true })
+      );
+      label.position.set(0, bodyH + (isVilla ? 4 : 3), 0);
+      g.add(label);
+      g.userData = { interaction: 'house', houseId: bh.id };
+      scene.add(g);
+      interactables.push({ type: 'house', id: bh.id, pos: new THREE.Vector3(bh.x, 0, bh.z), radius: 8 });
+      obstacles.push({
+        minX: bh.x - bodyW / 2 - 0.3, maxX: bh.x + bodyW / 2 + 0.3,
+        minZ: bh.z - bodyD / 2 - 0.3, maxZ: bh.z + bodyD / 2 + 0.3,
+      });
+    });
 
     // ----- Barricades périmètre (bornes rouges & blanches) -----
     const barrier = new THREE.Group();
@@ -606,19 +731,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
 
     // === OBSTACLES (AABB simples pour collision) — déclaré tôt pour autres pushes ===
-    const obstacles = [
-      { minX: -7,   maxX: 7,    minZ: -15, maxZ: -5  },   // Casino
-      { minX: -26,  maxX: -18,  minZ: -17, maxZ: -10 },   // Immeuble
-      { minX: -17,  maxX: -13,  minZ: -24, maxZ: -20 },   // Maison bleue
-      { minX: -10,  maxX: -6,   minZ: -28, maxZ: -24 },   // Maison beige
-      { minX: 10,   maxX: 14,   minZ: -24, maxZ: -20 },   // Maison rouge
-      { minX: 18,   maxX: 26,   minZ: -21, maxZ: -14 },   // Villa Marina
-      { minX: 30,   maxX: 38,   minZ: -17, maxZ: -10 },   // Villa Palmier
-    ];
-    const collidesAt = (x, z) => {
-      const r = 0.45;
-      return obstacles.some(o => x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
-    };
+    // (déplacé plus haut, avant le bloc ByJaze)
 
     // ----- Maisons supplémentaires décoratives + interactables (étendent la rue) -----
     const extraColors = [
@@ -679,7 +792,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       lcx.font = 'bold 30px Georgia'; lcx.textAlign = 'center';
       lcx.fillText(sh.label, 256, 50);
       lcx.fillStyle = '#fff'; lcx.font = '22px Georgia';
-      lcx.fillText(ownedSh ? '★ À VOUS ★' : fmt(sh.price) + ' B', 256, 92);
+      lcx.fillText(ownedSh ? '★ À VOUS ★' : fmt(sh.price) + ' $', 256, 92);
       const labelTex = new THREE.CanvasTexture(lcv);
       const label = new THREE.Mesh(
         new THREE.PlaneGeometry(3.2, 0.9),
@@ -854,7 +967,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         wcx.fillStyle = '#ff3a3a'; wcx.font = 'bold 22px Georgia'; wcx.textAlign = 'center';
         wcx.fillText('WANTED', 128, 30);
         wcx.fillStyle = '#ffd700'; wcx.font = 'bold 28px Georgia';
-        wcx.fillText(`+${fmt(bountyAmount)} B`, 128, 62);
+        wcx.fillText(`+${fmt(bountyAmount)} $`, 128, 62);
         const wtex = new THREE.CanvasTexture(wcv);
         const wsign = new THREE.Mesh(
           new THREE.PlaneGeometry(1.6, 0.6),
@@ -1509,7 +1622,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       return;
     }
     if (balance < house.price) {
-      setToast(`❌ Solde insuffisant (il manque ${fmt(house.price - balance)} B)`);
+      setToast(`❌ Solde insuffisant (il manque ${fmt(house.price - balance)} $)`);
       setTimeout(() => setToast(null), 3000);
       return;
     }
@@ -1550,7 +1663,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           color: STAKE.goldLight, fontWeight: 800, fontSize: 13,
           backdropFilter: 'blur(8px)', pointerEvents: 'auto',
         }}>
-          💰 {fmt(balance)} B &nbsp;·&nbsp; 🔑 {ownedKeys.length}
+          💰 {fmt(balance)} $ &nbsp;·&nbsp; 🔑 {ownedKeys.length}
         </div>
       </div>
 
@@ -1811,7 +1924,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           <div style={{ fontSize: 11, color: STAKE.goldLight, letterSpacing: 2, marginBottom: 4 }}>
             ★ PRIME ENCAISSÉE ★
           </div>
-          <div style={{ fontSize: 26 }}>+{fmt(bountyToast.amount)} B</div>
+          <div style={{ fontSize: 26 }}>+{fmt(bountyToast.amount)} $</div>
           <style>{`
             @keyframes bounty-pop {
               0% { transform: translate(-50%, 20px); opacity: 0; }
@@ -1893,10 +2006,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
               }}>
                 <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1 }}>PRIX</div>
                 <div style={{ fontSize: 28, color: STAKE.goldLight, fontWeight: 900 }}>
-                  {fmt(house.price)} B
+                  {fmt(house.price)} $
                 </div>
                 <div style={{ fontSize: 11, color: balance >= house.price ? '#1aa34a' : '#dc2626', marginTop: 4 }}>
-                  {balance >= house.price ? '✓ Achetable' : `✗ Manque ${fmt(house.price - balance)} B`}
+                  {balance >= house.price ? '✓ Achetable' : `✗ Manque ${fmt(house.price - balance)} $`}
                 </div>
               </div>
             )}
@@ -1974,7 +2087,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
                       {own ? '🔑 ' : ''}Appartement {h.floor + 1} — étage {h.floor + 1}
                     </span>
                     <span style={{ color: own ? '#1aa34a' : STAKE.goldLight, fontWeight: 800, fontSize: 13 }}>
-                      {own ? 'À VOUS' : fmt(h.price) + ' B'}
+                      {own ? 'À VOUS' : fmt(h.price) + ' $'}
                     </span>
                   </button>
                 );

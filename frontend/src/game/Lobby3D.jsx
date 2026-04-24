@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, DEALER_PROFILES, WHEEL_PRIZES, fmt } from '@/game/constants';
-import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle } from '@/game/ui';
+import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle, StatCard } from '@/game/ui';
 import { FPWeaponView, TPPlayerView } from '@/game/FPWeapon';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenBenzBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
+const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -34,7 +34,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     atm: () => onOpenATM(),
     wheel: () => onOpenWheel(),
     shop: () => onOpenShop(),
-    benzbet: () => onOpenBenzBet(),
+    benzbet: () => onOpenGambleBet(),
     exit: () => onExitCasino && onExitCasino(),
   };
   
@@ -73,7 +73,9 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     sceneRefLocal.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
-    camera.position.set(0, 1.7, 14);
+    // Spawn au centre du casino (pas collé à la porte de sortie z=17.5)
+    // La porte de sortie étant à z=17.5, on apparaît bien à l'intérieur (z=5)
+    camera.position.set(0, 1.7, 5);
     cameraRef.current = camera;
 
     // ========== AVATAR 3D JOUEUR (vue 3ème personne) ==========
@@ -2291,7 +2293,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
         pctx.textAlign = 'center';
         pctx.fillText(w ? w.name.split(' ')[0] : '?', 128, 26);
         pctx.font = 'bold 18px Georgia';
-        pctx.fillText(w ? `${fmt(w.price)} B` : '', 128, 50);
+        pctx.fillText(w ? `${fmt(w.price)} $` : '', 128, 50);
         const priceTex = new THREE.CanvasTexture(priceCanvas);
         const priceLabel = new THREE.Mesh(
           new THREE.PlaneGeometry(1.2, 0.3),
@@ -2318,7 +2320,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
       sctx.fillStyle = '#ff0000';
       sctx.font = 'bold 90px Georgia, serif';
       sctx.textAlign = 'center';
-      sctx.fillText('🏎 BENZ BOUTIQUE', 512, 120);
+      sctx.fillText('🏎 GAMBLELIFE STORE', 512, 120);
       sctx.shadowBlur = 0;
       sctx.fillStyle = '#ffd700';
       sctx.font = 'italic 28px Georgia';
@@ -2355,7 +2357,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     const shopObj = createShop();
 
     // ========== ESPACE BENZBET MODERNE (4 totems rouge & blanc) ==========
-    const createBenzBet = () => {
+    const createGambleBet = () => {
       const group = new THREE.Group();
       group.position.set(13, 0, -14);
 
@@ -2452,7 +2454,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
         const lctx = ledCanvas.getContext('2d');
         lctx.fillStyle = '#0d1117';
         lctx.fillRect(0, 0, 512, 256);
-        // Bandeau BenzBet
+        // Bandeau GambleBet
         lctx.fillStyle = '#e00e1a';
         lctx.fillRect(0, 0, 512, 56);
         lctx.fillStyle = '#fff';
@@ -2550,7 +2552,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
       nctx.fillStyle = '#fff';
       nctx.font = 'bold 130px Georgia';
       nctx.textAlign = 'center';
-      nctx.fillText('BENZ', 360, 170);
+      nctx.fillText('GAMBLELIFE', 360, 170);
       // BET dans un box blanc/rouge inversé
       nctx.fillStyle = '#fff';
       nctx.fillRect(540, 70, 400, 140);
@@ -2606,7 +2608,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
       scene.add(group);
       return { zone };
     };
-    const benzBetObj = createBenzBet();
+    const benzBetObj = createGambleBet();
 
     // Liste globale des zones d'interaction
     const interactZones = [
@@ -3234,7 +3236,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     toilet: { icon: '🚻', name: 'TOILETTES' },
     atm: { icon: '🏧', name: 'DISTRIBUTEUR' },
     wheel: { icon: '🎡', name: 'ROUE FORTUNE' },
-    shop: { icon: '🏎', name: 'BENZ BOUTIQUE' },
+    shop: { icon: '🏎', name: 'GAMBLELIFE STORE' },
     benzbet: { icon: '🎟️', name: 'BENZBET' },
     exit: { icon: '🚪', name: 'SORTIE — VERS LA RUE' },
   };
@@ -4164,7 +4166,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
           color: '#fff', pointerEvents: 'auto', fontSize: 12,
         }}>
           <div style={{ color: '#cca366', fontSize: 10 }}>{profile.name} • {casino.country}</div>
-          <div style={{ fontSize: 18, color: '#ffd700', fontWeight: 'bold' }}>{fmt(balance)} B</div>
+          <div style={{ fontSize: 18, color: '#ffd700', fontWeight: 'bold' }}>{fmt(balance)} $</div>
           {/* VIP badge: n skins luxe équipés → bonus de style */}
           {(() => {
             const H = HAIR_CATALOG[profile.hair ?? 0];
@@ -4702,8 +4704,8 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
                 display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                 gap: 8, marginBottom: 16,
               }}>
-                <StatCard label="Solde" value={fmt(balance || 0) + ' B'} color="#ffd700" />
-                <StatCard label="Gains cum." value={fmt(profile?.totalWinnings || 0) + ' B'} color="#00ff88" />
+                <StatCard label="Solde" value={fmt(balance || 0) + ' $'} color="#ffd700" />
+                <StatCard label="Gains cum." value={fmt(profile?.totalWinnings || 0) + ' $'} color="#00ff88" />
                 <StatCard label="Trophées" value={`${earned.length}/${TROPHIES.length}`} color="#ff6b9d" />
                 <StatCard label="Armes" value={(weapons || []).length} color={casino.primary} />
               </div>
@@ -4728,7 +4730,7 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
               )}
 
               <div style={{ color: '#cca366', fontSize: 12, marginBottom: 10, textAlign: 'center', fontStyle: 'italic' }}>
-                💡 Déplace-toi dans le casino pour accéder aux jeux, bar, WC, ATM, roue, boutique et BenzBet
+                💡 Déplace-toi dans le casino pour accéder aux jeux, bar, WC, ATM, roue, boutique et GambleBet
               </div>
 
               <button onClick={() => { setShowMenu(false); onOpenTrophies(); }} style={menuBtnStyle('#ff6b9d')}>

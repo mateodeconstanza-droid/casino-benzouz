@@ -33,6 +33,38 @@ export const StakeShell = ({
         backgroundSize: '3px 3px', opacity: 0.5,
       }} />
 
+      {/* Halos lumineux ambiance casino — 2 spots de chandelier */}
+      <div style={{
+        position: 'absolute', top: -140, left: '18%',
+        width: 360, height: 360, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,210,120,0.22), transparent 65%)',
+        pointerEvents: 'none', filter: 'blur(8px)',
+      }} />
+      <div style={{
+        position: 'absolute', top: -120, right: '15%',
+        width: 320, height: 320, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(63,230,255,0.15), transparent 60%)',
+        pointerEvents: 'none', filter: 'blur(6px)',
+      }} />
+      {/* Particules scintillantes ambiantes (CSS only) */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.5,
+        background: `
+          radial-gradient(2px 2px at 10% 20%, rgba(255,215,0,0.55), transparent 70%),
+          radial-gradient(2px 2px at 80% 35%, rgba(255,215,0,0.4),  transparent 70%),
+          radial-gradient(1.5px 1.5px at 45% 60%, rgba(255,255,255,0.35), transparent 70%),
+          radial-gradient(2px 2px at 90% 80%, rgba(63,230,255,0.35), transparent 70%),
+          radial-gradient(1.5px 1.5px at 25% 85%, rgba(212,175,55,0.45), transparent 70%)
+        `,
+        animation: 'stakeTwinkle 6s ease-in-out infinite',
+      }} />
+      <style>{`
+        @keyframes stakeTwinkle {
+          0%,100% { opacity: 0.35; }
+          50%     { opacity: 0.75; }
+        }
+      `}</style>
+
       {/* Barre du haut */}
       <div style={{
         position: 'relative', zIndex: 3,
@@ -60,17 +92,17 @@ export const StakeShell = ({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 0.5 }}>
-            Mise totale <span style={{ color: STAKE.gold, fontWeight: 800, fontSize: 14 }}>{fmt(totalBet)} B</span>
+            Mise totale <span style={{ color: STAKE.gold, fontWeight: 800, fontSize: 14 }}>{fmt(totalBet)} $</span>
           </div>
           <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 0.5 }}>
-            Solde <span style={{ color: STAKE.goldLight, fontWeight: 800, fontSize: 14 }}>{fmt(balance)} B</span>
+            Solde <span style={{ color: STAKE.goldLight, fontWeight: 800, fontSize: 14 }}>{fmt(balance)} $</span>
           </div>
         </div>
         <div style={{ fontSize: 12, color: STAKE.inkSoft, textAlign: 'right' }}>
           <div style={{ fontWeight: 700, color: STAKE.ink, letterSpacing: 1 }}>{title}</div>
           {minBet != null && (
             <div style={{ color: STAKE.gold, fontSize: 11 }}>
-              {fmt(minBet)}{maxBet ? ` – ${fmt(maxBet)}` : ''} B
+              {fmt(minBet)}{maxBet ? ` – ${fmt(maxBet)}` : ''} $
             </div>
           )}
         </div>

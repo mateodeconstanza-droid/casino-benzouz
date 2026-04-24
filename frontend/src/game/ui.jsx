@@ -567,52 +567,107 @@ export const FlyingProjectile = ({ type, onComplete }) => {
 };
 
 // ============== CARTE ==============
-export const Card = ({ card, hidden, delay = 0, small = false }) => {
-  const w = small ? 50 : 70;
-  const h = small ? 72 : 100;
+export const Card = ({ card, hidden, delay = 0, small = false, flipDuration = 0 }) => {
+  const w = small ? 68 : 100;
+  const h = small ? 98 : 140;
+  // Flip 3D (dos → face) : si flipDuration > 0 on joue une animation CSS rotateY 180→0
+  if (flipDuration > 0 && !hidden && card) {
+    return (
+      <div style={{
+        width: w, height: h,
+        perspective: 900,
+        animation: `cardDeal 0.4s ease-out ${delay}s both`,
+      }}>
+        <div style={{
+          position: 'relative', width: '100%', height: '100%',
+          transformStyle: 'preserve-3d',
+          animation: `cardFlip3D ${flipDuration}s cubic-bezier(.45,.05,.35,1) forwards`,
+        }}>
+          {/* Face arrière */}
+          <div style={{
+            position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+            background: 'linear-gradient(135deg, #8b0000, #4a0000)',
+            borderRadius: 8, border: '2px solid #ffd700',
+            boxShadow: '0 6px 16px rgba(0,0,0,0.85)',
+          }}>
+            <div style={{
+              position: 'absolute', inset: 5,
+              border: '1px solid #ffd700', borderRadius: 4,
+              background: 'repeating-linear-gradient(45deg, #8b0000, #8b0000 5px, #6a0000 5px, #6a0000 10px)',
+            }} />
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+              fontSize: small ? 20 : 30, color: '#ffd700', fontWeight: 'bold',
+            }}>♛</div>
+          </div>
+          {/* Face avant (carte réelle) */}
+          <FaceFront card={card} w={w} h={h} small={small} />
+        </div>
+        <style>{`
+          @keyframes cardFlip3D {
+            0%   { transform: rotateY(180deg); }
+            15%  { transform: rotateY(175deg); }
+            50%  { transform: rotateY(100deg) scale(1.08); }
+            85%  { transform: rotateY(10deg); }
+            100% { transform: rotateY(0deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
   if (hidden) {
     return (
       <div style={{
         width: w, height: h,
         background: 'linear-gradient(135deg, #8b0000, #4a0000)',
-        borderRadius: 6, border: '2px solid #ffd700',
+        borderRadius: 8, border: '2px solid #ffd700',
         animation: `cardDeal 0.4s ease-out ${delay}s both`,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.8)',
+        boxShadow: '0 6px 16px rgba(0,0,0,0.85)',
         position: 'relative',
       }}>
         <div style={{
-          position: 'absolute', inset: 4,
-          border: '1px solid #ffd700', borderRadius: 3,
-          background: 'repeating-linear-gradient(45deg, #8b0000, #8b0000 4px, #6a0000 4px, #6a0000 8px)',
+          position: 'absolute', inset: 5,
+          border: '1px solid #ffd700', borderRadius: 4,
+          background: 'repeating-linear-gradient(45deg, #8b0000, #8b0000 5px, #6a0000 5px, #6a0000 10px)',
         }} />
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+          fontSize: small ? 20 : 30, color: '#ffd700', fontWeight: 'bold',
+        }}>♛</div>
       </div>
     );
   }
+  return <FaceFront card={card} w={w} h={h} small={small} delay={delay} />;
+};
+
+// Face avant d'une carte (factorisée)
+const FaceFront = ({ card, w, h, small, delay = 0 }) => {
   const isRed = card.suit === '♥' || card.suit === '♦';
   return (
     <div style={{
+      position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
       width: w, height: h,
       background: 'linear-gradient(145deg, #fff, #e8e8e8)',
-      borderRadius: 6, border: '1px solid #aaa',
-      padding: small ? 3 : 5,
-      position: 'relative',
-      animation: `cardDeal 0.4s ease-out ${delay}s both`,
-      boxShadow: '0 4px 12px rgba(0,0,0,0.8)',
+      borderRadius: 8, border: '1px solid #aaa',
+      padding: small ? 5 : 7,
+      animation: delay ? `cardDeal 0.4s ease-out ${delay}s both` : undefined,
+      boxShadow: '0 6px 16px rgba(0,0,0,0.85)',
       fontFamily: 'Georgia, serif',
     }}>
-      <div style={{ color: isRed ? '#c00' : '#000', fontWeight: 'bold', fontSize: small ? 11 : 15, lineHeight: 1 }}>
+      <div style={{ color: isRed ? '#c00' : '#000', fontWeight: 'bold', fontSize: small ? 15 : 22, lineHeight: 1 }}>
         <div>{card.rank}</div>
-        <div style={{ fontSize: small ? 13 : 17 }}>{card.suit}</div>
+        <div style={{ fontSize: small ? 17 : 24 }}>{card.suit}</div>
       </div>
       <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        fontSize: small ? 26 : 36, color: isRed ? '#c00' : '#000' }}>
+        fontSize: small ? 38 : 56, color: isRed ? '#c00' : '#000' }}>
         {card.suit}
       </div>
-      <div style={{ position: 'absolute', bottom: small ? 3 : 5, right: small ? 3 : 5,
-        color: isRed ? '#c00' : '#000', fontWeight: 'bold', fontSize: small ? 11 : 15,
+      <div style={{ position: 'absolute', bottom: small ? 5 : 7, right: small ? 5 : 7,
+        color: isRed ? '#c00' : '#000', fontWeight: 'bold', fontSize: small ? 15 : 22,
         transform: 'rotate(180deg)', lineHeight: 1 }}>
         <div>{card.rank}</div>
-        <div style={{ fontSize: small ? 13 : 17 }}>{card.suit}</div>
+        <div style={{ fontSize: small ? 17 : 24 }}>{card.suit}</div>
       </div>
     </div>
   );
@@ -971,7 +1026,7 @@ export const GameHeader = ({ casino, isVIP, balance, onExit, title }) => (
     </div>
     <div style={{ textAlign: 'right' }}>
       <div style={{ color: '#cca366', fontSize: 11 }}>SOLDE</div>
-      <div style={{ color: '#ffd700', fontSize: 20, fontWeight: 'bold' }}>{fmt(balance)} B</div>
+      <div style={{ color: '#ffd700', fontSize: 20, fontWeight: 'bold' }}>{fmt(balance)} $</div>
     </div>
   </div>
 );
@@ -1067,7 +1122,7 @@ export const VehicleGraphic = ({ id }) => {
         <circle cx="40" cy="58" r="7" fill="#111" stroke="#555" strokeWidth="2" />
         <circle cx="160" cy="58" r="7" fill="#111" stroke="#555" strokeWidth="2" />
         <rect x="30" y="34" width="30" height="6" fill="#b42a2a" opacity=".8" />
-        <text x="100" y="47" textAnchor="middle" fill="#1a1a1a" fontSize="9" fontWeight="700">BENZ</text>
+        <text x="100" y="47" textAnchor="middle" fill="#1a1a1a" fontSize="9" fontWeight="700">GAMBLELIFE</text>
       </svg>
     );
   }

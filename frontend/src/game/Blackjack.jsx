@@ -20,6 +20,8 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
   const [splitHands, setSplitHands] = useState(null); // if not null: array of hands
   const [activeHand, setActiveHand] = useState(0);
   const [splitBets, setSplitBets] = useState([0, 0]);
+  // Index de la carte du croupier actuellement en train de se retourner (3 s dos → face).
+  const [flippingIdx, setFlippingIdx] = useState(-1);
 
   const maxBet = Math.min(balance, minBet * 1000);
   // Chips pour classique, PLAQUETTES VIP pour les tables VIP
@@ -48,7 +50,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
 
   const startRound = () => {
     if (totalBet < minBet) {
-      setMessage(`Mise minimum : ${fmt(minBet)} B`);
+      setMessage(`Mise minimum : ${fmt(minBet)} $`);
       setMessageColor('#ff4444');
       return;
     }
@@ -87,11 +89,11 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
           // Blackjack 3:2 : récupère la mise + 1.5x
           const win = Math.floor(totalBet * 2.5);
           setBalance((b) => b + win);
-          setMessage(`BLACKJACK ! +${fmt(Math.floor(totalBet * 1.5))} B`);
+          setMessage(`BLACKJACK ! +${fmt(Math.floor(totalBet * 1.5))} $`);
           setMessageColor('#00ff88');
         } else {
           // Croupier BJ - perte immédiate
-          setMessage(`Blackjack croupier · -${fmt(totalBet)} B`);
+          setMessage(`Blackjack croupier · -${fmt(totalBet)} $`);
           setMessageColor('#ff4444');
         }
         setPhase('result');
@@ -115,7 +117,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
       if (splitHands && activeHand === 0) {
         setTimeout(() => switchToSecondHand(), 400);
       } else {
-        setMessage(`BUST ! -${fmt(splitHands ? splitBets[activeHand] : totalBet)} B`);
+        setMessage(`BUST ! -${fmt(splitHands ? splitBets[activeHand] : totalBet)} $`);
         setMessageColor('#ff4444');
         if (splitHands && activeHand === 1) {
           setTimeout(() => playDealerForSplit(), 500);
@@ -145,7 +147,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
     const h2Bust = handValue(splitHands[1]) > 21;
     if (h1Bust && h2Bust) {
       setPhase('result');
-      setMessage(`Les deux mains bust · -${fmt(splitBets[0] + splitBets[1])} B`);
+      setMessage(`Les deux mains bust · -${fmt(splitBets[0] + splitBets[1])} $`);
       setMessageColor('#ff4444');
       return;
     }
@@ -168,7 +170,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
         else if (pv === dv) total += splitBets[i];
       });
       setBalance((b) => b + total);
-      setMessage(`Split terminé · Gains: ${fmt(total)} B`);
+      setMessage(`Split terminé · Gains: ${fmt(total)} $`);
       setMessageColor(total > splitBets[0] + splitBets[1] ? '#00ff88' : total === splitBets[0] + splitBets[1] ? '#ffd700' : '#ff4444');
       setPhase('result');
     }, 800);
@@ -200,26 +202,33 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
         const { card, deck: newD } = drawCard(d);
         dh.push(card); d = newD;
       }
-      setDealerHand([...dh]); setDeck(d);
+      const finalDealerHand = [...dh];
+      const lastIdx = finalDealerHand.length - 1;
+      setDealerHand(finalDealerHand);
+      setDeck(d);
+      // Animation 3 s dos → face sur la DERNIÈRE carte tirée par le croupier
+      setFlippingIdx(lastIdx);
 
       const pv = handValue(pHand);
-      const dv = handValue(dh);
+      const dv = handValue(finalDealerHand);
 
+      // On attend la fin du flip 3 s + petit délai avant de révéler le résultat
       setTimeout(() => {
+        setFlippingIdx(-1);
         if (dv > 21 || pv > dv) {
           setBalance((b) => b + totalBet * 2);
-          setMessage(`GAGNÉ ! +${fmt(totalBet)} B`);
+          setMessage(`GAGNÉ ! +${fmt(totalBet)} $`);
           setMessageColor('#00ff88');
         } else if (pv === dv) {
           setBalance((b) => b + totalBet);
           setMessage('Égalité');
           setMessageColor('#ffd700');
         } else {
-          setMessage(`PERDU ! -${fmt(totalBet)} B`);
+          setMessage(`PERDU ! -${fmt(totalBet)} $`);
           setMessageColor('#ff4444');
         }
         setPhase('result');
-      }, 500);
+      }, 3200);
     }, 600);
   };
 
@@ -237,7 +246,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
     setPlayerHand(newHand); setDeck(newDeck);
     setTimeout(() => {
       if (handValue(newHand) > 21) {
-        setMessage(`BUST ! -${fmt(prev * 2)} B`);
+        setMessage(`BUST ! -${fmt(prev * 2)} $`);
         setMessageColor('#ff4444');
         setPhase('result');
       } else { stand(newHand); }
@@ -248,6 +257,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
     setPlayerHand([]); setDealerHand([]);
     setPhase('bet'); setMessage(''); setChipBets({});
     setSplitHands(null); setActiveHand(0); setSplitBets([0, 0]);
+    setFlippingIdx(-1);
   };
 
   // ============== SPLIT ==============
@@ -281,7 +291,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
   const surrender = () => {
     if (!playerHand || playerHand.length !== 2 || splitHands) return;
     setBalance((b) => b + Math.floor(totalBet / 2));
-    setMessage(`Abandon · récupération de ${fmt(Math.floor(totalBet/2))} B`);
+    setMessage(`Abandon · récupération de ${fmt(Math.floor(totalBet/2))} $`);
     setMessageColor('#ffaa00');
     setPhase('result');
   };
@@ -339,7 +349,13 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
             </div>
             <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
               {dealerHand.map((c, i) => (
-                <Card key={c.id} card={c} hidden={phase === 'player' && i === 1} delay={i * 0.2} />
+                <Card
+                  key={c.id}
+                  card={c}
+                  hidden={phase === 'player' && i === 1}
+                  delay={i * 0.2}
+                  flipDuration={i === flippingIdx ? 3 : 0}
+                />
               ))}
             </div>
           </div>
@@ -416,7 +432,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
             borderRadius: 12, padding: 16,
           }}>
             <div style={{ textAlign: 'center', color: STAKE.inkSoft, marginBottom: 12, fontSize: 12, letterSpacing: 0.6 }}>
-              SÉLECTIONNE TES JETONS — MIN {fmt(minBet)} B
+              SÉLECTIONNE TES JETONS — MIN {fmt(minBet)} $
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
               {chipValues.map(v => (

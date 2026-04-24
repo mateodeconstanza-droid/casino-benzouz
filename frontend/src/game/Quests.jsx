@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fmt } from '@/game/constants';
 
 // ============== QUÊTES QUOTIDIENNES ==============
-// Rotations journalières, fenêtre 24h. Chaque quête donne une récompense en Benzouz.
+// Rotations journalières, fenêtre 24h. Chaque quête donne une récompense en $.
 // Les progrès sont stockés dans profile.dailyQuests = { date: 'YYYY-MM-DD', items: [{id, progress, claimed}] }
 
 const TEMPLATES = [
@@ -15,7 +15,7 @@ const TEMPLATES = [
   { id: 'wheel_spin',  label: 'Tourner la roue de la fortune',    target: 1,  reward: 15000,  cat: 'misc'  },
   { id: 'kill_dealer', label: 'Abattre 1 croupier',               target: 1,  reward: 50000,  cat: 'combat'},
   { id: 'bar_order',   label: 'Commander au bar',                 target: 1,  reward: 5000,   cat: 'misc'  },
-  { id: 'sport_bet',   label: 'Poser un pari BenzBet',            target: 1,  reward: 30000,  cat: 'misc'  },
+  { id: 'sport_bet',   label: 'Poser un pari GambleBet',            target: 1,  reward: 30000,  cat: 'misc'  },
 ];
 
 function todayKey() {
@@ -104,7 +104,7 @@ export function QuestScreen({ profile, balance, setBalance, saveProfile, setProf
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', fontSize: 14 }}>{tpl.label}</div>
                     <div style={{ fontSize: 11, color: '#cca366', marginTop: 2 }}>
-                      Récompense : <span style={{ color: casino.secondary }}>{fmt(tpl.reward)} B</span>
+                      Récompense : <span style={{ color: casino.secondary }}>{fmt(tpl.reward)} $</span>
                     </div>
                   </div>
                   <button

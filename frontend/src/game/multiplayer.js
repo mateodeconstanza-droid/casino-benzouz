@@ -1,4 +1,4 @@
-// Client WebSocket multijoueur pour Benz Casino.
+// Client WebSocket multijoueur pour GambleLife.
 // Connecte à /api/mp/ws/<server>/<username> et expose callbacks.
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';

@@ -60,7 +60,7 @@ const CasinoHall = ({ profile, balance, currentCasinoId, onEnter, onExit }) => {
           padding: '8px 14px', borderRadius: 18,
           background: 'rgba(0,0,0,0.4)', border: `1px solid rgba(212,175,55,0.3)`,
           color: STAKE.goldLight, fontSize: 13, fontWeight: 800,
-        }}>💰 {fmt(balance)} B</div>
+        }}>💰 {fmt(balance)} $</div>
       </div>
 
       {/* CONTENU : panel latéral + preview */}
@@ -159,7 +159,7 @@ const CasinoHall = ({ profile, balance, currentCasinoId, onEnter, onExit }) => {
             <div style={{ display: 'flex', gap: 18, marginBottom: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
               <StatBadge label="Tables" value="12" color={c.primary} />
               <StatBadge label="Machines" value="48" color={c.secondary} />
-              <StatBadge label="Mise min" value="10 B" color={c.accent} />
+              <StatBadge label="Mise min" value="10 $" color={c.accent} />
             </div>
             <button
               data-testid="hall-enter-btn"
@@ -188,7 +188,7 @@ const CasinoHall = ({ profile, balance, currentCasinoId, onEnter, onExit }) => {
             fontSize: 11, color: STAKE.inkSoft,
           }}>
             <span>Connecté en tant que <b style={{ color: STAKE.goldLight }}>{profile?.name}</b></span>
-            <span>🏆 {fmt(profile?.totalWinnings || 0)} B de gains cum.</span>
+            <span>🏆 {fmt(profile?.totalWinnings || 0)} $ de gains cum.</span>
           </div>
         </div>
       </div>

@@ -23,7 +23,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
 
   const newHand = () => {
     if (ante > balance || ante < minBet) {
-      setMessage(`Mise minimum : ${fmt(minBet)} B`);
+      setMessage(`Mise minimum : ${fmt(minBet)} $`);
       return;
     }
     setBalance(b => b - ante);
@@ -64,7 +64,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
   };
 
   const fold = () => {
-    setMessage(`Tu te couches. Perte : ${fmt(ante * multiplier)} B`);
+    setMessage(`Tu te couches. Perte : ${fmt(ante * multiplier)} $`);
     setResult('fold');
     setPhase('showdown');
     setShowDealerCards(true);
@@ -85,7 +85,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
     // Double la mise au Turn → paie ante*multiplier, multiplier *= 2, révèle River et showdown
     const extraCost = ante * multiplier;
     if (extraCost > balance) {
-      setMessage(`❌ Solde insuffisant pour doubler (besoin ${fmt(extraCost)} B)`);
+      setMessage(`❌ Solde insuffisant pour doubler (besoin ${fmt(extraCost)} $)`);
       return;
     }
     setBalance(b => b - extraCost);
@@ -127,7 +127,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
       const win = totalMise * 2; // on récupère mise + on gagne équivalent
       setBalance(b => b + win);
       setResult('win');
-      setMessage(`🎉 Tu gagnes ${fmt(win)} B avec ${playerBest.rankName} !`);
+      setMessage(`🎉 Tu gagnes ${fmt(win)} $ avec ${playerBest.rankName} !`);
     } else if (cmp < 0) {
       setResult('lose');
       setMessage(`❌ Perdu : ${dealerBest.rankName} du croupier bat ta ${playerBest.rankName}`);
@@ -226,7 +226,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
         {/* Info mise */}
         {multiplier > 1 && phase !== 'bet' && (
           <div style={{ color: '#ffd700', fontSize: 13, marginBottom: 8 }}>
-            Mise : {fmt(ante)} × {multiplier} = {fmt(ante * multiplier)} B
+            Mise : {fmt(ante)} × {multiplier} = {fmt(ante * multiplier)} $
           </div>
         )}
 
@@ -248,7 +248,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
           <div>
             <div style={{ textAlign: 'center', marginBottom: 10 }}>
               <div style={{ color: '#cca366', fontSize: 12, marginBottom: 4 }}>
-                Mise de base (min {fmt(minBet)} B)
+                Mise de base (min {fmt(minBet)} $)
               </div>
               <input type="number" value={ante} onChange={e => setAnte(+e.target.value || 0)}
                 min={minBet} max={balance}
@@ -281,13 +281,13 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => viewFlop(2)}
                 disabled={ante > balance}
-                style={pokerBtnStyle(casino)}>×2 ({fmt(ante)} B)</button>
+                style={pokerBtnStyle(casino)}>×2 ({fmt(ante)} $)</button>
               <button onClick={() => viewFlop(3)}
                 disabled={ante * 2 > balance}
-                style={pokerBtnStyle(casino)}>×3 ({fmt(ante * 2)} B)</button>
+                style={pokerBtnStyle(casino)}>×3 ({fmt(ante * 2)} $)</button>
               <button onClick={() => viewFlop(4)}
                 disabled={ante * 3 > balance}
-                style={pokerBtnStyle(casino)}>×4 ({fmt(ante * 3)} B)</button>
+                style={pokerBtnStyle(casino)}>×4 ({fmt(ante * 3)} $)</button>
             </div>
             <button onClick={fold} style={{
               width: '100%', marginTop: 8, padding: 10,
@@ -336,7 +336,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
                   color: '#000', border: 'none', borderRadius: 6,
                   fontWeight: 'bold', cursor: ante * multiplier > balance ? 'not-allowed' : 'pointer',
                   fontFamily: 'inherit', opacity: ante * multiplier > balance ? 0.55 : 1,
-                }}>DOUBLER ×2 ({fmt(ante * multiplier)} B)</button>
+                }}>DOUBLER ×2 ({fmt(ante * multiplier)} $)</button>
               <button
                 data-testid="poker-see-river-btn"
                 onClick={skipToRiver} style={{

@@ -96,14 +96,14 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
     if (win > 0) setBalance(b => b + win);
     const net = win - totalBetSnapshot;
     if (net > 0) {
-      setMessage(`GAGNÉ ! +${fmt(net)} B (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
+      setMessage(`GAGNÉ ! +${fmt(net)} $ (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
       setMessageColor('#00ff88');
       try { sfx.play('win'); } catch (_e) { /* noop */ }
     } else if (net === 0) {
       setMessage(`Équilibre (${winNum})`);
       setMessageColor('#ffd700');
     } else {
-      setMessage(`PERDU ${fmt(-net)} B (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
+      setMessage(`PERDU ${fmt(-net)} $ (${winNum} ${color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢'})`);
       setMessageColor('#ff4444');
       try { sfx.play('lose'); } catch (_e) { /* noop */ }
     }
@@ -304,7 +304,7 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
         <div style={{ textAlign: 'center', marginBottom: 14, color: STAKE.inkSoft, fontSize: 12 }}>
           {totalBet < minBet && totalBet > 0 && (
             <span style={{ color: '#ff4444' }}>
-              (min {fmt(minBet)} B)
+              (min {fmt(minBet)} $)
             </span>
           )}
         </div>

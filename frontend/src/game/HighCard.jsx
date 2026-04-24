@@ -59,10 +59,10 @@ const HighCardGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
             const betterWins = (playerWins && betOnSnapshot === 'player') || (!playerWins && betOnSnapshot === 'dealer');
             if (betterWins) {
               setBalance(b => b + betSnapshot * 2);
-              setMessage(`GAGNÉ ! +${fmt(betSnapshot)} B`);
+              setMessage(`GAGNÉ ! +${fmt(betSnapshot)} $`);
               setMessageColor('#00ff88');
             } else {
-              setMessage(`PERDU ! -${fmt(betSnapshot)} B`);
+              setMessage(`PERDU ! -${fmt(betSnapshot)} $`);
               setMessageColor('#ff4444');
             }
           }
@@ -86,7 +86,7 @@ const HighCardGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
       fontFamily: 'Georgia, serif', color: '#fff', paddingBottom: 40,
     }}>
       <GameHeader casino={casino} isVIP={isVIP} balance={balance} onExit={onExit}
-        title={`CARTE HAUTE - Min ${fmt(minBet)} B`} />
+        title={`CARTE HAUTE - Min ${fmt(minBet)} $`} />
 
       <div style={{ padding: 16, maxWidth: 900, margin: '0 auto' }}>
         <div style={{
@@ -210,7 +210,7 @@ const HighCardGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
           }}>
             <div style={{ textAlign: 'center', color: '#cca366', marginBottom: 12, fontSize: 13 }}>
               {betOn ? `Tu paries sur ${betOn === 'player' ? 'TA carte' : 'LA carte DU CROUPIER'}` : '👆 Choisis une carte à parier'}
-              <br/>Min {fmt(minBet)} B • Mise : {fmt(totalBet)} B
+              <br/>Min {fmt(minBet)} $ • Mise : {fmt(totalBet)} $
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
               {chipValues.map(v => (

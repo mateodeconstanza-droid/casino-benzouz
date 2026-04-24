@@ -20,7 +20,7 @@ export const STAKE = {
   liveCyan:   '#3fe6ff',
 };
 
-// Denominations de jetons standard (valeurs BenzCoins)
+// Denominations de jetons standard (valeurs Dollars)
 // Couleurs inspirées des jetons de casino (white/red/green/black/purple/orange)
 export const STAKE_CHIPS = [
   { v: 1,       color: '#f5f5f5', accent: '#555',    text: '1',     ink: '#222' },

@@ -98,7 +98,7 @@ export const WEAPONS = [
   // ===== 5 NOUVELLES ARMES =====
   { id: 'throwknife',   name: 'Couteau de lancer',      price: 75000,   damage: 'moyen',       desc: 'Set de 6 lames à lancer — silencieux',   type: 'throwable',  projectile: 'blade' },
   { id: 'crossbow',     name: 'Arbalète tactique',      price: 220000,  damage: 'fort',        desc: 'Carreaux d\'acier, portée 30m',          type: 'projectile', projectile: 'bolt' },
-  { id: 'uzi',          name: 'UZI Benz Or',            price: 400000,  damage: 'fort',        desc: 'Auto 950 rpm, chargeur 32 coups',        type: 'auto',       projectile: 'bullet' },
+  { id: 'uzi',          name: 'UZI GambleLife Or',            price: 400000,  damage: 'fort',        desc: 'Auto 950 rpm, chargeur 32 coups',        type: 'auto',       projectile: 'bullet' },
   { id: 'grenade',      name: 'Grenades frag',          price: 600000,  damage: 'massif',      desc: 'M67 — explosion 3m, fragments',          type: 'throwable',  projectile: 'grenade' },
   { id: 'laserrifle',   name: 'Fusil laser prototype',  price: 3500000, damage: 'dévastateur', desc: 'Rayon instantané, traverse tout',        type: 'laser',      projectile: 'laser' },
 ];
@@ -106,9 +106,9 @@ export const WEAPONS = [
 // ============== VÉHICULES ==============
 // Marche = 1x, Skateboard = 2x, Vélo = 3x
 export const VEHICLES = [
-  { id: 'skateboard', name: 'Skateboard Benz', price: 1000000,  speedMul: 2,   emoji: '🛹', desc: 'Plateau carbone, roues uréthane – 2× plus rapide qu\'à pied' },
-  { id: 'bike',       name: 'Vélo Benz Turbo',  price: 5000000,  speedMul: 3,   emoji: '🚴', desc: 'Cadre titane, assistance secrète – 3× plus rapide qu\'à pied' },
-  { id: 'hoverboard', name: 'Overboard Benz',   price: 25000000, speedMul: 4.2, emoji: '🛸', desc: 'Lévitation magnétique, propulseurs LED – 4× plus rapide qu\'à pied' },
+  { id: 'skateboard', name: 'Skateboard GambleLife', price: 1000000,  speedMul: 2,   emoji: '🛹', desc: 'Plateau carbone, roues uréthane – 2× plus rapide qu\'à pied' },
+  { id: 'bike',       name: 'Vélo Turbo GambleLife',  price: 5000000,  speedMul: 3,   emoji: '🚴', desc: 'Cadre titane, assistance secrète – 3× plus rapide qu\'à pied' },
+  { id: 'hoverboard', name: 'Overboard GambleLife',   price: 25000000, speedMul: 4.2, emoji: '🛸', desc: 'Lévitation magnétique, propulseurs LED – 4× plus rapide qu\'à pied' },
 ];
 
 // ============== CATALOGUE PERSONNALISATION PERSONNAGE ==============
@@ -163,7 +163,7 @@ export const SHOES_CATALOG = [
   { id: 6, name: 'Oxford cuir',        price: 140000,  color: '#0b0b0b' },
   { id: 7, name: 'Crocs diamantés',    price: 300000,  color: '#9fe3ff' },
   { id: 8, name: 'Bottines rock',      price: 200000,  color: '#3a1e1e' },
-  { id: 9, name: 'Baskets Benz or',    price: 700000,  color: '#d4af37' },
+  { id: 9, name: 'Baskets GambleLife or',    price: 700000,  color: '#d4af37' },
 ];
 
 // ============== CARTES ==============
@@ -520,7 +520,7 @@ export const BENZBET_MATCHES = generateMatches('foot');
 export const BENZBET_KEY = (name) => `benzbet:${name}:activeBet`;
 
 // ============== DURÉE SIMULÉE DES MATCHS (ms) ==============
-// Ratio simulation : 1 minute de match = 2 s réelles (cohérent avec BenzBet.jsx)
+// Ratio simulation : 1 minute de match = 2 s réelles (cohérent avec GambleBet.jsx)
 const MATCH_SIM_RATIO = 2000; // ms par minute de match
 export const matchTotalDurationMs = (sportId) => {
   const mins = sportId === 'foot' || sportId === 'rugby' ? 90

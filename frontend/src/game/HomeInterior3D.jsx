@@ -35,7 +35,7 @@ export const HOME_THEMES = {
   },
 };
 
-// Calcul stats "trophy wall" à partir de l'historique BenzBet + gains cumulés
+// Calcul stats "trophy wall" à partir de l'historique GambleBet + gains cumulés
 const computeStats = (profile) => {
   if (!profile) return [];
   let biggestBet = 0, longestStreak = 0, biggestOdds = 0, totalBets = 0;
@@ -53,8 +53,8 @@ const computeStats = (profile) => {
     }
   } catch (_e) { /* noop */ }
   return [
-    { icon: '💰', label: 'Gains cumulés', value: fmt(profile.totalWinnings || 0) + ' B' },
-    { icon: '🎯', label: 'Plus gros gain BenzBet', value: fmt(biggestBet) + ' B' },
+    { icon: '💰', label: 'Gains cumulés', value: fmt(profile.totalWinnings || 0) + ' $' },
+    { icon: '🎯', label: 'Plus gros gain GambleBet', value: fmt(biggestBet) + ' $' },
     { icon: '🔥', label: 'Meilleure streak', value: longestStreak + ' V' },
     { icon: '💎', label: 'Cote max gagnée', value: biggestOdds > 0 ? biggestOdds.toFixed(2) : '—' },
     { icon: '🎰', label: 'Paris placés', value: totalBets },

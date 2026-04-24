@@ -49,7 +49,7 @@ const ServerSelect = ({ onChoose, casino }) => {
       <div style={{ width: '100%', maxWidth: 780 }}>
         <div style={{ textAlign: 'center', marginBottom: 30 }}>
           <h1 style={{ fontSize: 40, margin: 0, color: gold, letterSpacing: 2 }}>
-            ♠ BENZ CASINO ♠
+            ♠ GAMBLELIFE ♠
           </h1>
           <p style={{ fontSize: 16, opacity: 0.85, margin: '10px 0 0' }}>
             Choisis ton mode de jeu

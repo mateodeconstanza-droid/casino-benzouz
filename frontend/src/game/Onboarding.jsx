@@ -9,7 +9,7 @@ import { STAKE } from '@/game/stake/theme';
 const STEPS = [
   {
     id: 'street',
-    title: 'Bienvenue dans BENZ Casino 👋',
+    title: 'Bienvenue dans GAMBLELIFE Casino 👋',
     text: "Tu es dans la rue principale. À gauche et à droite, les propriétés à acheter. Au centre, le casino.",
     anchor: { top: '20%', left: '50%' },
     showArrowDown: false,
@@ -17,7 +17,7 @@ const STEPS = [
   {
     id: 'houses',
     title: '🏠 Achète ta première propriété',
-    text: "Clique sur une maison (5-100M B) pour l'acheter. Ta clé apparaîtra dans ton inventaire.",
+    text: "Clique sur une maison (5-100M $) pour l'acheter. Ta clé apparaîtra dans ton inventaire.",
     anchor: { top: '55%', left: '15%' },
     showArrowDown: false,
   },

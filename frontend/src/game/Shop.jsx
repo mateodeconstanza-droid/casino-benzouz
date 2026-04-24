@@ -2,12 +2,89 @@ import React, { useState, useEffect, useRef } from 'react';
 import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
 
-// ============== BENZ BOUTIQUE - armes au mur + véhicules en showroom ==============
-const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onClose, casino }) => {
+// ============== GAMBLELIFE STORE - armes au mur + véhicules en showroom ==============
+const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosmetic, onEquipCosmetic, onClose, casino }) => {
   const owned = profile.weapons || [];
   const ownedVeh = profile.vehicles || [];
   const equippedVeh = profile.equippedVehicle || null;
+  const ownedHair = profile.ownedHair || [0, 1, 2];
+  const ownedOutfit = profile.ownedOutfit || [0, 1, 2];
+  const ownedShoes = profile.ownedShoes || [0, 1, 2];
   const [tab, setTab] = useState('weapons');
+
+  // --- Rendu générique d'un catalogue cosmétique ---
+  const renderCosmetics = (catalog, ownedList, cosmeticKey, labelSlot, equippedId) => (
+    <div style={{
+      background: 'linear-gradient(180deg, #1a1520, #0d0a14)',
+      border: `2px solid ${casino.secondary}40`,
+      borderRadius: 14, padding: 20,
+    }}>
+      <div style={{ fontSize: 11, color: casino.secondary, letterSpacing: 3, textAlign: 'center', marginBottom: 18 }}>
+        • • •  VESTIAIRE {labelSlot.toUpperCase()}  • • •
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+        {catalog.map(item => {
+          const hasIt = ownedList.includes(item.id);
+          const canAfford = balance >= item.price;
+          const isEquipped = equippedId === item.id;
+          return (
+            <div key={item.id} style={{
+              background: 'linear-gradient(180deg, #1e1a28, #10081a)',
+              border: `1px solid ${isEquipped ? casino.secondary : (hasIt ? '#00aa44' : '#3a2838')}`,
+              borderRadius: 10, padding: 12, textAlign: 'center',
+              boxShadow: isEquipped ? `0 0 18px ${casino.secondary}55` : '0 4px 10px rgba(0,0,0,.55)',
+            }} data-testid={`shop-${cosmeticKey}-${item.id}`}>
+              <div style={{
+                width: 60, height: 60, borderRadius: '50%',
+                background: `radial-gradient(circle at 35% 25%, ${item.color}, #0a0a10)`,
+                border: item.accent ? `3px solid ${item.accent}` : '2px solid #2a1a2a',
+                margin: '0 auto 10px',
+                boxShadow: `inset 0 -10px 18px rgba(0,0,0,.5), 0 4px 10px rgba(0,0,0,.5)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontWeight: 900, fontSize: 14,
+              }}>{item.pattern || ''}</div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{item.name}</div>
+              {item.tag && (
+                <div style={{ display: 'inline-block', marginTop: 3, padding: '2px 6px',
+                  background: 'rgba(212,175,55,0.2)', border: '1px solid #8a6a20',
+                  color: '#ffd700', fontSize: 9, borderRadius: 3, letterSpacing: 1 }}>
+                  {item.tag}
+                </div>
+              )}
+              <div style={{ marginTop: 8 }}>
+                {hasIt ? (
+                  <button onClick={() => onEquipCosmetic && onEquipCosmetic(cosmeticKey, item.id)}
+                    data-testid={`shop-equip-${cosmeticKey}-${item.id}`}
+                    style={{
+                      width: '100%', padding: '7px 10px',
+                      background: isEquipped ? 'linear-gradient(135deg, #00ff88, #00aa44)' : 'rgba(255,255,255,0.08)',
+                      color: isEquipped ? '#000' : '#fff',
+                      border: `1px solid ${casino.secondary}`, borderRadius: 6,
+                      cursor: 'pointer', fontFamily: 'inherit', fontWeight: 'bold', fontSize: 11,
+                    }}>
+                    {isEquipped ? '✓ ÉQUIPÉ' : 'Équiper'}
+                  </button>
+                ) : (
+                  <button onClick={() => canAfford && onBuyCosmetic && onBuyCosmetic(cosmeticKey, item)}
+                    disabled={!canAfford}
+                    data-testid={`shop-buy-${cosmeticKey}-${item.id}`}
+                    style={{
+                      width: '100%', padding: '7px 10px',
+                      background: canAfford ? `linear-gradient(135deg, ${casino.primary}, ${casino.accent})` : '#444',
+                      color: '#fff', border: 'none', borderRadius: 6,
+                      cursor: canAfford ? 'pointer' : 'not-allowed',
+                      fontFamily: 'inherit', fontWeight: 'bold', fontSize: 11,
+                    }}>
+                    {canAfford ? `${fmt(item.price)} $` : 'TROP CHER'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
     <div style={{
@@ -25,17 +102,23 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onClose, 
         <h2 style={{
           color: casino.secondary, textAlign: 'center', margin: 0, marginBottom: 4,
           textShadow: `0 0 18px ${casino.primary}`, letterSpacing: 3, fontSize: 28,
-        }}>🏎  BENZ BOUTIQUE  🔫</h2>
+        }}>🏎  GAMBLELIFE STORE  🔫</h2>
         <div style={{ textAlign: 'center', color: '#cca366', marginBottom: 14, fontSize: 12, fontStyle: 'italic' }}>
           Showroom d'exception — Armes de prestige & véhicules de luxe
         </div>
         <div style={{ textAlign: 'center', color: casino.secondary, marginBottom: 16, fontSize: 18 }}>
-          Solde : <strong>{fmt(balance)} B</strong>
+          Solde : <strong>{fmt(balance)} $</strong>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-          {[['weapons','🔫 Armes'],['vehicles','🏎 Véhicules']].map(([k,l]) => (
+          {[
+            ['weapons',   '🔫 Armes'],
+            ['vehicles',  '🏎 Véhicules'],
+            ['hair',      '💇 Cheveux'],
+            ['outfit',    '👕 Vêtements'],
+            ['shoes',     '👟 Chaussures'],
+          ].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)}
               data-testid={`shop-tab-${k}`}
               style={{
@@ -95,7 +178,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onClose, 
                           cursor: canAfford ? 'pointer' : 'not-allowed',
                           fontFamily: 'inherit', fontWeight: 'bold', fontSize: 12,
                         }}>
-                        {canAfford ? `${fmt(w.price)} B` : 'TROP CHER'}
+                        {canAfford ? `${fmt(w.price)} $` : 'TROP CHER'}
                       </button>
                     )}
                   </div>
@@ -169,7 +252,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onClose, 
                           cursor: canAfford ? 'pointer' : 'not-allowed',
                           fontFamily: 'inherit', fontWeight: 'bold',
                         }}>
-                        {canAfford ? `${fmt(v.price)} B` : 'TROP CHER'}
+                        {canAfford ? `${fmt(v.price)} $` : 'TROP CHER'}
                       </button>
                     )}
                   </div>
@@ -177,10 +260,14 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onClose, 
               })}
             </div>
             <div style={{ textAlign: 'center', fontSize: 11, color: '#888', marginTop: 14, fontStyle: 'italic' }}>
-              Marche = 1× • Skateboard = 2× • Vélo Benz Turbo = 3×
+              Marche = 1× • Skateboard = 2× • Vélo Turbo GambleLife = 3×
             </div>
           </div>
         )}
+
+        {tab === 'hair'   && renderCosmetics(HAIR_CATALOG,   ownedHair,   'hair',   'coiffures', profile.hair)}
+        {tab === 'outfit' && renderCosmetics(OUTFIT_CATALOG, ownedOutfit, 'outfit', 'vêtements', profile.outfit)}
+        {tab === 'shoes'  && renderCosmetics(SHOES_CATALOG,  ownedShoes,  'shoes',  'chaussures', profile.shoes)}
 
         <button onClick={onClose} style={{
           width: '100%', marginTop: 16, padding: 12,

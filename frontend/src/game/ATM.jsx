@@ -96,7 +96,7 @@ const ATM = ({ profile, balance, setBalance, saveProfile, setProfile, onClose, c
                 </div>
                 <div style={{ color: '#cca366', fontSize: 11, margin: '6px 0' }}>↓ conversion 1:1 ↓</div>
                 <div style={{ color: '#ffd700', fontSize: 30, fontWeight: 'bold' }}>
-                  {fmt(nextAmount)} B
+                  {fmt(nextAmount)} $
                 </div>
                 <button onClick={handleWithdraw} style={{
                   width: '100%', marginTop: 12, padding: 12,
@@ -106,7 +106,7 @@ const ATM = ({ profile, balance, setBalance, saveProfile, setProfile, onClose, c
                   color: '#000', border: 'none', borderRadius: 8,
                   fontSize: 16, fontWeight: 'bold', cursor: 'pointer',
                   fontFamily: 'inherit',
-                }}>RETIRER {fmt(nextAmount)} B</button>
+                }}>RETIRER {fmt(nextAmount)} $</button>
                 <div style={{ fontSize: 10, color: '#888', marginTop: 8, fontStyle: 'italic' }}>
                   {nbLeft} retrait(s) restant(s) dans ce cycle
                   {lastCycleStart > 0 && cycleAge < FIVE_MIN && (
@@ -156,7 +156,7 @@ const ATM = ({ profile, balance, setBalance, saveProfile, setProfile, onClose, c
               Retrait effectué !
             </div>
             <div style={{ color: '#cca366', fontSize: 12, marginTop: 8 }}>
-              Solde : {fmt(balance)} B
+              Solde : {fmt(balance)} $
             </div>
           </div>
         )}

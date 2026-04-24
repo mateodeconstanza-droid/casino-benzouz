@@ -21,7 +21,7 @@ const TrophyScreen = ({ profile, casino, onClose }) => (
           TES TROPHÉES
         </h2>
         <div style={{ color: '#cca366', fontSize: 12, marginTop: 6, fontStyle: 'italic' }}>
-          Gains cumulés : <strong style={{color: '#ffd700'}}>{fmt(profile.totalWinnings)} B</strong>
+          Gains cumulés : <strong style={{color: '#ffd700'}}>{fmt(profile.totalWinnings)} $</strong>
         </div>
       </div>
 
@@ -46,10 +46,10 @@ const TrophyScreen = ({ profile, casino, onClose }) => (
                   {t.name} {earned && '✓'}
                 </div>
                 <div style={{ color: '#888', fontSize: 11 }}>
-                  {fmt(t.threshold)} B cumulés
+                  {fmt(t.threshold)} $ cumulés
                 </div>
                 <div style={{ color: earned ? '#00ff88' : '#666', fontSize: 11, marginTop: 2 }}>
-                  Récompense : +{fmt(t.reward)} B
+                  Récompense : +{fmt(t.reward)} $
                 </div>
               </div>
             </div>
@@ -95,7 +95,7 @@ const TrophyUnlock = ({ trophy, onClose }) => (
     <div>
       <div style={{ fontSize: 12, opacity: 0.7 }}>TROPHÉE DÉBLOQUÉ !</div>
       <div style={{ fontSize: 20, fontWeight: 'bold' }}>{trophy.name}</div>
-      <div style={{ fontSize: 11 }}>+{fmt(trophy.reward)} B bonus !</div>
+      <div style={{ fontSize: 11 }}>+{fmt(trophy.reward)} $ bonus !</div>
     </div>
   </div>
 );

@@ -7,12 +7,12 @@ import {
 import sfx from '@/game/sfx';
 
 // ============================================================
-// BenzBet.fr — Site de paris sportifs façon vraie plateforme
+// GambleBet.fr — Site de paris sportifs façon vraie plateforme
 // Thème : blanc & rouge, URL visible, simple + combiné multi-sports,
 // cotes intelligentes basées sur ELO + probabilités réelles.
 // ============================================================
 
-const PRIMARY = '#e00e1a';       // rouge BenzBet
+const PRIMARY = '#e00e1a';       // rouge GambleBet
 const DARK = '#0d1117';
 const LIGHT = '#f5f6f8';
 const BORDER = '#e3e6eb';
@@ -206,7 +206,7 @@ const RankingsView = ({ activeSport }) => {
 };
 
 // ---------- Composant principal ----------
-const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
+const GambleBetScreen = ({ balance, setBalance, username, onExit }) => {
   const [activeSport, setActiveSport] = useState('foot');
   const [view, setView] = useState('bets'); // 'bets' | 'rankings'
   const [matchesBySport, setMatchesBySport] = useState({});
@@ -396,7 +396,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
     setSlip([]);
     try { sfx.play('chip'); } catch (_e) { /* noop */ }
     const durSec = Math.ceil((readyAt - now) / 1000);
-    setToast(`⏳ Pari placé — résultat dans ~${durSec}s (mise ${fmt(stake)} B)`);
+    setToast(`⏳ Pari placé — résultat dans ~${durSec}s (mise ${fmt(stake)} $)`);
     setTimeout(() => setToast(null), 3500);
   };
 
@@ -466,7 +466,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
             background: PRIMARY, color: '#fff', padding: '8px 14px', borderRadius: 6,
             fontWeight: 900, letterSpacing: 1, fontSize: 20,
           }}>
-            BENZ<span style={{ color: '#fff', background: DARK, padding: '0 6px', marginLeft: 4, borderRadius: 3 }}>BET</span>
+            GAMBLELIFE<span style={{ color: '#fff', background: DARK, padding: '0 6px', marginLeft: 4, borderRadius: 3 }}>BET</span>
           </div>
           <div style={{ fontSize: 12, color: INK_SOFT }}>Paris sportifs 100% légal · Cotes en direct</div>
         </div>
@@ -493,7 +493,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
             background: PRIMARY, color: '#fff', padding: '10px 16px', borderRadius: 8,
             fontWeight: 800, fontSize: 15,
           }} data-testid="benzbet-balance">
-            💰 {fmt(balance)} B
+            💰 {fmt(balance)} $
           </div>
         </div>
       </div>
@@ -704,7 +704,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
                   style={{ fontWeight: 800, color: PRIMARY, fontSize: 15 }}
                 >{totalOdds.toFixed(2)}</span>
               </div>
-              <label style={{ fontSize: 11, color: INK_SOFT, display: 'block', marginBottom: 4 }}>Mise (B)</label>
+              <label style={{ fontSize: 11, color: INK_SOFT, display: 'block', marginBottom: 4 }}>Mise ($)</label>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                 <input
                   data-testid="benzbet-stake-input"
@@ -736,7 +736,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
                 <span
                   data-testid="benzbet-potential-payout"
                   style={{ fontWeight: 800, color: '#1aa34a', fontSize: 16 }}
-                >+{fmt(potentialPayout)} B</span>
+                >+{fmt(potentialPayout)} $</span>
               </div>
               <button
                 data-testid="benzbet-place-bet"
@@ -821,7 +821,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                           <span style={{ fontSize: 11, color: INK_SOFT }}>
-                            {new Date(p.placedAt).toLocaleTimeString('fr-FR')} · {p.mode === 'combine' ? `Combiné ×${p.legs.length}` : 'Simple'} · Mise {fmt(p.stake)} B
+                            {new Date(p.placedAt).toLocaleTimeString('fr-FR')} · {p.mode === 'combine' ? `Combiné ×${p.legs.length}` : 'Simple'} · Mise {fmt(p.stake)} $
                           </span>
                           <span style={{ fontWeight: 800, fontSize: 12, color: PRIMARY }}>
                             ⏱ ~{left}s
@@ -835,7 +835,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
                           </div>
                         ))}
                         <div style={{ fontSize: 11, color: INK_SOFT, marginTop: 4 }}>
-                          Gain potentiel : <b style={{ color: '#1aa34a' }}>+{fmt(Math.floor(p.stake * p.totalOdds))} B</b>
+                          Gain potentiel : <b style={{ color: '#1aa34a' }}>+{fmt(Math.floor(p.stake * p.totalOdds))} $</b>
                         </div>
                       </div>
                     );
@@ -859,7 +859,7 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
                       fontWeight: 800, fontSize: 13,
                       color: h.status === 'won' ? '#1aa34a' : h.status === 'partial' ? '#d97706' : '#dc2626',
                     }}>
-                      {h.status === 'won' ? `✅ +${fmt(h.payout)} B` : h.status === 'partial' ? `⚠️ +${fmt(h.payout)} B` : `❌ −${fmt(h.stake)} B`}
+                      {h.status === 'won' ? `✅ +${fmt(h.payout)} $` : h.status === 'partial' ? `⚠️ +${fmt(h.payout)} $` : `❌ −${fmt(h.stake)} $`}
                     </span>
                   </div>
                   {h.legs.map(l => (
@@ -881,10 +881,10 @@ const BenzBetScreen = ({ balance, setBalance, username, onExit }) => {
         background: DARK, color: '#9aa0aa', padding: '10px 20px',
         fontSize: 10, textAlign: 'center', borderTop: `1px solid ${BORDER}`,
       }}>
-        © 2026 BenzBet.fr · Les jeux d'argent présentent des risques · Jouez avec modération · Ce site est 100 % fictif (jeu)
+        © 2026 GambleBet.fr · Les jeux d'argent présentent des risques · Jouez avec modération · Ce site est 100 % fictif (jeu)
       </div>
     </div>
   );
 };
 
-export default BenzBetScreen;
+export default GambleBetScreen;

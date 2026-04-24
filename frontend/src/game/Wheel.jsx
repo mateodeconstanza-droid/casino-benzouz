@@ -171,8 +171,8 @@ const FortuneWheel3D = ({ onComplete, onClose, canSpin, nextSpinTime, casino }) 
               marginBottom: 16,
             }}>
               {result.label === "RIEN" ? "Dommage !" :
-               result.label === "JACKPOT" ? "JACKPOT ! +1 000 000 B" :
-               "+" + fmt(result.value) + " Benzouz"}
+               result.label === "JACKPOT" ? "JACKPOT ! +1 000 000 $" :
+               "+" + fmt(result.value) + " $"}
             </div>
             <button onClick={() => onComplete(result.value)}
               data-testid="wheel-claim-btn"

@@ -15,7 +15,7 @@ import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
 import { BarScreen, ToiletScreen } from '@/game/Bar';
-import BenzBetScreen from '@/game/BenzBet';
+import GambleBetScreen from '@/game/BenzBet';
 import { TrophyScreen, TrophyUnlock } from '@/game/Trophies';
 import { ChangeCasinoScreen, TableSelector } from '@/game/ChangeCasino';
 import FortuneWheel3D from '@/game/Wheel';
@@ -35,7 +35,7 @@ export default function Casino() {
   const [showATM, setShowATM] = useState(false);
   const [showBar, setShowBar] = useState(false);
   const [showToilet, setShowToilet] = useState(false);
-  const [showBenzBet, setShowBenzBet] = useState(false);
+  const [showGambleBet, setShowGambleBet] = useState(false);
   const [showChangeCasino, setShowChangeCasino] = useState(false);
   const [selectedWeapon, setSelectedWeapon] = useState(null);
   const [unlockedTrophy, setUnlockedTrophy] = useState(null);
@@ -49,10 +49,10 @@ export default function Casino() {
   const [mpMode, setMpMode] = useState('solo'); // 'solo' | 'online'
   const [mpServerId, setMpServerId] = useState(null);
 
-  // Toast global pour les notifications de paris (BenzBet)
+  // Toast global pour les notifications de paris (GambleBet)
   const [betToast, setBetToast] = useState(null);
 
-  // Ticker global : résout les paris BenzBet en attente dont readyAt <= now,
+  // Ticker global : résout les paris GambleBet en attente dont readyAt <= now,
   // crédite le gain, pousse le toast 5s même si le joueur n'est pas sur la machine.
   useEffect(() => {
     if (!profile?.name) return;
@@ -91,13 +91,13 @@ export default function Casino() {
         // Notification 5s
         if (readyNow.length === 1) {
           const label = lastStatus === 'won'
-            ? `🎉 Pari gagné ! +${fmt(totalPayout)} B (cote ${(lastOdds || 0).toFixed(2)})`
+            ? `🎉 Pari gagné ! +${fmt(totalPayout)} $ (cote ${(lastOdds || 0).toFixed(2)})`
             : lastStatus === 'partial'
-              ? `⚠️ Pari partiellement gagné — +${fmt(totalPayout)} B`
-              : `❌ Pari perdu (mise ${fmt(lastStake)} B)`;
+              ? `⚠️ Pari partiellement gagné — +${fmt(totalPayout)} $`
+              : `❌ Pari perdu (mise ${fmt(lastStake)} $)`;
           setBetToast({ msg: label, kind: lastStatus });
         } else {
-          setBetToast({ msg: `🎯 ${readyNow.length} paris terminés · total ${totalPayout > 0 ? '+' : ''}${fmt(totalPayout)} B`, kind: totalPayout > 0 ? 'won' : 'lost' });
+          setBetToast({ msg: `🎯 ${readyNow.length} paris terminés · total ${totalPayout > 0 ? '+' : ''}${fmt(totalPayout)} $`, kind: totalPayout > 0 ? 'won' : 'lost' });
         }
         setTimeout(() => setBetToast(null), 5000);
       } catch (_e) { /* noop */ }
@@ -107,11 +107,11 @@ export default function Casino() {
     return () => clearInterval(id);
   }, [profile?.name]);
 
-  // Test hook: expose BenzBet open for E2E testing
+  // Test hook: expose GambleBet open for E2E testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.__benzbetOpen = () => setShowBenzBet(true);
-      window.__benzbetClose = () => setShowBenzBet(false);
+      window.__benzbetOpen = () => setShowGambleBet(true);
+      window.__benzbetClose = () => setShowGambleBet(false);
     }
   }, []);
 
@@ -320,6 +320,31 @@ export default function Casino() {
     await saveProfile(newProfile);
   };
 
+  // ====== COSMÉTIQUES (cheveux / vêtements / chaussures) ======
+  const handleBuyCosmetic = async (slot, item) => {
+    if (balance < item.price) return;
+    const key = slot === 'hair' ? 'ownedHair' : slot === 'outfit' ? 'ownedOutfit' : 'ownedShoes';
+    const ownedList = profile[key] || [0, 1, 2];
+    if (ownedList.includes(item.id)) return;
+    const newBalance = balance - item.price;
+    setBalance(newBalance);
+    const newProfile = {
+      ...profile,
+      balance: newBalance,
+      [key]: [...ownedList, item.id],
+      // Auto-équipe le cosmétique acheté
+      [slot]: item.id,
+    };
+    setProfile(newProfile);
+    await saveProfile(newProfile);
+  };
+
+  const handleEquipCosmetic = async (slot, itemId) => {
+    const newProfile = { ...profile, [slot]: itemId };
+    setProfile(newProfile);
+    await saveProfile(newProfile);
+  };
+
   const checkTrophies = async (p) => {
     const current = p.unlockedTrophies || [];
     for (const t of TROPHIES) {
@@ -365,7 +390,7 @@ export default function Casino() {
       return;
     }
     if (balance < minBetVal) {
-      alert(`Solde insuffisant. Minimum requis : ${fmt(minBetVal)} B`);
+      alert(`Solde insuffisant. Minimum requis : ${fmt(minBetVal)} $`);
       return;
     }
     setMinBet(minBetVal);
@@ -681,7 +706,7 @@ export default function Casino() {
           onOpenWheel={() => setShowWheel(true)}
           onOpenBar={() => setShowBar(true)}
           onOpenToilet={() => setShowToilet(true)}
-          onOpenBenzBet={() => setShowBenzBet(true)}
+          onOpenGambleBet={() => setShowGambleBet(true)}
           walletReady={withdrawReady}
           wheelReady={wheelReady}
           weapons={profile.weapons || []}
@@ -708,8 +733,8 @@ export default function Casino() {
       {/* eslint-disable-next-line */}
       {(() => {
         if (typeof window !== 'undefined') {
-          window.__openBenzBet = () => setShowBenzBet(true);
-          window.__closeBenzBet = () => setShowBenzBet(false);
+          window.__openGambleBet = () => setShowGambleBet(true);
+          window.__closeGambleBet = () => setShowGambleBet(false);
           window.__openShop = () => setShowShop(true);
           window.__openATM = () => setShowATM(true);
           window.__openWheel = () => setShowWheel(true);
@@ -762,6 +787,8 @@ export default function Casino() {
           onBuy={handleBuyWeapon}
           onBuyVehicle={handleBuyVehicle}
           onEquipVehicle={handleEquipVehicle}
+          onBuyCosmetic={handleBuyCosmetic}
+          onEquipCosmetic={handleEquipCosmetic}
           onClose={() => setShowShop(false)} />
       )}
 
@@ -780,13 +807,13 @@ export default function Casino() {
         <ToiletScreen onExit={() => setShowToilet(false)} casino={casino} />
       )}
 
-      {showBenzBet && profile && (
-        <BenzBetScreen
+      {showGambleBet && profile && (
+        <GambleBetScreen
           balance={balance}
           setBalance={handleBalanceChange}
           weapons={profile.weapons || []}
           username={profile.name}
-          onExit={() => setShowBenzBet(false)}
+          onExit={() => setShowGambleBet(false)}
           casino={casino}
         />
       )}
@@ -809,7 +836,7 @@ export default function Casino() {
         <TrophyUnlock trophy={unlockedTrophy} onClose={() => setUnlockedTrophy(null)} />
       )}
 
-      {/* Toast global BenzBet : notifications de paris (même hors machine) */}
+      {/* Toast global GambleBet : notifications de paris (même hors machine) */}
       {betToast && (
         <div
           data-testid="bet-toast-global"

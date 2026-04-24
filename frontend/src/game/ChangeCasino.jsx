@@ -108,7 +108,7 @@ const TableSelector = ({ gameId, balance, casino, onCancel, onChoose }) => {
             {gameName}
           </div>
           <div style={{ color: '#cca366', fontSize: 12, fontStyle: 'italic', marginTop: 4 }}>
-            Choisis ta table — Solde : {fmt(balance)} B
+            Choisis ta table — Solde : {fmt(balance)} $
           </div>
         </div>
 
@@ -142,7 +142,7 @@ const TableSelector = ({ gameId, balance, casino, onCancel, onChoose }) => {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: '#888' }}>Min.</div>
                 <div style={{ fontSize: 15, color: canAfford ? casino.secondary : '#666', fontWeight: 'bold' }}>
-                  {fmt(t.min)} B
+                  {fmt(t.min)} $
                 </div>
               </div>
             </button>

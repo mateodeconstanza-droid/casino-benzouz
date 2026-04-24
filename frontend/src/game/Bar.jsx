@@ -227,7 +227,7 @@ const BarScreen = ({ balance, setBalance, onExit, casino }) => {
                 🍸 LE BAR
               </div>
               <div style={{ color: '#cca366', fontSize: 12, fontStyle: 'italic' }}>
-                Solde : {fmt(balance)} B
+                Solde : {fmt(balance)} $
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -243,7 +243,7 @@ const BarScreen = ({ balance, setBalance, onExit, casino }) => {
                     fontFamily: 'inherit', fontSize: 13,
                   }}>
                   <div style={{ fontWeight: 'bold' }}>{d.name}</div>
-                  <div style={{ fontSize: 11, opacity: 0.9 }}>{d.price} B</div>
+                  <div style={{ fontSize: 11, opacity: 0.9 }}>{d.price} $</div>
                 </button>
               ))}
             </div>

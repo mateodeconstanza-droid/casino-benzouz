@@ -64,7 +64,7 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
       zIndex: 100, color: '#fff',
     }} data-testid="character-screen">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 12, opacity: .7 }}>Solde : <b>{fmt(balance)} B</b></div>
+        <div style={{ fontSize: 12, opacity: .7 }}>Solde : <b>{fmt(balance)} $</b></div>
         <h2 style={{ margin: 0, color: casino.secondary, letterSpacing: 3, fontSize: 22 }}>Personnalisation</h2>
         <button onClick={onDone} data-testid="char-done-btn" style={{
           padding: '10px 20px',
