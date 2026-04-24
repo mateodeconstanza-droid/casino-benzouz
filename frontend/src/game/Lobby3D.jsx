@@ -4532,7 +4532,9 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
 
       {/* Indicateur proximité */}
       {nearZone && zoneLabels[nearZone] && (
-        <div className="hud-control" style={{
+        <div className="hud-control"
+          data-testid={nearZone === 'exit' ? 'lobby-exit-label' : `lobby-zone-${nearZone}`}
+          style={{
           position: 'absolute', top: '40%', left: '50%',
           transform: 'translateX(-50%)',
           background: 'rgba(0,0,0,0.85)',
@@ -4546,14 +4548,16 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
           <div style={{ fontSize: 16, color: casino.secondary, marginBottom: 4 }}>
             {zoneLabels[nearZone].icon} {zoneLabels[nearZone].name}
           </div>
-          <button onClick={() => zoneCallbacksRef.current[nearZone] && zoneCallbacksRef.current[nearZone]()}
+          <button
+            data-testid={nearZone === 'exit' ? 'lobby-exit-action-btn' : `lobby-zone-action-${nearZone}`}
+            onClick={() => zoneCallbacksRef.current[nearZone] && zoneCallbacksRef.current[nearZone]()}
             style={{
               padding: '8px 18px',
               background: `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`,
               border: 'none', borderRadius: 6, color: '#fff',
               fontFamily: 'inherit', cursor: 'pointer', fontWeight: 'bold',
               fontSize: 14,
-            }}>ENTRER</button>
+            }}>{nearZone === 'exit' ? 'SORTIR' : 'ENTRER'}</button>
         </div>
       )}
 

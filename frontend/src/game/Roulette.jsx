@@ -196,7 +196,9 @@ const RouletteGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeapo
 
         {/* Message */}
         {message && (
-          <div style={{
+          <div
+            data-testid="roulette-result"
+            style={{
             textAlign: 'center', fontSize: 22, fontWeight: 'bold',
             color: messageColor, marginBottom: 16,
             textShadow: `0 0 15px ${messageColor}`,

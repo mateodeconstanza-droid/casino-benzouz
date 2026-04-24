@@ -303,7 +303,9 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
               Voir la Turn ou te coucher ?
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={callTurn} style={{
+              <button
+                data-testid="poker-see-turn-btn"
+                onClick={callTurn} style={{
                 flex: 1, padding: 12,
                 background: `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`,
                 color: '#fff', border: 'none', borderRadius: 6,
