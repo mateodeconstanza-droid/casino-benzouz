@@ -165,7 +165,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
         </div>
 
         {/* Cartes du croupier */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap', maxWidth: '100%' }}>
           {dealerCards.map((c, i) => (
             <Card key={i} card={c} hidden={!showDealerCards} delay={i * 0.2} small />
           ))}
@@ -191,13 +191,14 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
           <div style={{ color: '#cca366', fontSize: 11, textAlign: 'center', marginBottom: 8 }}>
             TABLE COMMUNE
           </div>
-          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
             {board.map((c, i) => (
               <Card key={i} card={c} delay={i * 0.15} small />
             ))}
             {[...Array(5 - board.length)].map((_, i) => (
               <div key={i} style={{
-                width: 50, height: 72,
+                width: 'clamp(48px, 14vw, 68px)',
+                height: 'clamp(70px, 20vw, 98px)',
                 border: '2px dashed #555', borderRadius: 6,
                 opacity: 0.3,
               }} />
@@ -206,14 +207,22 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
         </div>
 
         {/* Cartes du joueur */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
           {playerCards.map((c, i) => (
             <Card key={i} card={c} delay={i * 0.2} />
           ))}
           {playerCards.length === 0 && (
             <>
-              <div style={{ width: 80, height: 112, border: '2px dashed #555', borderRadius: 8, opacity: 0.3 }} />
-              <div style={{ width: 80, height: 112, border: '2px dashed #555', borderRadius: 8, opacity: 0.3 }} />
+              <div style={{
+                width: 'clamp(78px, 22vw, 100px)',
+                height: 'clamp(110px, 32vw, 140px)',
+                border: '2px dashed #555', borderRadius: 8, opacity: 0.3,
+              }} />
+              <div style={{
+                width: 'clamp(78px, 22vw, 100px)',
+                height: 'clamp(110px, 32vw, 140px)',
+                border: '2px dashed #555', borderRadius: 8, opacity: 0.3,
+              }} />
             </>
           )}
         </div>

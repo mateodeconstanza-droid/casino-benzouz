@@ -210,8 +210,13 @@ export default function Casino() {
   };
 
   const handleExitToStreet = () => {
+    // Marque qu'on vient de sortir du casino → spawn devant l'entrée
+    setSpawnHint('casino_exit');
     setScreen('street');
   };
+
+  // Hint passé à Street3D pour positionner le joueur correctement
+  const [spawnHint, setSpawnHint] = useState(null);
 
   const [characterReturnTo, setCharacterReturnTo] = useState('serverSelect');
   const openCharacterFromMenu = () => {
@@ -709,6 +714,8 @@ export default function Casino() {
         <>
           <Street3D
             profile={profile}
+            spawnHint={spawnHint}
+            onSpawnConsumed={() => setSpawnHint(null)}
             setProfile={(nextOrFn) => {
               const next = typeof nextOrFn === 'function' ? nextOrFn(profile) : nextOrFn;
               setProfile(next);

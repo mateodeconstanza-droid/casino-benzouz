@@ -568,8 +568,10 @@ export const FlyingProjectile = ({ type, onComplete }) => {
 
 // ============== CARTE ==============
 export const Card = ({ card, hidden, delay = 0, small = false, flipDuration = 0 }) => {
-  const w = small ? 68 : 100;
-  const h = small ? 98 : 140;
+  // Tailles responsive : mobile < 480px → 56×80 (small) ou 78×110 (normal)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 480;
+  const w = small ? (isMobile ? 56 : 68) : (isMobile ? 78 : 100);
+  const h = small ? (isMobile ? 80 : 98) : (isMobile ? 110 : 140);
   // Flip 3D (dos → face) : si flipDuration > 0 on joue une animation CSS rotateY 180→0
   if (flipDuration > 0 && !hidden && card) {
     return (

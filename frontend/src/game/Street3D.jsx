@@ -4,6 +4,7 @@ import { fmt, VEHICLES, WEAPONS } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
 import { getActiveEvents } from '@/game/dailyEvents';
+import { useLookControls } from '@/game/useLookControls';
 import sfx from '@/game/sfx';
 
 // =============================================================
@@ -61,7 +62,7 @@ export const HOUSES = [
 // Composant Street3D — Scène extérieure
 // Props : profile, balance, setBalance, onEnterCasino(), onBuyHouse(houseId), onExitGame()
 // =============================================================
-const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, setProfile }) => {
+const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, setProfile, spawnHint, onSpawnConsumed }) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
   const stateRef = useRef({});
@@ -77,6 +78,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [bountyToast, setBountyToast] = useState(null);
   const [respawning, setRespawning] = useState(false);
   const [activeEvents, setActiveEvents] = useState(() => getActiveEvents());
+
+  // Hook : tourner la tête à la souris (PC) / drag tactile (mobile)
+  // On exclut les boutons HUD pour pas que tap = lock
+  useLookControls(mountRef, stateRef, {
+    excludeSelectors: ['button', '[data-no-look]', '.hud-control', '[data-testid$="-modal"]', '[data-testid="street-hud-bottom"]', '[data-testid="street-radar"]'],
+  });
 
   useEffect(() => {
     // Recheck active events every minute (jour change)
@@ -1186,6 +1193,115 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
     scene.add(bgBuildings);
 
+    // ====== MOBILIER URBAIN POUR COMBLER LES VIDES (lampadaires, barrières, arbres) ======
+    const streetFurniture = new THREE.Group();
+    // Lampadaires alignés le long des routes principales (tous les 30 m)
+    for (let s = -1; s <= 1; s += 2) {
+      for (let xPos = -380; xPos <= 380; xPos += 30) {
+        // Évite la zone centrale où il y a déjà des éléments
+        if (Math.abs(xPos) < 50) continue;
+        const lampGroup = new THREE.Group();
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.18, 5, 8),
+          new THREE.MeshStandardMaterial({ color: 0x222226, metalness: 0.7, roughness: 0.4 })
+        );
+        post.position.y = 2.5;
+        lampGroup.add(post);
+        const arm = new THREE.Mesh(
+          new THREE.BoxGeometry(0.8, 0.1, 0.1),
+          new THREE.MeshStandardMaterial({ color: 0x222226 })
+        );
+        arm.position.set(0.4 * s, 5, 0);
+        lampGroup.add(arm);
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0xfff0a0, emissive: 0xffe588, emissiveIntensity: 1.4 })
+        );
+        bulb.position.set(0.8 * s, 4.95, 0);
+        lampGroup.add(bulb);
+        lampGroup.position.set(xPos, 0, s * 9.5);
+        streetFurniture.add(lampGroup);
+      }
+    }
+    // Barrières blanches devant les bâtiments lointains (pour combler les espaces visuels)
+    const fenceMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 });
+    for (let xPos = -380; xPos <= 380; xPos += 60) {
+      if (Math.abs(xPos) < 60) continue;
+      // 6 piquets formant une barrière
+      for (let i = 0; i < 6; i++) {
+        const post = new THREE.Mesh(
+          new THREE.BoxGeometry(0.1, 1.2, 0.1),
+          fenceMat
+        );
+        post.position.set(xPos + i * 1.5, 0.6, -25);
+        streetFurniture.add(post);
+      }
+      // 2 traverses horizontales
+      for (let h = 0; h < 2; h++) {
+        const rail = new THREE.Mesh(
+          new THREE.BoxGeometry(8, 0.08, 0.08),
+          fenceMat
+        );
+        rail.position.set(xPos + 3.75, 0.4 + h * 0.5, -25);
+        streetFurniture.add(rail);
+      }
+    }
+    // Arbres dispersés pour densifier
+    for (let i = 0; i < 50; i++) {
+      const tx = (i % 10 - 5) * 80 + (Math.random() - 0.5) * 20;
+      const tz = (Math.floor(i / 10) - 2) * 80 + 25 + (Math.random() - 0.5) * 10;
+      // Évite zone centrale
+      if (Math.abs(tx) < 50 && Math.abs(tz) < 40) continue;
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.28, 2.4, 6),
+        new THREE.MeshStandardMaterial({ color: 0x4a2a14 })
+      );
+      trunk.position.set(tx, 1.2, tz);
+      streetFurniture.add(trunk);
+      const foliage = new THREE.Mesh(
+        new THREE.SphereGeometry(1.4, 8, 6),
+        new THREE.MeshStandardMaterial({ color: i % 3 === 0 ? 0x2a8a3a : 0x3a9a4a })
+      );
+      foliage.position.set(tx, 3.4, tz);
+      foliage.scale.y = 0.85;
+      streetFurniture.add(foliage);
+    }
+    // Panneaux pub/stop secondaires aux carrefours (tous les 80 m)
+    for (let rx = -320; rx <= 320; rx += 80) {
+      for (let rz = -320; rz <= 320; rz += 80) {
+        if (Math.abs(rx) < 50 && Math.abs(rz) < 50) continue;
+        if (Math.random() < 0.5) continue;
+        const sg = new THREE.Group();
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.12, 3, 8),
+          new THREE.MeshStandardMaterial({ color: 0x444 })
+        );
+        post.position.y = 1.5;
+        sg.add(post);
+        const sign = new THREE.Mesh(
+          new THREE.PlaneGeometry(1, 1),
+          new THREE.MeshStandardMaterial({
+            color: 0xff2222, emissive: 0xaa1111, emissiveIntensity: 0.4, side: THREE.DoubleSide,
+          })
+        );
+        sign.position.y = 3;
+        sg.add(sign);
+        sg.position.set(rx + 6, 0, rz + 6);
+        streetFurniture.add(sg);
+      }
+    }
+    // Bornes anti-stationnement le long de la route principale
+    for (let xPos = -390; xPos <= 390; xPos += 4) {
+      if (Math.abs(xPos) < 12) continue;
+      const bollard = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.16, 0.7, 8),
+        new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x331a00, emissiveIntensity: 0.3 })
+      );
+      bollard.position.set(xPos, 0.35, -8.5);
+      streetFurniture.add(bollard);
+    }
+    scene.add(streetFurniture);
+
     // ====== 4 ÉCRANS PUBLICITAIRES GAMBLELIFE dans la ville ======
     // Positions : 4 coins autour de la zone centrale, visibles de loin
     const billboardPositions = [
@@ -1330,11 +1446,15 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     };
 
     // ----- État FPS du joueur -----
+    // Spawn par défaut : milieu de la rue. Si on vient du casino → position devant la porte.
+    const initialSpawn = spawnHint === 'casino_exit'
+      ? { x: 0, z: 12, rotY: Math.PI }   // devant le casino, regard tourné vers la rue
+      : { x: 0, z: 12, rotY: 0 };        // spawn par défaut au centre, face au casino
     stateRef.current = {
       ...(stateRef.current || {}),
       scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false,
       // Position/rotation du joueur (FPS)
-      player: { x: 0, z: 12, rotY: 0, speedMul: 1, alive: true, health: 100 },
+      player: { ...initialSpawn, speedMul: 1, alive: true, health: 100 },
       // État des entrées (clavier + joystick mobile)
       input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0, shoot: 0 },
       interactables,
@@ -1350,6 +1470,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
     // Si le joueur a déjà un véhicule équipé au montage, on l'attache
     if (profile?.equippedVehicle) attachVehicle(profile.equippedVehicle);
+    // Consomme l'éventuel spawn hint
+    if (spawnHint && onSpawnConsumed) onSpawnConsumed();
 
     // ----- Clavier -----
     const keyHandler = (down) => (e) => {
@@ -1701,7 +1823,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onPlayerDeath = () => {
       setRespawning(true);
       setTimeout(() => {
-        // Respawn au spawn initial
+        // Respawn devant le casino (point de spawn safe et logique)
         if (stateRef.current?.player) {
           stateRef.current.player.x = 0;
           stateRef.current.player.z = 12;
@@ -1933,16 +2055,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         </div>
       )}
 
-      {/* Joystick rotation (droite) */}
-      {!scanning && !selectedHouse && !aptPickerOpen && (
-        <div style={{
-          position: 'absolute', bottom: 24, right: 14, zIndex: 20,
-          display: 'flex', gap: 6, userSelect: 'none',
-        }}>
-          <DpadBtn testId="rot-left"  label="↺" onDown={() => setInput('rotL', 1)} onUp={() => setInput('rotL', 0)} />
-          <DpadBtn testId="rot-right" label="↻" onDown={() => setInput('rotR', 1)} onUp={() => setInput('rotR', 0)} />
-        </div>
-      )}
+      {/* (Joystick rotation supprimé : on tourne la tête à la souris/drag tactile) */}
 
       {/* Panneau véhicule + combat (bottom-center au-dessus des joysticks) */}
       {!scanning && !selectedHouse && !aptPickerOpen && (

@@ -6,6 +6,7 @@ import { FPWeaponView, TPPlayerView } from '@/game/FPWeapon';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
+import { useLookControls } from '@/game/useLookControls';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
 const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
   const mountRef = useRef(null);
