@@ -502,7 +502,7 @@ const GambleBetScreen = ({ balance, setBalance, username, onExit }) => {
               background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 6,
               padding: '8px 14px', cursor: 'pointer', fontSize: 13, color: INK, fontWeight: 600,
             }}
-          >📜 Historique ({history.length})</button>
+          >📜 Historique ({history.length + pending.length})</button>
           <div style={{
             background: PRIMARY, color: '#fff', padding: '10px 16px', borderRadius: 8,
             fontWeight: 800, fontSize: 15,

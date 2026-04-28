@@ -234,6 +234,17 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Ambiance casino améliorée** : `StakeShell` (cadre commun des tables Blackjack/Poker/Roulette) reçoit désormais **2 halos de chandelier** (doré + cyan) + **particules scintillantes animées** (5 points dispersés, animation CSS `stakeTwinkle` 6s). Donne une atmosphère salle feutrée chic.
 - **★ 3 propriétés Créateur ByJaze à 1 $** : `bj-apt` (Appart étage 2), `bj-house` (Maison ByJaze 5.5×4×5m style noir/or luxe), `bj-villa` (Villa 2 niveaux + piscine, cadres dorés + fenêtres cyan émissives). Rendues dans le Street3D avec label flottant "★ CRÉATEUR ByJaze ★" + emplacement distinct du reste du catalogue. Réservées au créateur (mais achetables par n'importe qui à 1 $).
 
+### ✅ Implemented (Feb 2026 — Sprint C/D/E, validated iteration_7)
+- **Sprint C — Bazooka/grenade crash fix** : nettoyage des projectiles + explosions dans `Lobby3D.jsx` pour éviter les fuites mémoire / freeze à l'impact.
+- **Sprint C — Chips VIP rectangulaires** : 5M / 10M / 50M ajoutés dans `ui.jsx` (`Chip3D`) avec son distinct dans `sfx.js` (`vip_chip`).
+- **Sprint D — GambleBet refactor** : cotes ELO réalistes (1.20 → 5.00 par sélection), anti-doublon (impossible de placer deux paris sur la même équipe simultanément), paris combinés qui échouent entièrement si une jambe perd, historique persisté avec détails par leg.
+- **Sprint D — 30+ maisons achetables** : ajout de `sh-21..sh-50` autour du casino (rangées avant + arrière + côtés), label visible, intégration dans Street3D.
+- **Sprint E — FortniteLobby** : nouvel écran `/app/frontend/src/game/FortniteLobby.jsx` (~290 LOC) injecté dans `Casino.jsx` entre `serverSelect` et `street`/`casinoHall`. 4 CTA (VILLE, CASINO, BOUTIQUE, PROFIL) + bouton déconnexion. Animation halo rotative + personnage stylisé.
+- **Sprint E — Cercle bleu Personnaliser dans HomeInterior3D** : disque bleu transparent au sol + anneau pulsant + pilier holographique + sprite "🛋 PERSONNALISER". Click 3D (raycast `userData.interaction = 'customize'`) ouvre la modal `home-furn-modal` (5 onglets : Salon / Cuisine / Chambre / Salle jeux / Déco). Bug fix : `stateRef.current.onCustomizeClick = () => setShowFurnStore(true)` ajouté ligne 814.
+- **Sprint E — Maisons par défaut overhaul** : zone Salon (canapé+TV+lampe), Cuisine (plan de travail en L + placards + frigo), Chambre, escalier pour villas 2 étages, palmiers/piscine décoratifs.
+- **Hooks de test étendus** : `__openBlackjack(minBet)` / `__openPoker(minBet)` / `__openRoulette(minBet)` acceptent désormais un paramètre pour tester les chips VIP.
+- **GambleBet badge Historique** : compte désormais `history.length + pending.length` pour refléter immédiatement les paris placés.
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.
