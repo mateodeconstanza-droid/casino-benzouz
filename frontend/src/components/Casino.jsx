@@ -705,6 +705,7 @@ export default function Casino() {
         <FortniteLobby
           profile={profile}
           balance={balance}
+          setProfile={async (next) => { setProfile(next); await saveProfile({ ...next, balance }); }}
           onGoCity={() => { setSpawnHint('lobby_to_city'); setScreen('street'); }}
           onGoCasino={() => setScreen('casinoHall')}
           onGoShop={() => setShowShop(true)}
@@ -740,6 +741,7 @@ export default function Casino() {
             onBuyHouse={handleBuyHouse}
             onExitGame={handleLogout}
             onOpenHome={handleEnterHome}
+            onOpenShop={() => setShowShop(true)}
           />
           <Onboarding
             active={!profile.onboardedAt}

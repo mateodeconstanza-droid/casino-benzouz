@@ -764,16 +764,113 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       ...(stateRef.current || {}),
       scene, camera, renderer, disposed: false,
       customizeRing: cRing, customizeIcon: icSprite, customizeBeam: cBeam,
+      // ====== Joueur 1ère pers. : déplacement WASD/joystick ======
+      player: { x: 0, z: size.d / 2 - 2.5, rotY: 0 },
+      input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0 },
     };
+
+    // Position initiale de la caméra
+    camera.position.set(stateRef.current.player.x, 1.7, stateRef.current.player.z);
+    camera.rotation.set(0, 0, 0);
+
+    // ===== Clavier : WASD/ZQSD + flèches =====
+    const setKey = (dir, val) => { if (stateRef.current?.input) stateRef.current.input[dir] = val ? 1 : 0; };
+    const onKeyDown = (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'z' || k === 'w' || k === 'arrowup')        setKey('fwd', 1);
+      else if (k === 's' || k === 'arrowdown')              setKey('back', 1);
+      else if (k === 'q' || k === 'arrowleft')              setKey('left', 1);
+      else if (k === 'd' || k === 'arrowright')             setKey('right', 1);
+      else if (k === 'a')                                   setKey('rotL', 1);
+      else if (k === 'e')                                   setKey('rotR', 1);
+    };
+    const onKeyUp = (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'z' || k === 'w' || k === 'arrowup')        setKey('fwd', 0);
+      else if (k === 's' || k === 'arrowdown')              setKey('back', 0);
+      else if (k === 'q' || k === 'arrowleft')              setKey('left', 0);
+      else if (k === 'd' || k === 'arrowright')             setKey('right', 0);
+      else if (k === 'a')                                   setKey('rotL', 0);
+      else if (k === 'e')                                   setKey('rotR', 0);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    // Expose pour les boutons mobiles
+    stateRef.current.setMoveKey = setKey;
+
+    // ===== Look controls (drag pour tourner la caméra) =====
+    let isDragging = false;
+    let lastTouchX = 0, lastTouchY = 0;
+    let pitch = 0;
+    const onPointerDown = (e) => {
+      isDragging = true;
+      lastTouchX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+      lastTouchY = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+    };
+    const onPointerMove = (e) => {
+      if (!isDragging) return;
+      const cx = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+      const cy = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+      const dx = cx - lastTouchX;
+      const dy = cy - lastTouchY;
+      lastTouchX = cx; lastTouchY = cy;
+      stateRef.current.player.rotY -= dx * 0.005;
+      pitch = Math.max(-0.7, Math.min(0.7, pitch - dy * 0.004));
+      stateRef.current.pitch = pitch;
+    };
+    const onPointerUp = () => { isDragging = false; };
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+
     let rafId = 0;
     let elapsed = 0;
     const loop = () => {
       if (stateRef.current.disposed) return;
-      elapsed += 0.008;
-      // Mouvement de caméra : léger balancement gauche/droite pour rendre vivant
-      camera.position.x = Math.sin(elapsed * 0.4) * 1.6;
-      camera.position.y = 2.4 + Math.sin(elapsed * 0.3) * 0.1;
-      camera.lookAt(0, 1.7, -size.d / 2 + 1);
+      elapsed += 0.016;
+
+      // ===== Déplacement joueur =====
+      const p = stateRef.current.player;
+      const i = stateRef.current.input;
+      const SPEED = 0.07;
+      const ROT_SPEED = 0.035;
+      if (i.rotL) p.rotY += ROT_SPEED;
+      if (i.rotR) p.rotY -= ROT_SPEED;
+      const fwdX = -Math.sin(p.rotY);
+      const fwdZ = -Math.cos(p.rotY);
+      const rightX =  Math.cos(p.rotY);
+      const rightZ = -Math.sin(p.rotY);
+      let dx = 0, dz = 0;
+      if (i.fwd)   { dx += fwdX;   dz += fwdZ; }
+      if (i.back)  { dx -= fwdX;   dz -= fwdZ; }
+      if (i.left)  { dx -= rightX; dz -= rightZ; }
+      if (i.right) { dx += rightX; dz += rightZ; }
+      if (dx !== 0 || dz !== 0) {
+        const len = Math.hypot(dx, dz);
+        dx = (dx / len) * SPEED;
+        dz = (dz / len) * SPEED;
+        // Collision murs : reste dans la pièce avec marge 0.5m
+        const margin = 0.5;
+        const nx = p.x + dx;
+        const nz = p.z + dz;
+        if (nx > -size.w / 2 + margin && nx < size.w / 2 - margin) p.x = nx;
+        if (nz > -size.d / 2 + margin && nz < size.d / 2 - margin) p.z = nz;
+      }
+
+      camera.position.set(p.x, 1.7, p.z);
+      camera.rotation.set(stateRef.current.pitch || 0, p.rotY, 0, 'YXZ');
+
+      // === Détection de proximité avec le cercle bleu — ouvre la modal automatiquement ===
+      if (stateRef.current.customizeWorldPos && !showFurnStore) {
+        const cz = stateRef.current.customizeWorldPos;
+        const distC = Math.hypot(p.x - cz.x, p.z - cz.z);
+        if (distC < 1.1 && !stateRef.current._customizeTriggered) {
+          stateRef.current._customizeTriggered = true;
+          stateRef.current.onCustomizeClick?.();
+        }
+        if (distC > 2.0) stateRef.current._customizeTriggered = false;
+      }
+
       // Animation du cercle bleu : ring qui pulse + beam qui ondule + icône qui flotte
       if (stateRef.current.customizeRing) {
         const pulse = 1 + Math.sin(elapsed * 3) * 0.1;
@@ -795,7 +892,12 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       stateRef.current.disposed = true;
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('click', handleClick);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       try { mount.removeChild(renderer.domElement); } catch (_e) { /* noop */ }
       renderer.dispose();
       scene.traverse((o) => {
@@ -832,6 +934,27 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#000' }}
     >
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
+
+      {/* Joystick déplacement mobile (D-pad) */}
+      <div style={{
+        position: 'absolute', left: 16, bottom: 90, zIndex: 25,
+        display: 'grid', gridTemplateColumns: 'repeat(3, 48px)', gridTemplateRows: 'repeat(3, 48px)',
+        gap: 4, pointerEvents: 'auto',
+      }}>
+        <div /> <HomeDpadBtn label="▲" testId="home-dpad-fwd" dir="fwd" stateRef={stateRef} /> <div />
+        <HomeDpadBtn label="◀" testId="home-dpad-left" dir="left" stateRef={stateRef} />
+        <HomeDpadBtn label="●" stateRef={null} disabled />
+        <HomeDpadBtn label="▶" testId="home-dpad-right" dir="right" stateRef={stateRef} />
+        <div /> <HomeDpadBtn label="▼" testId="home-dpad-back" dir="back" stateRef={stateRef} /> <div />
+      </div>
+      {/* Boutons rotation caméra (mobile) */}
+      <div style={{
+        position: 'absolute', right: 16, bottom: 90, zIndex: 25,
+        display: 'flex', gap: 6, pointerEvents: 'auto',
+      }}>
+        <HomeDpadBtn label="↶" testId="home-dpad-rotL" dir="rotL" stateRef={stateRef} />
+        <HomeDpadBtn label="↷" testId="home-dpad-rotR" dir="rotR" stateRef={stateRef} />
+      </div>
 
       {/* HUD top */}
       <div style={{
@@ -1087,3 +1210,40 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
 };
 
 export default HomeInterior3D;
+
+// ============================================================
+// D-pad button local pour HomeInterior3D
+// ============================================================
+const HomeDpadBtn = ({ label, testId, dir, stateRef, disabled }) => {
+  const handleDown = (e) => {
+    e.preventDefault();
+    if (disabled) return;
+    if (stateRef?.current?.setMoveKey) stateRef.current.setMoveKey(dir, 1);
+  };
+  const handleUp = (e) => {
+    e.preventDefault();
+    if (disabled) return;
+    if (stateRef?.current?.setMoveKey) stateRef.current.setMoveKey(dir, 0);
+  };
+  return (
+    <button
+      data-testid={testId}
+      onPointerDown={handleDown}
+      onPointerUp={handleUp}
+      onPointerLeave={handleUp}
+      onPointerCancel={handleUp}
+      onContextMenu={(e) => e.preventDefault()}
+      disabled={disabled}
+      style={{
+        width: 48, height: 48, borderRadius: 10,
+        background: disabled ? 'rgba(255,255,255,0.05)' : 'rgba(10,10,15,0.72)',
+        border: `1.5px solid rgba(212,175,55,0.45)`,
+        color: '#f0d26a', fontSize: 20, fontWeight: 800,
+        cursor: disabled ? 'default' : 'pointer',
+        touchAction: 'none', userSelect: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(6px)',
+      }}
+    >{label}</button>
+  );
+};

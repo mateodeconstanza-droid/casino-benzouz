@@ -78,7 +78,7 @@ export const HOUSES = [
 // Composant Street3D — Scène extérieure
 // Props : profile, balance, setBalance, onEnterCasino(), onBuyHouse(houseId), onExitGame()
 // =============================================================
-const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, setProfile, spawnHint, onSpawnConsumed }) => {
+const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, onOpenShop, setProfile, spawnHint, onSpawnConsumed }) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
   const stateRef = useRef({});
@@ -88,6 +88,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [toast, setToast] = useState(null);
   const [nearbyPrompt, setNearbyPrompt] = useState(null);
   const [aptPickerOpen, setAptPickerOpen] = useState(false);
+  const [garageOpen, setGarageOpen] = useState(false);
   const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
   const [aimingWeapon, setAimingWeapon] = useState(null); // weapon id si on vise
   const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
@@ -1482,10 +1483,462 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       scene.add(bb);
     });
 
-    // ========== BARRIÈRE DE MORT (agrandie × 10) ==========
+    // ========== SPRINT F1+F2 — PLAGE / MER / GARAGE / BOUTIQUE / DÉCO ==========
+    // ─── 1) PLAGE + MER (côté EST de la map, x > 80) ───────────────────────────
+    // Sable : grand rectangle (x: 80..120, z: -200..200)
+    const beach = new THREE.Mesh(
+      new THREE.PlaneGeometry(40, 400, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0xf5e0a8, roughness: 0.95 })
+    );
+    beach.rotation.x = -Math.PI / 2;
+    beach.position.set(100, 0.02, 0);
+    beach.receiveShadow = true;
+    scene.add(beach);
+
+    // Pour des grains de sable / variation de couleur, ajout de patches plus foncés
+    for (let i = 0; i < 24; i++) {
+      const patch = new THREE.Mesh(
+        new THREE.CircleGeometry(2 + Math.random() * 3, 12),
+        new THREE.MeshStandardMaterial({ color: 0xe6cd8c, roughness: 1, transparent: true, opacity: 0.6 })
+      );
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set(85 + Math.random() * 30, 0.03, -180 + Math.random() * 360);
+      scene.add(patch);
+    }
+
+    // Mer : grand plan animé (x > 120 → 500, z: -300..300)
+    const seaGeo = new THREE.PlaneGeometry(380, 600, 60, 80);
+    const seaMat = new THREE.MeshStandardMaterial({
+      color: 0x1c6ea4, roughness: 0.25, metalness: 0.2,
+      transparent: true, opacity: 0.92, side: THREE.DoubleSide,
+    });
+    const sea = new THREE.Mesh(seaGeo, seaMat);
+    sea.rotation.x = -Math.PI / 2;
+    sea.position.set(310, 0, 0);
+    scene.add(sea);
+
+    // Sauvegarde des Y initiaux des vertices pour animer les vagues sans drift
+    const seaPos = sea.geometry.attributes.position;
+    const seaBaseZ = new Float32Array(seaPos.count);
+    for (let v = 0; v < seaPos.count; v++) seaBaseZ[v] = seaPos.getZ(v);
+
+    // Bande d'écume (frontière sable/mer) — animée en opacité dans le loop
+    const foam = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 400, 1, 1),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })
+    );
+    foam.rotation.x = -Math.PI / 2;
+    foam.position.set(120.5, 0.05, 0);
+    scene.add(foam);
+
+    // ─── 2) DÉCOS PLAGE : parasols, serviettes, pont de bois ──────────────────
+    const beachDeco = new THREE.Group();
+    // Pont de bois qui s'avance dans la mer (3-4 m max, depuis la plage à z=-30)
+    const pier = new THREE.Group();
+    pier.position.set(108, 0, -30);
+    const pierDeck = new THREE.Mesh(
+      new THREE.BoxGeometry(14, 0.25, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.85 })
+    );
+    pierDeck.position.set(7, 1.0, 0);
+    pier.add(pierDeck);
+    // Pilotis
+    for (let pi = 0; pi <= 6; pi++) {
+      const pile = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.14, 1.2, 8),
+        new THREE.MeshStandardMaterial({ color: 0x4a2e15 })
+      );
+      pile.position.set(pi * 2.2, 0.4, -1);
+      pier.add(pile);
+      const pile2 = pile.clone(); pile2.position.z = 1; pier.add(pile2);
+    }
+    // Garde-corps
+    for (const s of [-1, 1]) {
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(14, 0.06, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0x5a3a1a })
+      );
+      rail.position.set(7, 1.7, s * 1.1);
+      pier.add(rail);
+      for (let pp = 0; pp <= 7; pp++) {
+        const post = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.7, 0.08),
+          new THREE.MeshStandardMaterial({ color: 0x5a3a1a })
+        );
+        post.position.set(pp * 2, 1.35, s * 1.1);
+        pier.add(post);
+      }
+    }
+    beachDeco.add(pier);
+
+    // 6 parasols + serviettes répartis sur la plage
+    const towelColors = [0xdc2626, 0xfacc15, 0x10b981, 0xec4899, 0x3fe6ff, 0xf97316];
+    for (let i = 0; i < 6; i++) {
+      const tx = 86 + (i % 3) * 10 + Math.random() * 4;
+      const tz = -120 + (i * 50) + (Math.random() - 0.5) * 20;
+      // Serviette
+      const towel = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 0.05, 1.2),
+        new THREE.MeshStandardMaterial({ color: towelColors[i], roughness: 0.85 })
+      );
+      towel.position.set(tx, 0.04, tz);
+      beachDeco.add(towel);
+      // Parasol mât
+      const mast = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3a2010 })
+      );
+      mast.position.set(tx + 0.3, 1.3, tz - 0.4);
+      beachDeco.add(mast);
+      // Parasol toile
+      const para = new THREE.Mesh(
+        new THREE.ConeGeometry(1.4, 0.5, 12, 1, true),
+        new THREE.MeshStandardMaterial({ color: towelColors[(i + 2) % 6], side: THREE.DoubleSide, roughness: 0.85 })
+      );
+      para.position.set(tx + 0.3, 2.5, tz - 0.4);
+      beachDeco.add(para);
+    }
+    // Quelques palmiers sur le bord plage
+    for (let i = 0; i < 5; i++) {
+      const px = 82 + Math.random() * 4;
+      const pz = -180 + i * 80 + Math.random() * 20;
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.25, 4, 8),
+        new THREE.MeshStandardMaterial({ color: 0x6a4322, roughness: 1 })
+      );
+      trunk.position.set(px, 2, pz);
+      beachDeco.add(trunk);
+      const leaves = new THREE.Mesh(
+        new THREE.SphereGeometry(1.4, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x2c8b3a, roughness: 0.8 })
+      );
+      leaves.position.set(px, 4.2, pz);
+      leaves.scale.set(1, 0.5, 1);
+      beachDeco.add(leaves);
+    }
+    scene.add(beachDeco);
+
+    // ─── 3) GARAGE (devant le casino, x = -22, z = 30) ────────────────────────
+    const garage = new THREE.Group();
+    garage.position.set(-22, 0, 30);
+    // Bâtiment principal — large façade
+    const garBld = new THREE.Mesh(
+      new THREE.BoxGeometry(16, 6, 9),
+      new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.7 })
+    );
+    garBld.position.y = 3;
+    garBld.castShadow = true;
+    garBld.receiveShadow = true;
+    garage.add(garBld);
+    // Toit légèrement plus grand
+    const garRoof = new THREE.Mesh(
+      new THREE.BoxGeometry(16.6, 0.4, 9.6),
+      new THREE.MeshStandardMaterial({ color: 0x222228 })
+    );
+    garRoof.position.y = 6.2;
+    garage.add(garRoof);
+    // 3 portes de garage (rouleau métal) bien visibles
+    for (let g = -1; g <= 1; g++) {
+      const door = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 4),
+        new THREE.MeshStandardMaterial({ color: 0xc8c8d2, metalness: 0.6, roughness: 0.45 })
+      );
+      door.position.set(g * 5, 2, 4.51);
+      garage.add(door);
+      // Lignes horizontales (effet rideau roulé)
+      for (let ln = 0; ln < 8; ln++) {
+        const line = new THREE.Mesh(
+          new THREE.PlaneGeometry(4, 0.05),
+          new THREE.MeshBasicMaterial({ color: 0x6a6a7a })
+        );
+        line.position.set(g * 5, 0.3 + ln * 0.5, 4.52);
+        garage.add(line);
+      }
+      // Cadre noir autour de la porte
+      const frame = new THREE.Mesh(
+        new THREE.BoxGeometry(4.3, 4.3, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a20 })
+      );
+      frame.position.set(g * 5, 2, 4.49);
+      garage.add(frame);
+    }
+    // Enseigne lumineuse "GARAGE"
+    const garSignCv = document.createElement('canvas');
+    garSignCv.width = 512; garSignCv.height = 128;
+    const garSignCx = garSignCv.getContext('2d');
+    garSignCx.fillStyle = '#000'; garSignCx.fillRect(0, 0, 512, 128);
+    garSignCx.fillStyle = '#3fe6ff'; garSignCx.font = 'bold 76px Georgia';
+    garSignCx.textAlign = 'center';
+    garSignCx.shadowColor = '#3fe6ff'; garSignCx.shadowBlur = 22;
+    garSignCx.fillText('🚗 GARAGE', 256, 92);
+    const garSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 2),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(garSignCv), transparent: true })
+    );
+    garSign.position.set(0, 5.2, 4.55);
+    garage.add(garSign);
+    // 2 voitures en exposition devant
+    const showcaseColors = [0xdc2626, 0xffd700];
+    for (let cI = 0; cI < 2; cI++) {
+      const carEx = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(2.4, 0.7, 4.4),
+        new THREE.MeshStandardMaterial({ color: showcaseColors[cI], metalness: 0.7, roughness: 0.25 })
+      );
+      body.position.y = 0.7;
+      carEx.add(body);
+      const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(2.0, 0.6, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x101010, metalness: 0.4, roughness: 0.4 })
+      );
+      cabin.position.y = 1.35;
+      carEx.add(cabin);
+      for (const wx of [-1, 1]) for (const wz of [-1.4, 1.4]) {
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.35, 0.35, 0.3, 12),
+          new THREE.MeshStandardMaterial({ color: 0x111 })
+        );
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx * 1.1, 0.35, wz);
+        carEx.add(wheel);
+      }
+      carEx.position.set(-3 + cI * 6, 0, 7.5);
+      carEx.rotation.y = Math.PI;
+      garage.add(carEx);
+    }
+    scene.add(garage);
+    interactables.push({ type: 'garage', id: 'garage', pos: new THREE.Vector3(-22, 0, 30), radius: 7 });
+
+    // ─── 4) BOUTIQUE (devant le casino, x = +22, z = 30) ──────────────────────
+    const shopFr = new THREE.Group();
+    shopFr.position.set(22, 0, 30);
+    const shopBld = new THREE.Mesh(
+      new THREE.BoxGeometry(12, 5.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0xf2eadc, roughness: 0.7 })
+    );
+    shopBld.position.y = 2.75;
+    shopBld.castShadow = true;
+    shopFr.add(shopBld);
+    // Vitrines avant (verre teinté)
+    for (let s = -1; s <= 1; s += 2) {
+      const window1 = new THREE.Mesh(
+        new THREE.PlaneGeometry(4.5, 3.2),
+        new THREE.MeshStandardMaterial({
+          color: 0x9be0ff, transparent: true, opacity: 0.55,
+          metalness: 0.5, roughness: 0.1, emissive: 0xffd700, emissiveIntensity: 0.05,
+        })
+      );
+      window1.position.set(s * 3, 2.3, 4.01);
+      shopFr.add(window1);
+      // Cadre doré
+      const frame2 = new THREE.Mesh(
+        new THREE.BoxGeometry(4.7, 3.4, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 })
+      );
+      frame2.position.set(s * 3, 2.3, 4.00);
+      shopFr.add(frame2);
+      // Mannequin stylisé dans la vitrine
+      const mannBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2, 0.3, 1.4, 8),
+        new THREE.MeshStandardMaterial({ color: s > 0 ? 0xff2ad4 : 0xffd700 })
+      );
+      mannBody.position.set(s * 3, 1.0, 3.6);
+      shopFr.add(mannBody);
+      const mannHead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xe8d5b7 })
+      );
+      mannHead.position.set(s * 3, 1.95, 3.6);
+      shopFr.add(mannHead);
+    }
+    // Porte centrale (verre)
+    const shopDoor = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 3.2),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a25, metalness: 0.7, roughness: 0.3 })
+    );
+    shopDoor.position.set(0, 1.6, 4.02);
+    shopFr.add(shopDoor);
+    // Enseigne "BOUTIQUE" lumineuse
+    const shopSignCv = document.createElement('canvas');
+    shopSignCv.width = 512; shopSignCv.height = 128;
+    const sCx = shopSignCv.getContext('2d');
+    sCx.fillStyle = '#000'; sCx.fillRect(0, 0, 512, 128);
+    sCx.fillStyle = '#ff2ad4'; sCx.font = 'bold 70px Georgia';
+    sCx.textAlign = 'center';
+    sCx.shadowColor = '#ff2ad4'; sCx.shadowBlur = 22;
+    sCx.fillText('★ BOUTIQUE ★', 256, 92);
+    const shopSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 2),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shopSignCv), transparent: true })
+    );
+    shopSign.position.set(0, 5.0, 4.05);
+    shopFr.add(shopSign);
+    // Lumière chaude au-dessus de la porte
+    const shopLight = new THREE.PointLight(0xffd700, 0.9, 14);
+    shopLight.position.set(0, 4.5, 5.5);
+    shopFr.add(shopLight);
+    scene.add(shopFr);
+    interactables.push({ type: 'shopfront', id: 'shopfront', pos: new THREE.Vector3(22, 0, 30), radius: 7 });
+
+    // ─── 5) DÉCORATIONS VILLE : plantes, bancs, fontaine, place piétonne ──────
+    // Place piétonne pavée entre garage et boutique (x=0, z=30)
+    const plaza = new THREE.Mesh(
+      new THREE.PlaneGeometry(20, 12),
+      new THREE.MeshStandardMaterial({ color: 0xc9bfa8, roughness: 0.9 })
+    );
+    plaza.rotation.x = -Math.PI / 2;
+    plaza.position.set(0, 0.025, 30);
+    scene.add(plaza);
+    // Lignes de pavés
+    for (let r = -2; r <= 2; r++) {
+      for (let c = -4; c <= 4; c++) {
+        const tile = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.9, 1.9),
+          new THREE.MeshStandardMaterial({
+            color: ((r + c) % 2 === 0 ? 0xaa9d80 : 0xb8ad95), roughness: 0.95,
+          })
+        );
+        tile.rotation.x = -Math.PI / 2;
+        tile.position.set(c * 2, 0.03, 28 + r * 2);
+        scene.add(tile);
+      }
+    }
+    // Fontaine au centre de la place
+    const fountain = new THREE.Group();
+    fountain.position.set(0, 0, 30);
+    const fountainBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.2, 2.5, 0.8, 24),
+      new THREE.MeshStandardMaterial({ color: 0xe8e2d2, roughness: 0.8 })
+    );
+    fountainBase.position.y = 0.4;
+    fountain.add(fountainBase);
+    const fountainWater = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.9, 1.9, 0.2, 24),
+      new THREE.MeshStandardMaterial({ color: 0x3fa8e6, roughness: 0.2, metalness: 0.4, transparent: true, opacity: 0.85 })
+    );
+    fountainWater.position.y = 0.8;
+    fountain.add(fountainWater);
+    const fountainSpout = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.2, 1.4, 12),
+      new THREE.MeshStandardMaterial({ color: 0xc8b87a, metalness: 0.7, roughness: 0.3 })
+    );
+    fountainSpout.position.y = 1.4;
+    fountain.add(fountainSpout);
+    // Jet d'eau (animé via opacité dans le loop pour un effet vivant)
+    const fountainJet = new THREE.Mesh(
+      new THREE.ConeGeometry(0.4, 1.6, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xa5dfff, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    );
+    fountainJet.position.y = 2.4;
+    fountain.add(fountainJet);
+    scene.add(fountain);
+    // 4 pots de plantes décoratifs autour de la fontaine
+    for (let pp = 0; pp < 4; pp++) {
+      const angle = (pp / 4) * Math.PI * 2 + Math.PI / 4;
+      const px = Math.cos(angle) * 5;
+      const pz = 30 + Math.sin(angle) * 4;
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.4, 0.7, 16),
+        new THREE.MeshStandardMaterial({ color: 0x5a3220, roughness: 0.85 })
+      );
+      pot.position.set(px, 0.35, pz);
+      scene.add(pot);
+      const plant = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2a8a3a })
+      );
+      plant.position.set(px, 1.1, pz);
+      plant.scale.y = 1.2;
+      scene.add(plant);
+    }
+    // 4 bancs publics + lampadaires
+    const benchPos = [
+      [-7, 30, 0], [7, 30, 0], [-7, 30, Math.PI], [7, 30, Math.PI],
+    ];
+    benchPos.forEach(([bx, bz, by]) => {
+      const bench = new THREE.Group();
+      const seat = new THREE.Mesh(
+        new THREE.BoxGeometry(2.4, 0.1, 0.6),
+        new THREE.MeshStandardMaterial({ color: 0x6a4322 })
+      );
+      seat.position.y = 0.5;
+      bench.add(seat);
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(2.4, 0.6, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x6a4322 })
+      );
+      back.position.set(0, 0.85, -0.25);
+      bench.add(back);
+      for (const lx of [-1.0, 1.0]) {
+        const leg = new THREE.Mesh(
+          new THREE.BoxGeometry(0.1, 0.5, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x222 })
+        );
+        leg.position.set(lx, 0.25, 0);
+        bench.add(leg);
+      }
+      bench.position.set(bx, 0, bz);
+      bench.rotation.y = by;
+      scene.add(bench);
+    });
+    // 6 lampadaires elegants autour de la place
+    for (let lp = 0; lp < 6; lp++) {
+      const lx = (lp < 3 ? -10 : 10);
+      const lz = 24 + (lp % 3) * 6;
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.12, 4, 8),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a1f, metalness: 0.6, roughness: 0.4 })
+      );
+      post.position.set(lx, 2, lz);
+      scene.add(post);
+      const lamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 12, 10),
+        new THREE.MeshBasicMaterial({ color: 0xfff4c8 })
+      );
+      lamp.position.set(lx, 4.1, lz);
+      scene.add(lamp);
+      const lampLight = new THREE.PointLight(0xfff0c0, 0.6, 8);
+      lampLight.position.set(lx, 4.1, lz);
+      scene.add(lampLight);
+    }
+    // 12 plantes décoratives le long du trottoir devant le casino
+    for (let pp = 0; pp < 12; pp++) {
+      const px = -36 + pp * 6.5;
+      const pz = 18;
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.35, 0.6, 12),
+        new THREE.MeshStandardMaterial({ color: 0x8a4a2a })
+      );
+      pot.position.set(px, 0.3, pz);
+      scene.add(pot);
+      const bush = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x2a8a3a })
+      );
+      bush.position.set(px, 0.95, pz);
+      scene.add(bush);
+    }
+
+    // ─── 6) Refs sauvegardés pour animation dans le loop ──────────────────────
+    const decoRefs = { sea, seaPos, seaBaseZ, foam, fountainJet };
+
+    // ─── 7) DEATH ZONES ÉTENDUES (mer + lateraux plage) ───────────────────────
+    // Joueur ne peut entrer que ~3-4 m dans la mer (jusqu'à x ≈ 124).
+    // Plage limitée à |z| < 200 ; au-delà = death barrière.
+    // ========== BARRIÈRE DE MORT (agrandie × 10) + plage/mer ==========
     // Limites jouables très larges : x ∈ [-400, 400], z ∈ [-400, 400]
-    // Death zone : hors [-440, 440] sur les 2 axes (~40m de grâce)
-    const isInDeathZone = (x, z) => (x < -440 || x > 440 || z < -440 || z > 440);
+    // Death zone classique : hors [-440, 440] sur les 2 axes (~40m de grâce)
+    // + Death zone plage/mer : entrer dans la mer (x > 124) ou sortir 500m de chaque côté
+    const isInBeachOrSeaDeath = (x, z) => {
+      if (x > 124) return true;                          // 3-4 m dans la mer
+      if (x > 80 && (z < -200 || z > 200)) return true;  // plage limitée z
+      return false;
+    };
+    const isInDeathZone = (x, z) => {
+      if (x < -440 || x > 440 || z < -440 || z > 440) return true;
+      if (isInBeachOrSeaDeath(x, z)) return true;
+      return false;
+    };
     const isNearBarrier = (x, z) => (x < -400 || x > 400 || z < -400 || z > 400);
 
     // ========== VEHICLE RIG (skateboard/bike/hoverboard) ==========
@@ -1585,6 +2038,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         if (nb?.type === 'casino') stateRef.current.onCasinoClick?.();
         else if (nb?.type === 'house') stateRef.current.onHouseClick?.(nb.id);
         else if (nb?.type === 'building') stateRef.current.onBuildingClick?.(nb.id);
+        else if (nb?.type === 'garage') stateRef.current.onGarageClick?.();
+        else if (nb?.type === 'shopfront') stateRef.current.onShopfrontClick?.();
       }
     };
     const kd = keyHandler(true);
@@ -1636,6 +2091,31 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       // Applique à la caméra
       camera.position.set(p.x, 2.6, p.z);
       camera.rotation.y = p.rotY;
+
+      // ===== Animation MER : vagues sinusoïdales sur les vertices =====
+      if (decoRefs.sea && decoRefs.seaPos) {
+        const tWave = tNow * 0.001;
+        for (let v = 0; v < decoRefs.seaPos.count; v++) {
+          const x = decoRefs.seaPos.getX(v);
+          const y = decoRefs.seaPos.getY(v);
+          const wave = Math.sin(x * 0.18 + tWave * 1.6) * 0.18
+                     + Math.cos(y * 0.22 + tWave * 1.1) * 0.14
+                     + Math.sin((x + y) * 0.09 + tWave * 0.6) * 0.10;
+          decoRefs.seaPos.setZ(v, decoRefs.seaBaseZ[v] + wave);
+        }
+        decoRefs.seaPos.needsUpdate = true;
+        decoRefs.sea.geometry.computeVertexNormals();
+        // Écume qui pulse en opacité (vagues s'échouent)
+        if (decoRefs.foam) {
+          decoRefs.foam.material.opacity = 0.55 + Math.abs(Math.sin(tWave * 2.5)) * 0.35;
+          decoRefs.foam.scale.x = 1 + Math.sin(tWave * 2.5) * 0.4;
+        }
+        // Jet de la fontaine pulse
+        if (decoRefs.fountainJet) {
+          decoRefs.fountainJet.scale.y = 1 + Math.abs(Math.sin(tWave * 4)) * 0.3;
+          decoRefs.fountainJet.material.opacity = 0.4 + Math.abs(Math.sin(tWave * 4)) * 0.3;
+        }
+      }
 
       // ===== Véhicule : suivre le joueur et animer =====
       if (st.vehicleRig) {
@@ -1906,6 +2386,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onBuildingClick = () => {
       setAptPickerOpen(true);
     };
+    stateRef.current.onGarageClick = () => {
+      setGarageOpen(true);
+    };
+    stateRef.current.onShopfrontClick = () => {
+      onOpenShop ? onOpenShop() : setGarageOpen(true);
+    };
     stateRef.current.onNearbyChange = (nb) => {
       setNearbyPrompt(nb);
     };
@@ -1989,6 +2475,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     if (nb.type === 'casino') stateRef.current.onCasinoClick?.();
     else if (nb.type === 'house') stateRef.current.onHouseClick?.(nb.id);
     else if (nb.type === 'building') stateRef.current.onBuildingClick?.(nb.id);
+    else if (nb.type === 'garage') stateRef.current.onGarageClick?.();
+    else if (nb.type === 'shopfront') stateRef.current.onShopfrontClick?.();
   };
 
   const house = HOUSES.find(h => h.id === selectedHouse);
@@ -2078,7 +2566,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       </div>
 
       {/* Prompt de proximité + bouton E */}
-      {nearbyPrompt && !scanning && !selectedHouse && !aptPickerOpen && (
+      {nearbyPrompt && !scanning && !selectedHouse && !aptPickerOpen && !garageOpen && (
         <div
           data-testid="interaction-prompt"
           style={{
@@ -2094,6 +2582,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           <div style={{ fontSize: 13, color: STAKE.goldLight, marginBottom: 6 }}>
             {nearbyPrompt.type === 'casino' ? '🎰 Entrée du casino' :
              nearbyPrompt.type === 'building' ? '🏢 Les Résidences — Choisir un appart' :
+             nearbyPrompt.type === 'garage' ? '🚗 Garage — Acheter un véhicule' :
+             nearbyPrompt.type === 'shopfront' ? '🛒 Boutique — Armes & cosmétiques' :
              (ownedKeys.includes(nearbyPrompt.id) ? '🔑 Ta propriété' : '🏠 Acheter cette propriété')}
           </div>
           <button
@@ -2545,6 +3035,120 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           border: `2px solid ${STAKE.gold}`, color: '#fff',
           fontWeight: 800, fontSize: 13, zIndex: 200, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
         }}>{toast}</div>
+      )}
+
+      {/* GARAGE — Concession véhicules */}
+      {garageOpen && (
+        <div
+          data-testid="garage-modal"
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 300, backdropFilter: 'blur(8px)', padding: 12,
+          }}
+          onClick={() => setGarageOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(135deg, #1a0f18, #0a0508)',
+              border: `2px solid ${STAKE.gold}`, borderRadius: 16,
+              padding: 20, maxWidth: 720, width: '100%', maxHeight: '88vh',
+              overflowY: 'auto', color: '#fff',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: STAKE.goldLight, letterSpacing: 2 }}>
+                🚗 GARAGE — VÉHICULES
+              </div>
+              <button
+                data-testid="garage-close"
+                onClick={() => setGarageOpen(false)}
+                style={{
+                  padding: '6px 14px', borderRadius: 8,
+                  background: 'transparent', border: `1px solid ${STAKE.gold}`,
+                  color: STAKE.goldLight, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                }}
+              >✕ Fermer</button>
+            </div>
+            <div style={{ fontSize: 12, color: '#cca366', marginBottom: 14, textAlign: 'center' }}>
+              Solde : <b style={{ color: STAKE.gold }}>{fmt(balance)} $</b>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+              {VEHICLES.map(v => {
+                const owned = (profile?.vehicles || []).includes(v.id);
+                const equipped = profile?.equippedVehicle === v.id;
+                const canAfford = balance >= v.price;
+                return (
+                  <div
+                    key={v.id}
+                    data-testid={`garage-veh-${v.id}`}
+                    style={{
+                      padding: 12, borderRadius: 10,
+                      background: 'rgba(20,10,20,0.85)',
+                      border: `1px solid ${owned ? '#00aa44' : 'rgba(212,175,55,0.35)'}`,
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: 38, marginBottom: 6 }}>{v.emoji || '🚗'}</div>
+                    <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{v.name}</div>
+                    <div style={{ fontSize: 11, color: '#cca366', marginBottom: 6 }}>
+                      Vitesse ×{v.speedMul}
+                    </div>
+                    <div style={{ fontSize: 12, color: STAKE.goldLight, fontWeight: 700, marginBottom: 8 }}>
+                      {fmt(v.price)} $
+                    </div>
+                    {owned ? (
+                      equipped ? (
+                        <div style={{ color: '#00ff88', fontWeight: 900, fontSize: 12 }}>✓ ÉQUIPÉ</div>
+                      ) : (
+                        <button
+                          data-testid={`garage-equip-${v.id}`}
+                          onClick={() => { equipSpecificVehicle(v.id); setGarageOpen(false); }}
+                          style={{
+                            width: '100%', padding: '8px', borderRadius: 8,
+                            background: `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`,
+                            border: 'none', color: '#111', fontWeight: 800, cursor: 'pointer', fontSize: 12,
+                          }}
+                        >Équiper</button>
+                      )
+                    ) : (
+                      <button
+                        data-testid={`garage-buy-${v.id}`}
+                        disabled={!canAfford}
+                        onClick={() => {
+                          if (!canAfford) return;
+                          const newBal = balance - v.price;
+                          setBalance(newBal);
+                          if (setProfile && profile) {
+                            setProfile({
+                              ...profile,
+                              vehicles: [...(profile.vehicles || []), v.id],
+                              equippedVehicle: v.id,
+                              balance: newBal,
+                            });
+                          }
+                          setRidingOn(true);
+                          stateRef.current.attachVehicle && stateRef.current.attachVehicle(v.id);
+                          if (stateRef.current.player) stateRef.current.player.speedMul = v.speedMul;
+                          setToast(`🚗 ${v.name} acheté & équipé !`);
+                          setTimeout(() => setToast(null), 2500);
+                          setGarageOpen(false);
+                        }}
+                        style={{
+                          width: '100%', padding: '8px', borderRadius: 8,
+                          background: canAfford ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})` : '#333',
+                          border: 'none', color: canAfford ? '#111' : '#888',
+                          fontWeight: 800, cursor: canAfford ? 'pointer' : 'not-allowed', fontSize: 12,
+                        }}
+                      >{canAfford ? 'Acheter' : 'Solde insuffisant'}</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
