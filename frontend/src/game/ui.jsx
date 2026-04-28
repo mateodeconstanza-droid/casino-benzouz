@@ -603,8 +603,8 @@ export const Card = ({ card, hidden, delay = 0, small = false, flipDuration = 0 
               fontSize: small ? 20 : 30, color: '#ffd700', fontWeight: 'bold',
             }}>♛</div>
           </div>
-          {/* Face avant (carte réelle) */}
-          <FaceFront card={card} w={w} h={h} small={small} />
+          {/* Face avant (carte réelle, dans le container flip) */}
+          <FaceFront card={card} w={w} h={h} small={small} inFlipContainer />
         </div>
         <style>{`
           @keyframes cardFlip3D {
@@ -643,18 +643,23 @@ export const Card = ({ card, hidden, delay = 0, small = false, flipDuration = 0 
   return <FaceFront card={card} w={w} h={h} small={small} delay={delay} />;
 };
 
-// Face avant d'une carte (factorisée)
-const FaceFront = ({ card, w, h, small, delay = 0 }) => {
+// Face avant d'une carte (factorisée). 
+// Si `inFlipContainer` est true → s'absolute-positionne dans son parent flip 3D.
+// Sinon → rendu standalone (position: relative) pour s'intégrer dans un flex.
+const FaceFront = ({ card, w, h, small, delay = 0, inFlipContainer = false }) => {
   const isRed = card.suit === '♥' || card.suit === '♦';
+  const baseStyle = inFlipContainer
+    ? { position: 'absolute', inset: 0, backfaceVisibility: 'hidden' }
+    : { position: 'relative', flex: '0 0 auto' };
   return (
     <div style={{
-      position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
+      ...baseStyle,
       width: w, height: h,
       background: 'linear-gradient(145deg, #fff, #e8e8e8)',
-      borderRadius: 8, border: '1px solid #aaa',
+      borderRadius: 8, border: '2px solid #c0a050',
       padding: small ? 5 : 7,
       animation: delay ? `cardDeal 0.4s ease-out ${delay}s both` : undefined,
-      boxShadow: '0 6px 16px rgba(0,0,0,0.85)',
+      boxShadow: '0 6px 16px rgba(0,0,0,0.85), inset 0 0 0 1px rgba(255,255,255,0.5)',
       fontFamily: 'Georgia, serif',
     }}>
       <div style={{ color: isRed ? '#c00' : '#000', fontWeight: 'bold', fontSize: small ? 15 : 22, lineHeight: 1 }}>

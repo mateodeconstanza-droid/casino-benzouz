@@ -3028,6 +3028,16 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
         }
         if (t >= 1) {
           scene.remove(b.mesh);
+          // Dispose geometries + materials pour éviter une fuite GPU sur les rockets/grenades répétés
+          try {
+            b.mesh.traverse((child) => {
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach(m => m && m.dispose && m.dispose());
+              }
+            });
+          } catch (_e) { /* noop */ }
           return false;
         }
         return true;
@@ -3605,6 +3615,10 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
   const createExplosion = (pos) => {
     const scene = sceneRef.current;
     if (!scene) return;
+    // Throttle : si une explosion est créée < 80 ms après la dernière, on skip pour éviter de saturer le GPU
+    const now = Date.now();
+    if (createExplosion._lastAt && (now - createExplosion._lastAt) < 80) return;
+    createExplosion._lastAt = now;
     try { sfx.play('explosion'); } catch (_e) { /* noop */ }
     const group = new THREE.Group();
     group.position.copy(pos);
@@ -3625,8 +3639,8 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
     shock.rotation.x = -Math.PI / 2;
     shock.position.y = -1;
     group.add(shock);
-    // Lumière ponctuelle
-    const light = new THREE.PointLight(0xff8833, 4, 10);
+    // Lumière ponctuelle (intensité réduite + distance courte pour éviter les recompilations shader sur AoE multiple)
+    const light = new THREE.PointLight(0xff8833, 2, 6);
     group.add(light);
 
     scene.add(group);

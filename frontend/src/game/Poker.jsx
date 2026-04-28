@@ -207,7 +207,7 @@ const PokerGame = ({ balance, setBalance, minBet, onExit, casino, dealerProfile,
         </div>
 
         {/* Cartes du joueur */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
           {playerCards.map((c, i) => (
             <Card key={i} card={c} delay={i * 0.2} />
           ))}

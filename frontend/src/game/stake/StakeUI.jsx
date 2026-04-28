@@ -153,6 +153,57 @@ const LiveBadge = ({ label }) => (
 // =============================================================
 export const Chip3D = ({ value, size = 60, selected = false, onClick }) => {
   const def = STAKE_CHIPS.find(c => c.v === value) || STAKE_CHIPS[0];
+  // Plaquettes VIP = rectangulaires + finition platinium/onyx
+  if (def.vip) {
+    const W = size * 1.25, H = size * 0.78;
+    return (
+      <button
+        data-testid={`stake-chip-${value}`}
+        onClick={onClick}
+        style={{
+          position: 'relative',
+          width: W, height: H,
+          border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+          filter: selected ? 'brightness(1.15) drop-shadow(0 0 12px rgba(63,230,255,0.95))' : 'drop-shadow(0 0 6px rgba(255,215,0,0.4))',
+          transform: selected ? 'translateY(-4px)' : 'none',
+          transition: 'transform .15s ease, filter .15s ease',
+        }}
+      >
+        {/* Empilement faux 3D */}
+        {[0, 1, 2].map(i => (
+          <div key={i}
+            style={{
+              position: 'absolute', bottom: i * 2, left: 0,
+              width: W, height: H, borderRadius: 8,
+              background: `linear-gradient(140deg, ${shade(def.color, 0.05)} 0%, ${def.color} 50%, ${shade(def.color, -0.25)} 100%)`,
+              boxShadow: `0 2px 3px rgba(0,0,0,${0.35 + i * 0.05}), inset 0 -2px 4px rgba(0,0,0,0.25)`,
+              border: `2px solid ${def.accent}`,
+            }}
+          />
+        ))}
+        {/* Face supérieure plaquette */}
+        <div style={{
+          position: 'absolute', bottom: 8, left: 0, width: W, height: H,
+          borderRadius: 8,
+          background: `linear-gradient(135deg, ${def.color} 0%, ${shade(def.color, -0.15)} 60%, ${def.color} 100%)`,
+          border: `3px solid ${def.accent}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `inset 0 0 8px ${def.accent}40, inset 0 2px 3px rgba(255,255,255,0.3)`,
+        }}>
+          {/* Logo "VIP" en filigrane */}
+          <span style={{
+            position: 'absolute', top: 4, left: 8,
+            fontSize: 8, fontWeight: 900, color: def.accent, letterSpacing: 1.5,
+          }}>★ VIP ★</span>
+          <span style={{
+            color: def.ink, fontWeight: 900, fontSize: H * 0.45,
+            fontFamily: 'Georgia, serif', letterSpacing: -0.5,
+            textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+          }}>{def.text}</span>
+        </div>
+      </button>
+    );
+  }
   return (
     <button
       data-testid={`stake-chip-${value}`}

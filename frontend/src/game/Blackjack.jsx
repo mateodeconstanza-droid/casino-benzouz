@@ -24,8 +24,9 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
   const [flippingIdx, setFlippingIdx] = useState(-1);
 
   const maxBet = Math.min(balance, minBet * 1000);
-  // Chips pour classique, PLAQUETTES VIP pour les tables VIP
-  const chipValues = minBet >= 1000000 ? [100000, 500000, 1000000, 5000000, 10000000]
+  // Chips classiques + PLAQUETTES VIP (5M, 10M, 50M) pour tables haut de gamme
+  const chipValues = minBet >= 5000000 ? [500000, 1000000, 5000000, 10000000, 50000000]
+                   : minBet >= 1000000 ? [100000, 500000, 1000000, 5000000, 10000000]
                    : minBet >= 100000 ? [50000, 100000, 500000, 1000000, 5000000]
                    : minBet >= 30000 ? [10000, 50000, 100000, 500000, 1000000]
                    : minBet >= 5000 ? [5000, 10000, 50000, 100000, 500000]
@@ -347,7 +348,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
             <div style={{ color: '#cca366', fontSize: 11, textAlign: 'center', marginBottom: 4 }}>
               CROUPIER {dealerHand.length > 0 && phase !== 'player' && ` - ${handValue(dealerHand)}`}
             </div>
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               {dealerHand.map((c, i) => (
                 <Card
                   key={c.id}
@@ -408,7 +409,7 @@ const BlackjackGame = ({ balance, setBalance, minBet, onExit, casino, chooseWeap
             <div style={{ color: '#cca366', fontSize: 11, textAlign: 'center', marginBottom: 4 }}>
               TA MAIN {playerHand.length > 0 && `- ${handValue(playerHand)}`}
             </div>
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               {playerHand.map((c, i) => <Card key={c.id} card={c} delay={i * 0.15} />)}
             </div>
           </div>
