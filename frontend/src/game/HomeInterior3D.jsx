@@ -157,6 +157,105 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     wallRight.position.set(size.w / 2, size.h / 2, 0);
     scene.add(wallRight);
 
+    // ============== MURS INTÉRIEURS — séparation des pièces ==============
+    // On crée une cloison verticale (axe Z) au milieu et une cloison horizontale (axe X)
+    // pour former 4 quadrants. Chaque mur a une "ouverture" (doorway) au centre pour
+    // permettre la circulation. Le matériau est légèrement plus clair pour distinguer.
+    const innerWallMat = new THREE.MeshStandardMaterial({
+      color: 0xe8e0d0, roughness: 0.85,
+    });
+    const wallTrim = new THREE.MeshStandardMaterial({
+      color: t.accent, metalness: 0.4, roughness: 0.4, emissive: t.accent, emissiveIntensity: 0.12,
+    });
+    // Doorway = ouverture de 2.2m (largeur) × 2.2m (hauteur)
+    const DOOR_W = 2.4, DOOR_H = 2.2;
+
+    // ----- Cloison verticale (sépare gauche/droite) — axe Z, posée à x=0 -----
+    // 2 segments de chaque côté de l'ouverture centrale
+    const segDepth = (size.d - DOOR_W) / 2;
+    for (let s = -1; s <= 1; s += 2) {
+      const wallSeg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, size.h, segDepth),
+        innerWallMat
+      );
+      wallSeg.position.set(0, size.h / 2, s * (DOOR_W / 2 + segDepth / 2));
+      wallSeg.castShadow = true; wallSeg.receiveShadow = true;
+      scene.add(wallSeg);
+    }
+    // Linteau au-dessus du passage central
+    const lintelV = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, size.h - DOOR_H, DOOR_W),
+      innerWallMat
+    );
+    lintelV.position.set(0, DOOR_H + (size.h - DOOR_H) / 2, 0);
+    scene.add(lintelV);
+    // Liseré doré sur l'arche centrale
+    const archV = new THREE.Mesh(
+      new THREE.BoxGeometry(0.25, 0.08, DOOR_W + 0.2),
+      wallTrim
+    );
+    archV.position.set(0, DOOR_H, 0);
+    scene.add(archV);
+
+    // ----- Cloison horizontale (sépare avant/arrière) — axe X, posée à z=0 -----
+    const segWidth = (size.w - DOOR_W) / 2;
+    for (let s = -1; s <= 1; s += 2) {
+      const wallSeg = new THREE.Mesh(
+        new THREE.BoxGeometry(segWidth, size.h, 0.2),
+        innerWallMat
+      );
+      wallSeg.position.set(s * (DOOR_W / 2 + segWidth / 2), size.h / 2, 0);
+      wallSeg.castShadow = true; wallSeg.receiveShadow = true;
+      scene.add(wallSeg);
+    }
+    const lintelH = new THREE.Mesh(
+      new THREE.BoxGeometry(DOOR_W, size.h - DOOR_H, 0.2),
+      innerWallMat
+    );
+    lintelH.position.set(0, DOOR_H + (size.h - DOOR_H) / 2, 0);
+    scene.add(lintelH);
+    const archH = new THREE.Mesh(
+      new THREE.BoxGeometry(DOOR_W + 0.2, 0.08, 0.25),
+      wallTrim
+    );
+    archH.position.set(0, DOOR_H, 0);
+    scene.add(archH);
+
+    // Étiquettes flottantes "SALON / CUISINE / CHAMBRE / JEUX" (texturées)
+    const makeRoomLabel = (text, color) => {
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 64;
+      const cx = cv.getContext('2d');
+      cx.fillStyle = 'rgba(0,0,0,0.6)'; cx.fillRect(0, 0, 256, 64);
+      cx.strokeStyle = color; cx.lineWidth = 2; cx.strokeRect(2, 2, 252, 60);
+      cx.fillStyle = color; cx.font = 'bold 28px Georgia';
+      cx.textAlign = 'center'; cx.fillText(text, 128, 42);
+      const tex = new THREE.CanvasTexture(cv);
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.2, 0.55),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false })
+      );
+      return m;
+    };
+    // SALON (quadrant -X, +Z) — devant gauche
+    const lbSalon = makeRoomLabel('SALON', '#ffd700');
+    lbSalon.position.set(-size.w / 4, size.h - 0.8, size.d / 2 - 0.15);
+    scene.add(lbSalon);
+    // CUISINE (quadrant +X, -Z) — arrière droit
+    const lbCuisine = makeRoomLabel('CUISINE', '#3fe6ff');
+    lbCuisine.position.set(size.w / 4, size.h - 0.8, -size.d / 2 + 0.15);
+    lbCuisine.rotation.y = Math.PI;
+    scene.add(lbCuisine);
+    // CHAMBRE (quadrant -X, -Z) — arrière gauche
+    const lbChambre = makeRoomLabel('CHAMBRE', '#ff6b9d');
+    lbChambre.position.set(-size.w / 4, size.h - 0.8, -size.d / 2 + 0.15);
+    lbChambre.rotation.y = Math.PI;
+    scene.add(lbChambre);
+    // SALLE JEUX (quadrant +X, +Z) — devant droit
+    const lbJeux = makeRoomLabel('JEUX', '#9a7aff');
+    lbJeux.position.set(size.w / 4, size.h - 0.8, size.d / 2 - 0.15);
+    scene.add(lbJeux);
+
     // === ZONE SALON (gauche) ===
     const salon = new THREE.Group();
     salon.position.set(-size.w / 3, 0, 1.5);
@@ -217,9 +316,9 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     salon.add(lampLight);
     scene.add(salon);
 
-    // === ZONE CUISINE (milieu) ===
+    // === ZONE CUISINE (quadrant +X, -Z) ===
     const kitchen = new THREE.Group();
-    kitchen.position.set(0, 0, -size.d / 2 + 1.2);
+    kitchen.position.set(size.w / 4, 0, -size.d / 2 + 1.2);
     // Plan de travail en L
     const counter1 = new THREE.Mesh(
       new THREE.BoxGeometry(4, 0.9, 0.8),
@@ -260,9 +359,9 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     kitchen.add(stove);
     scene.add(kitchen);
 
-    // === ZONE CHAMBRE (droite) ===
+    // === ZONE CHAMBRE (quadrant -X, -Z) ===
     const bedroom = new THREE.Group();
-    bedroom.position.set(size.w / 3, 0, 1);
+    bedroom.position.set(-size.w / 4, 0, -size.d / 4);
     // Lit
     const bedBase = new THREE.Mesh(
       new THREE.BoxGeometry(2.2, 0.35, 3.2),
@@ -307,6 +406,58 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     nLampLight.position.copy(nLamp.position);
     bedroom.add(nLampLight);
     scene.add(bedroom);
+
+    // === ZONE SALLE JEUX (quadrant +X, +Z) ===
+    const playroom = new THREE.Group();
+    playroom.position.set(size.w / 4, 0, size.d / 4);
+    // Table de billard simple
+    const pool = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 0.85, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0x0f4a1a, roughness: 0.85 })
+    );
+    pool.position.set(0, 0.42, 0);
+    pool.castShadow = true; pool.receiveShadow = true;
+    playroom.add(pool);
+    // Bordure poolBoard
+    const poolEdge = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6, 0.9, 1.6),
+      new THREE.MeshStandardMaterial({ color: t.table, roughness: 0.6 })
+    );
+    poolEdge.position.set(0, 0.4, 0);
+    playroom.add(poolEdge);
+    // 6 boules colorées sur la table
+    const ballColors = [0xff2222, 0xffd700, 0x2266ff, 0x1aa34a, 0xa040c0, 0xff8800];
+    ballColors.forEach((c, i) => {
+      const b = new THREE.Mesh(
+        new THREE.SphereGeometry(0.07, 10, 8),
+        new THREE.MeshStandardMaterial({ color: c, metalness: 0.4, roughness: 0.3 })
+      );
+      b.position.set(-0.6 + (i % 3) * 0.2, 0.92, -0.3 + Math.floor(i / 3) * 0.2);
+      playroom.add(b);
+    });
+    // 2 fauteuils gaming
+    for (let s = -1; s <= 1; s += 2) {
+      const seat = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.5, 0.7),
+        new THREE.MeshStandardMaterial({ color: t.accent, roughness: 0.6, metalness: 0.3 })
+      );
+      seat.position.set(s * 1.5, 0.25, 1.2);
+      playroom.add(seat);
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 1.0, 0.18),
+        new THREE.MeshStandardMaterial({ color: t.accent, roughness: 0.6, metalness: 0.3 })
+      );
+      back.position.set(s * 1.5, 0.85, 1.55);
+      playroom.add(back);
+    }
+    // Petit écran TV mural
+    const tvJeux = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 1.2, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x000, emissive: 0x3fe6ff, emissiveIntensity: 0.4 })
+    );
+    tvJeux.position.set(0, 1.8, size.d / 4 + 1.4);
+    playroom.add(tvJeux);
+    scene.add(playroom);
 
     // === MUR TROPHÉES (au fond, derrière la TV) ===
     const trophyCvs = document.createElement('canvas');

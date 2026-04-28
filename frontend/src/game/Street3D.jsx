@@ -78,6 +78,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [bountyToast, setBountyToast] = useState(null);
   const [respawning, setRespawning] = useState(false);
   const [activeEvents, setActiveEvents] = useState(() => getActiveEvents());
+  const [lookHintShown, setLookHintShown] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLookHintShown(false), 4500);
+    return () => clearTimeout(t);
+  }, []);
 
   // Hook : tourner la tête à la souris (PC) / drag tactile (mobile)
   // On exclut les boutons HUD pour pas que tap = lock
@@ -273,6 +279,81 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     sidewalkFront.position.set(0, 0.07, -8);
     sidewalkFront.receiveShadow = true;
     scene.add(sidewalkFront);
+
+    // ====== RUES SECONDAIRES INTERNES (entre maisons + autour casino) ======
+    // Allée passant devant les villas latérales (z = -12)
+    const sideStreet1 = new THREE.Mesh(
+      new THREE.PlaneGeometry(110, 6),
+      new THREE.MeshStandardMaterial({ color: 0x303034, roughness: 0.9 })
+    );
+    sideStreet1.rotation.x = -Math.PI / 2;
+    sideStreet1.position.set(0, 0.013, -12);
+    scene.add(sideStreet1);
+    // Lignes pointillées blanches
+    for (let i = -52; i <= 52; i += 4) {
+      const l = new THREE.Mesh(
+        new THREE.PlaneGeometry(2, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
+      );
+      l.rotation.x = -Math.PI / 2;
+      l.position.set(i, 0.022, -12);
+      scene.add(l);
+    }
+    // Allée arrière (z = -25) qui relie la rangée arrière de maisons
+    const sideStreet2 = new THREE.Mesh(
+      new THREE.PlaneGeometry(120, 5),
+      new THREE.MeshStandardMaterial({ color: 0x2f2f33, roughness: 0.9 })
+    );
+    sideStreet2.rotation.x = -Math.PI / 2;
+    sideStreet2.position.set(0, 0.013, -25);
+    scene.add(sideStreet2);
+    // Pavés latéraux faux pavé pour arrière
+    for (let i = -56; i <= 56; i += 4) {
+      const l = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.8, 0.15),
+        new THREE.MeshStandardMaterial({ color: 0xd0c8a8 })
+      );
+      l.rotation.x = -Math.PI / 2;
+      l.position.set(i, 0.022, -25);
+      scene.add(l);
+    }
+    // Allée perpendiculaire vers chaque maison (3 rues coupant la rangée principale)
+    for (const cx of [-30, 0, 30]) {
+      const cross = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 26),
+        new THREE.MeshStandardMaterial({ color: 0x303034, roughness: 0.9 })
+      );
+      cross.rotation.x = -Math.PI / 2;
+      cross.position.set(cx, 0.013, -16);
+      scene.add(cross);
+      // Lignes jaunes pointillées
+      for (let iz = -28; iz <= -4; iz += 3) {
+        const l = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.18, 1.4),
+          new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
+        );
+        l.rotation.x = -Math.PI / 2;
+        l.position.set(cx, 0.022, iz);
+        scene.add(l);
+      }
+    }
+    // Trottoirs autour du casino (4 côtés)
+    const sidewalkBack = new THREE.Mesh(
+      new THREE.BoxGeometry(20, 0.15, 1.5),
+      new THREE.MeshStandardMaterial({ color: 0xb0b4b7, roughness: 0.9 })
+    );
+    sidewalkBack.position.set(0, 0.07, -16);
+    sidewalkBack.receiveShadow = true;
+    scene.add(sidewalkBack);
+    for (let s = -1; s <= 1; s += 2) {
+      const sidewalkSide = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 0.15, 14),
+        new THREE.MeshStandardMaterial({ color: 0xb0b4b7, roughness: 0.9 })
+      );
+      sidewalkSide.position.set(s * 9.25, 0.07, -10);
+      sidewalkSide.receiveShadow = true;
+      scene.add(sidewalkSide);
+    }
 
     // ----- Casino (bâtiment central — visible, entrée grande) -----
     const casinoGroup = new THREE.Group();
@@ -2056,6 +2137,33 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       )}
 
       {/* (Joystick rotation supprimé : on tourne la tête à la souris/drag tactile) */}
+
+      {/* Hint look controls — fade out après 4.5s */}
+      {lookHintShown && !scanning && !selectedHouse && !aptPickerOpen && (
+        <div
+          data-testid="street-look-hint"
+          style={{
+            position: 'absolute', bottom: '32%', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 30, padding: '10px 18px', borderRadius: 30,
+            background: 'rgba(10,10,15,0.85)',
+            border: '2px solid rgba(212,175,55,0.5)',
+            color: '#ffd700', fontSize: 13, fontWeight: 800, letterSpacing: 1,
+            backdropFilter: 'blur(8px)',
+            animation: 'lookHintFade 4.5s ease-in-out forwards',
+            pointerEvents: 'none', textAlign: 'center',
+          }}
+        >
+          🖱️ Clique pour tourner la tête · 📱 Drag tactile pour mobile
+          <style>{`
+            @keyframes lookHintFade {
+              0%   { opacity: 0; transform: translate(-50%, 10px); }
+              10%  { opacity: 1; transform: translate(-50%, 0); }
+              80%  { opacity: 1; }
+              100% { opacity: 0; transform: translate(-50%, -10px); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Panneau véhicule + combat (bottom-center au-dessus des joysticks) */}
       {!scanning && !selectedHouse && !aptPickerOpen && (
