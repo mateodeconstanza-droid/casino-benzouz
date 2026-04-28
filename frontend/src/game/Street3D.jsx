@@ -2392,6 +2392,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onShopfrontClick = () => {
       onOpenShop ? onOpenShop() : setGarageOpen(true);
     };
+    // Hooks de test (dev) — permettent de téléporter / ouvrir directement
+    if (typeof window !== 'undefined') {
+      window.__streetTeleport = (x, z) => {
+        if (stateRef.current.player) {
+          stateRef.current.player.x = x;
+          stateRef.current.player.z = z;
+        }
+      };
+      window.__openGarage = () => setGarageOpen(true);
+      window.__getStreetPos = () => stateRef.current.player ? { x: stateRef.current.player.x, z: stateRef.current.player.z } : null;
+    }
     stateRef.current.onNearbyChange = (nb) => {
       setNearbyPrompt(nb);
     };

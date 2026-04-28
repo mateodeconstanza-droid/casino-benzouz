@@ -245,6 +245,27 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Hooks de test étendus** : `__openBlackjack(minBet)` / `__openPoker(minBet)` / `__openRoulette(minBet)` acceptent désormais un paramètre pour tester les chips VIP.
 - **GambleBet badge Historique** : compte désormais `history.length + pending.length` pour refléter immédiatement les paris placés.
 
+### ✅ Implemented (Feb 2026 — Sprint F1/F2/F3/F4, validated iteration_8)
+- **Sprint F1 — Plage + Mer + Décorations ville** (`Street3D.jsx` lignes 1485-1825) :
+  - Plage de sable de 40×400 m côté Est (x: 80→120) avec patches de couleur variée
+  - Mer animée 380×600 m avec vagues sinusoïdales (vertex displacement) et écume pulsante
+  - Pont en bois s'avançant 14m dans la mer (deck + pilotis + garde-corps)
+  - 6 parasols + serviettes colorées + 5 palmiers répartis sur la plage
+  - Death barrière mer (x > 124, soit 3-4m dans l'eau) + lateral plage (|z| > 200)
+  - Place piétonne pavée (20×12m) entre garage/boutique + fontaine animée + 4 pots de plantes + 4 bancs + 6 lampadaires + 12 pots/buissons devant le casino
+- **Sprint F2 — Garage + Boutique** :
+  - **Garage** (-22, 0, 30) : bâtiment 16×6×9m, toit, 3 portes de garage (rouleau métal avec lignes horizontales effet rideau), enseigne lumineuse "🚗 GARAGE", 2 voitures d'exposition. Interactable type='garage' → ouvre [data-testid=garage-modal] avec liste des véhicules (acheter/équiper).
+  - **Boutique** (22, 0, 30) : bâtiment 12×5.5×8m, 2 vitrines verre teinté avec mannequins stylisés, porte centrale, enseigne "★ BOUTIQUE ★" rose néon. Interactable type='shopfront' → ouvre la Shop existante via prop `onOpenShop`.
+- **Sprint F3 — Animation d'arrivée casino 4s** (`Lobby3D.jsx`) :
+  - Nouveau state `arriving` (true durant 4000ms à l'entrée), refs `arrivingRef` + `arrivalStartRef`
+  - Caméra cinématique 3ème personne pendant l'arrivée : orbite autour du joueur (distance 6→3.5m, hauteur 5.5→3m, arc 0→90°)
+  - Avatar joueur visible (TPS forcé) avec léger bob "chargement de matière"
+  - Overlay [data-testid=casino-arrival-overlay] (z-index 9999) : flash blanc radial + 2 anneaux qui montent + texte "GAMBLELIFE ★ ENTRÉE EN MATIÈRE ★" qui apparaît/disparaît
+- **Sprint F4 — FortniteLobby AAA + HomeInterior3D mouvement** :
+  - **FortniteLobby** (`FortniteLobby.jsx` réécrit ~440 LOC) : skyline ville GTA-like en CSS (3 couches parallax : silhouettes lointaines + bâtiments avec fenêtres lumineuses + sol/route), coucher de soleil multi-stop, néons cyan/rose accents, lune/soleil radial. Personnage stylisé `<PlayerAvatar>` avec cheveux/torse/bras/jambes/chaussures qui réagissent **dynamiquement** aux cosmétiques équipés (HAIR_CATALOG/OUTFIT_CATALOG/SHOES_CATALOG). Carrousel cosmétiques [data-testid=lobby-cosm-{hair|outfit|shoes}-{prev|next}] : changer la tenue **directement depuis le lobby** persiste via `setProfile`. 4 CTAs (lobby-btn-city/casino/shop/profile) + bouton déconnexion. Halo doré + plateforme rotative sous le perso.
+  - **HomeInterior3D** (`HomeInterior3D.jsx` lignes 763-925) : déplacement WASD/ZQSD + flèches + drag-to-look (pointer events). 6 boutons D-pad mobiles [data-testid=home-dpad-{fwd|back|left|right|rotL|rotR}]. Détection auto-proximité au cercle bleu : ouvre la modal customize sans clic. Collision murs (margin 0.5m).
+- **Hooks de test étendus** : `window.__streetTeleport(x,z)`, `window.__openGarage()`, `window.__getStreetPos()` exposés depuis Street3D pour validation E2E déterministe.
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.
