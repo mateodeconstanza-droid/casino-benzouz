@@ -811,6 +811,7 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
 
   useEffect(() => {
     stateRef.current.onTrophyClick = () => setShowTrophies(true);
+    stateRef.current.onCustomizeClick = () => setShowFurnStore(true);
   }, []);
 
   const applyTheme = (newTheme) => {
