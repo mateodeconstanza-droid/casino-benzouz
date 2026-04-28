@@ -697,6 +697,7 @@ export const Chip = ({ value, onClick, selected, disabled, size = 60 }) => {
     1000000: ['#ff1493', '#8b008b', '#fff'],
     5000000: ['#ffd700', '#ff8c00', '#000'],
     10000000: ['#000000', '#ffd700', '#ffd700'],
+    50000000: ['#7c0a8b', '#3a0250', '#ffd700'],
   };
   const [main, dark, text] = colors[value] || colors[5];
   const isPlaque = value >= 50000; // Plaquette rectangulaire pour VIP
