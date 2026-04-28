@@ -1,6 +1,7 @@
 import React from 'react';
 import { STAKE, STAKE_CHIPS, chipsForMin } from './theme';
 import { fmt } from '@/game/constants';
+import sfx from '@/game/sfx';
 
 // =============================================================
 // <StakeShell> — cadre commun aux jeux (Blackjack/Roulette/Poker)
@@ -156,10 +157,14 @@ export const Chip3D = ({ value, size = 60, selected = false, onClick }) => {
   // Plaquettes VIP = rectangulaires + finition platinium/onyx
   if (def.vip) {
     const W = size * 1.25, H = size * 0.78;
+    const handleVipClick = () => {
+      try { sfx.play('vipChip'); } catch (_e) { /* noop */ }
+      onClick && onClick();
+    };
     return (
       <button
         data-testid={`stake-chip-${value}`}
-        onClick={onClick}
+        onClick={handleVipClick}
         style={{
           position: 'relative',
           width: W, height: H,

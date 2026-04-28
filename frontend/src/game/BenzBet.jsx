@@ -365,6 +365,20 @@ const GambleBetScreen = ({ balance, setBalance, username, onExit }) => {
     if (slip.length === 0) return;
     if (stake <= 0 || stake > balance) return;
 
+    // ANTI-DOUBLON : refuse si un match du slip a déjà un pari pending non résolu
+    const currentPendingPre = JSON.parse(localStorage.getItem(BENZBET_PENDING_KEY(username)) || '[]');
+    const pendingMatchIds = new Set();
+    for (const p of currentPendingPre) {
+      if (p.status !== 'pending') continue;
+      for (const lg of (p.legs || [])) pendingMatchIds.add(lg.matchId);
+    }
+    const conflict = slip.find(s => pendingMatchIds.has(s.matchId));
+    if (conflict) {
+      setToast(`❌ Tu as déjà un pari en cours sur ${conflict.match.home} vs ${conflict.match.away}`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+
     setBalance(b => b - stake);
 
     // Chaque leg embarque sa durée simulée restante → resolveAt individuel
@@ -443,7 +457,7 @@ const GambleBetScreen = ({ balance, setBalance, username, onExit }) => {
         }}>
           <span style={{ color: '#1aa34a', fontSize: 12 }}>🔒</span>
           <span style={{ color: INK_SOFT }}>https://www.</span>
-          <span style={{ fontWeight: 700 }}>benzbet.fr</span>
+          <span style={{ fontWeight: 700 }}>gamblebet.fr</span>
           <span style={{ color: INK_SOFT }}>/paris-sportifs/{activeSport}</span>
         </div>
         <button

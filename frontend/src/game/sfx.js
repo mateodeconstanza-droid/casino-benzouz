@@ -140,6 +140,15 @@ const playChip = () => {
   tone(c, { freq: 900, slideTo: 500, duration: 0.06, type: 'sine', volume: 0.12 });
 };
 
+// Son distinctif "VIP plaquette" : tintement métallique cristallin + résonance basse
+const playVipChip = () => {
+  const c = getCtx(); if (!c) return;
+  tone(c, { freq: 2400, slideTo: 1700, duration: 0.12, type: 'sine', volume: 0.22 });
+  tone(c, { freq: 1700, duration: 0.18, type: 'triangle', volume: 0.18 });
+  setTimeout(() => tone(c, { freq: 3200, duration: 0.15, type: 'sine', volume: 0.1 }), 60);
+  setTimeout(() => tone(c, { freq: 220, duration: 0.4, type: 'sine', volume: 0.08 }), 30);
+};
+
 const playCardDeal = () => {
   const c = getCtx(); if (!c) return;
   noise(c, { duration: 0.08, volume: 0.15, filterFreq: 4000, filterType: 'highpass' });
@@ -228,6 +237,7 @@ const SOUNDS = {
   laserrifle: playLaser,
   explosion: playExplosion,
   chip: playChip,
+  vipChip: playVipChip,
   card: playCardDeal,
   win: playWin,
   lose: playLose,

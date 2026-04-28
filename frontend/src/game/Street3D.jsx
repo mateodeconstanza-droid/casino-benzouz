@@ -10,23 +10,34 @@ import sfx from '@/game/sfx';
 // =============================================================
 // HOUSE CATALOG — 32 propriétés (5 appart + 3 maisons + 2 villas + 22 maisons étendues)
 // =============================================================
-// Les 20 "sh-XX" sont en 3 rangées derrière la 1ère ligne de maisons, dans la play area.
+// Les "sh-XX" sont en plusieurs rangées derrière la 1ère ligne de maisons + devant le casino.
+// Total : 30 nouvelles maisons (en plus des 5 appartements + 3 maisons + 2 villas + 3 ByJaze = 43 logements)
 const _sidePositions = (() => {
   const arr = [];
+  // === DERRIÈRE le casino (z négatif) ===
   // Rangée 2 (z=-30) — 7 maisons
   for (let i = 0; i < 7; i++) arr.push({ x: -39 + i * 13, z: -30 });
   // Rangée 3 (z=-33) — 7 maisons décalées
   for (let i = 0; i < 7; i++) arr.push({ x: -32 + i * 11, z: -33 });
-  // Rangée 4 (z=-36) — 6 maisons (derrière, juste avant death barrier à z=-37)
+  // Rangée 4 (z=-36) — 6 maisons
   for (let i = 0; i < 6; i++) arr.push({ x: -30 + i * 12, z: -36 });
+  // === DEVANT le casino, derrière le spawn (z positif) ===
+  // Rangée 5 (z=22) — 5 maisons devant le spawn
+  for (let i = 0; i < 5; i++) arr.push({ x: -32 + i * 16, z: 22 });
+  // Rangée 6 (z=28) — 5 maisons plus loin
+  for (let i = 0; i < 5; i++) arr.push({ x: -36 + i * 18, z: 28 });
   return arr;
 })();
 
 const _sideNames = [
+  // 20 maisons arrière (z = -30, -33, -36)
   'Pavillon Azur', 'Loft Doré', 'Cottage Pin', 'Bungalow Sable', 'Maison Rose',
   'Loft Gris', 'Villa Mauve', 'Loft Turquoise', 'Chalet Cèdre', 'Maison Iris',
-  'Loft Ouest A', 'Loft Est A', 'Loft Ouest $', 'Loft Est $', 'Loft Ouest C',
+  'Loft Ouest A', 'Loft Est A', 'Loft Ouest B', 'Loft Est B', 'Loft Ouest C',
   'Loft Est C', 'Loft Ouest D', 'Loft Est D', 'Loft Ouest E', 'Loft Est E',
+  // 10 maisons devant le casino (z = 22, 28)
+  'Pavillon Front Or', 'Maison Émeraude', 'Loft Onyx', 'Bungalow Saphir', 'Villa Jade',
+  'Cottage Marbre', 'Maison Cosmos', 'Loft Nébuleuse', 'Penthouse Royal', 'Manoir Galaxy',
 ];
 
 export const HOUSES = [
@@ -47,12 +58,17 @@ export const HOUSES = [
   // 2 villas
   { id: 'v-1',   label: 'Villa Marina',   type: 'villa',     price: 100000000, x:   18, z: -20 },
   { id: 'v-2',   label: 'Villa Palmier',  type: 'villa',     price: 100000000, x:   28, z: -15 },
-  // 20 maisons/lofts latéraux (prix variés selon rareté)
+  // 30 maisons/lofts (20 latérales arrière + 10 devant le casino) — prix variés selon position et type
   ..._sidePositions.map((pos, i) => ({
     id: `sh-${i + 1}`,
-    label: _sideNames[i],
-    type: i < 10 ? 'house' : (i % 2 === 0 ? 'villa' : 'house'),
-    price: i < 10 ? 8000000 : (i % 2 === 0 ? 80000000 : 15000000),
+    label: _sideNames[i] || `Maison ${i + 1}`,
+    // Front (i >= 20) → mix house/villa luxe ; back (i < 20) → mix
+    type: i >= 20 ? (i % 2 === 0 ? 'villa' : 'house')
+        : i < 10 ? 'house'
+        : (i % 2 === 0 ? 'villa' : 'house'),
+    price: i >= 20 ? (i % 2 === 0 ? 120000000 : 25000000) // front bien plus cher
+         : i < 10 ? 8000000
+         : (i % 2 === 0 ? 80000000 : 15000000),
     x: pos.x,
     z: pos.z,
   })),

@@ -474,12 +474,17 @@ export const getRankings = (sportId, topN = 20) => {
 // ===== MOTEUR DE COTES INTELLIGENT =====
 // Normalise l'ELO en proba, applique l'avantage du terrain (foot/rugby),
 // calcule les cotes avec marge bookmaker de 6% (overround).
-const BOOKMAKER_MARGIN = 1.06;
+// Marge bookmaker réaliste : la cote rendue est inférieure à 1/proba.
+// Avec margin = 0.93, un favori à 60% donne une cote ~1.55 (vs 1.66 sans marge),
+// soit 7% de marge maison → EV joueur = 0.6 × 1.55 = 0.93 (perte attendue 7%).
+const BOOKMAKER_MARGIN = 0.93;
 
 const probaFromElo = (eloA, eloB, homeAdvantage = 0) => {
-  // Formule ELO classique adaptée : P(A) = 1 / (1 + 10^((eloB - eloA) / 12))
+  // Formule ELO classique adaptée : P(A) = 1 / (1 + 10^((eloB - eloA) / 25))
+  // Diviseur 25 plus doux que 12 → écart 10 ELO ~ 71% au lieu de 86%
+  // Plus réaliste : pas d'équipes "imbattables" sur le papier.
   const ratingA = eloA + homeAdvantage;
-  return 1 / (1 + Math.pow(10, (eloB - ratingA) / 12));
+  return 1 / (1 + Math.pow(10, (eloB - ratingA) / 25));
 };
 
 // Génère 12 matchs réalistes pour un sport donné avec cotes intelligentes
