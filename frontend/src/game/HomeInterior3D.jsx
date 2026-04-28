@@ -316,6 +316,77 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     salon.add(lampLight);
     scene.add(salon);
 
+    // ============================================================
+    // CERCLE BLEU DE PERSONNALISATION (Sims-style)
+    // Zone d'interaction visible : disque bleu transparent + halo pulsant.
+    // Quand le joueur s'approche → ouvre le menu Ameublement.
+    // ============================================================
+    const customizeZone = new THREE.Group();
+    customizeZone.position.set(-size.w / 2 + 1.5, 0, size.d / 2 - 1.5);
+    // Disque bleu transparent au sol
+    const cDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(0.9, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x3fe6ff, transparent: true, opacity: 0.28, side: THREE.DoubleSide,
+      })
+    );
+    cDisc.rotation.x = -Math.PI / 2;
+    cDisc.position.y = 0.025;
+    customizeZone.add(cDisc);
+    // Anneau lumineux (animé via stateRef)
+    const cRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1.05, 32),
+      new THREE.MeshBasicMaterial({ color: 0x3fe6ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+    );
+    cRing.rotation.x = -Math.PI / 2;
+    cRing.position.y = 0.03;
+    customizeZone.add(cRing);
+    // Pilier holographique qui monte (1.5m)
+    const cBeam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.7, 1.5, 16, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x3fe6ff, transparent: true, opacity: 0.18,
+        side: THREE.DoubleSide, depthWrite: false,
+      })
+    );
+    cBeam.position.y = 0.75;
+    customizeZone.add(cBeam);
+    // Icône hologramme "🛋" flottant (canvas → sprite)
+    const icCv = document.createElement('canvas');
+    icCv.width = 128; icCv.height = 128;
+    const icCx = icCv.getContext('2d');
+    icCx.font = '90px sans-serif'; icCx.textAlign = 'center';
+    icCx.fillText('🛋', 64, 96);
+    const icTex = new THREE.CanvasTexture(icCv);
+    const icSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: icTex, transparent: true, depthTest: false,
+    }));
+    icSprite.position.set(0, 1.3, 0);
+    icSprite.scale.set(0.7, 0.7, 0.7);
+    customizeZone.add(icSprite);
+    // Étiquette "PERSONNALISER"
+    const lbCv = document.createElement('canvas');
+    lbCv.width = 256; lbCv.height = 64;
+    const lbCx = lbCv.getContext('2d');
+    lbCx.fillStyle = 'rgba(0,0,0,0.7)'; lbCx.fillRect(0, 0, 256, 64);
+    lbCx.strokeStyle = '#3fe6ff'; lbCx.lineWidth = 2; lbCx.strokeRect(2, 2, 252, 60);
+    lbCx.fillStyle = '#3fe6ff'; lbCx.font = 'bold 22px Georgia';
+    lbCx.textAlign = 'center'; lbCx.fillText('PERSONNALISER', 128, 38);
+    const lbTex = new THREE.CanvasTexture(lbCv);
+    const lbSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: lbTex, transparent: true, depthTest: false,
+    }));
+    lbSprite.position.set(0, 2.0, 0);
+    lbSprite.scale.set(1.4, 0.35, 1);
+    customizeZone.add(lbSprite);
+    scene.add(customizeZone);
+    // Stocker la référence pour l'animation + détection de proximité
+    if (!stateRef.current) stateRef.current = {};
+    stateRef.current.customizeZone = customizeZone;
+    stateRef.current.customizeRing = cRing;
+    stateRef.current.customizeIcon = icSprite;
+    stateRef.current.customizeWorldPos = new THREE.Vector3(-size.w / 2 + 1.5, 0, size.d / 2 - 1.5);
+
     // === ZONE CUISINE (quadrant +X, -Z) ===
     const kitchen = new THREE.Group();
     kitchen.position.set(size.w / 4, 0, -size.d / 2 + 1.2);
@@ -657,6 +728,14 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       scene.add(leaves);
     }
 
+    // Marque la zone customize cliquable pour ouvrir Ameublement
+    customizeZone.userData.interaction = 'customize';
+    cDisc.userData.interaction = 'customize';
+    cRing.userData.interaction = 'customize';
+    cBeam.userData.interaction = 'customize';
+    icSprite.userData.interaction = 'customize';
+    lbSprite.userData.interaction = 'customize';
+
     // === Caméra orbit légèrement pour montrer 3D ===
     const raycaster = new THREE.Raycaster();
     const mouseV = new THREE.Vector2();
@@ -673,11 +752,19 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
           stateRef.current.onTrophyClick?.();
           return;
         }
+        if (obj?.userData?.interaction === 'customize') {
+          stateRef.current.onCustomizeClick?.();
+          return;
+        }
       }
     };
     renderer.domElement.addEventListener('click', handleClick);
 
-    stateRef.current = { scene, camera, renderer, disposed: false };
+    stateRef.current = {
+      ...(stateRef.current || {}),
+      scene, camera, renderer, disposed: false,
+      customizeRing: cRing, customizeIcon: icSprite, customizeBeam: cBeam,
+    };
     let rafId = 0;
     let elapsed = 0;
     const loop = () => {
@@ -687,6 +774,18 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       camera.position.x = Math.sin(elapsed * 0.4) * 1.6;
       camera.position.y = 2.4 + Math.sin(elapsed * 0.3) * 0.1;
       camera.lookAt(0, 1.7, -size.d / 2 + 1);
+      // Animation du cercle bleu : ring qui pulse + beam qui ondule + icône qui flotte
+      if (stateRef.current.customizeRing) {
+        const pulse = 1 + Math.sin(elapsed * 3) * 0.1;
+        stateRef.current.customizeRing.scale.set(pulse, pulse, pulse);
+        stateRef.current.customizeRing.material.opacity = 0.45 + Math.sin(elapsed * 3) * 0.2;
+      }
+      if (stateRef.current.customizeBeam) {
+        stateRef.current.customizeBeam.material.opacity = 0.12 + Math.abs(Math.sin(elapsed * 2)) * 0.12;
+      }
+      if (stateRef.current.customizeIcon) {
+        stateRef.current.customizeIcon.position.y = 1.3 + Math.sin(elapsed * 2.5) * 0.1;
+      }
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(loop);
     };

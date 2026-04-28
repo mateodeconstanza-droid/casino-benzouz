@@ -4,6 +4,7 @@ import LoginScreen from '@/game/Login';
 import CharacterScreen from '@/game/Character';
 import Lobby3D from '@/game/Lobby3D';
 import Street3D from '@/game/Street3D';
+import FortniteLobby from '@/game/FortniteLobby';
 import HomeInterior3D from '@/game/HomeInterior3D';
 import CasinoHall from '@/game/CasinoHall';
 import Onboarding from '@/game/Onboarding';
@@ -175,8 +176,8 @@ export default function Casino() {
   const handleServerChoice = ({ mode, serverId }) => {
     setMpMode(mode);
     setMpServerId(serverId || null);
-    // On passe d'abord par la rue (LOT 4) avant d'entrer dans le casino
-    setScreen('street');
+    // Le joueur arrive d'abord sur le Lobby type Fortnite, puis choisit son action
+    setScreen('fortniteLobby');
   };
 
   const handleEnterCasino = () => {
@@ -700,6 +701,18 @@ export default function Casino() {
         <ServerSelect casino={casino} onChoose={handleServerChoice} />
       )}
 
+      {screen === 'fortniteLobby' && profile && (
+        <FortniteLobby
+          profile={profile}
+          balance={balance}
+          onGoCity={() => { setSpawnHint('lobby_to_city'); setScreen('street'); }}
+          onGoCasino={() => setScreen('casinoHall')}
+          onGoShop={() => setShowShop(true)}
+          onGoProfile={() => setShowShop(true) /* TODO : page profil dédiée */}
+          onLogout={handleLogout}
+        />
+      )}
+
       {pendingGame && (
         <TableSelector
           gameId={pendingGame}
@@ -819,6 +832,7 @@ export default function Casino() {
           window.__openPoker     = () => setScreen('poker');
           window.__openLobby     = () => setScreen('lobby');
           window.__openStreet    = () => setScreen('street');
+          window.__openFortniteLobby = () => setScreen('fortniteLobby');
           window.__openCasinoHall = () => setScreen('casinoHall');
           window.__openHome = (houseId) => {
             // Ouvre le logement donné sans passer par la rue. Bypass owner check for tests.
