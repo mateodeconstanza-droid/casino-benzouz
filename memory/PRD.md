@@ -266,6 +266,25 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - **HomeInterior3D** (`HomeInterior3D.jsx` lignes 763-925) : déplacement WASD/ZQSD + flèches + drag-to-look (pointer events). 6 boutons D-pad mobiles [data-testid=home-dpad-{fwd|back|left|right|rotL|rotR}]. Détection auto-proximité au cercle bleu : ouvre la modal customize sans clic. Collision murs (margin 0.5m).
 - **Hooks de test étendus** : `window.__streetTeleport(x,z)`, `window.__openGarage()`, `window.__getStreetPos()` exposés depuis Street3D pour validation E2E déterministe.
 
+### ✅ Implemented (Feb 2026 — Sprint G1/G2/G3/G4, validated iteration_9)
+- **Sprint G1 — Adaptation Mobile/PC** : nouvel écran `DeviceSelect.jsx` entre ServerSelect et FortniteLobby. Auto-détection touch/screen, choix sauvegardé dans `localStorage.gamblelife_device`. Cartes PC/Mobile avec features distinctes. `deviceType` propagé à FortniteLobby/Street3D/Lobby3D pour adaptation des contrôles.
+- **Sprint G2 — Map cleanup + Ciel** :
+  - **Soleil** : grand disque émissif (28m radius) + 2 halos dorés/orangés à (380, 90, -20)
+  - **14 nuages volumétriques** (sphères blanches groupées) qui dérivent à 55-80m d'altitude
+  - **Allée de palmiers 10m** : ~62 palmiers (côté terrestre x=78 et côté mer x=112) tous les 12m sur z=-180→180, avec couronne de 8 feuilles + 3-5 noix de coco
+  - **Bâtiments procéduraux exclus** de la zone plage/mer (x > 75)
+  - **Lampadaires/barrières/arbres** également exclus de x > 75
+  - **Death barrière périmètre** : poteaux rouge/jaune avec bandes alternées qui ceinturent toute la ville (x ∈ [-410, 75], z ∈ [-410, 410]) et se relient aux limites de la plage (z = ±200) puis à la death barrière mer (x = 124)
+- **Sprint G3 — Animation arrivée + Menu universel + Trophées** :
+  - **Animation d'arrivée maison** ajoutée dans `HomeInterior3D.jsx` : `[data-testid=home-arrival-overlay]` similaire au casino, durée 4s, affiche le nom de la propriété + flash blanc + anneau doré + texte "★ BIENVENUE ★"
+  - **UniversalMenu** (`/app/frontend/src/game/UniversalMenu.jsx`) : bouton flottant `[data-testid=universal-menu-btn]` accessible depuis FortniteLobby, Street3D, Lobby3D, HomeInterior3D. Drawer avec : Trophées, Quêtes, Boutique, Choix appareil. Header avec niveau + solde.
+  - **Z-index Onboarding** réduit (9000 → 250) pour ne plus bloquer les modals (Garage, Shop)
+- **Sprint G4 — Boutique casino + GambleLife Store + Quads** :
+  - **Chichas** : nouvelle catégorie `HOOKAHS` dans constants.js (3 modèles : Classique 1M$, Or VIP 5M$, Platine 12M$). Onglet `[data-testid=shop-tab-hookahs]` dans Shop.jsx avec illustrations 3D-style (base + tube + embout + fumée animée CSS). `handleBuyCosmetic` étendu pour gérer le slot 'hookah' (stockage dans `profile.hookahs[]` + `equippedHookah`).
+  - **Quads** : 2 nouveaux véhicules ajoutés à VEHICLES (`quad` 8M$ speedMul 3.6× et `quad-pro` 18M$ speedMul 4.5×, plus rapides que le vélo à 3×). Apparaissent automatiquement dans le Garage modal.
+  - **GambleLife Store agrandi** : building 18×8×11m (vs 12×5.5×8 avant), 4 grandes vitrines avec mannequins multicolores, cadres dorés épais, porte centrale + tapis rouge, 2 piliers d'entrée dorés + boules lumineuses, enseigne "★ GAMBLELIFE STORE ★" 13×2.7m avec sous-titre "Armes · Véhicules · Cosmétiques", 2 néons cyan latéraux, corniche dorée sur le toit. Position (28, 0, 30).
+  - **Garage + Store orientés vers le casino** : `garage.rotation.y = Math.PI` et `shopFr.rotation.y = Math.PI` — les façades sont maintenant face au casino (-Z).
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.

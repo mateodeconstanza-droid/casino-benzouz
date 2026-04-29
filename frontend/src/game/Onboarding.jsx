@@ -67,7 +67,7 @@ const Onboarding = ({ active, onFinish }) => {
     <div
       data-testid="onboarding-overlay"
       style={{
-        position: 'fixed', inset: 0, zIndex: 9000, pointerEvents: 'auto',
+        position: 'fixed', inset: 0, zIndex: 250, pointerEvents: 'auto',
         background: 'rgba(5,10,18,0.35)', backdropFilter: 'blur(1.5px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'ob-fade-in .3s ease-out',
