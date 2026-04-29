@@ -88,6 +88,11 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
+  // Constants partagées 2ème étage (escalier + plateau)
+  const STAIR_COUNT = 12;
+  const STAIR_DEPTH = 0.42;
+  const UPPER_Y = 3.5;
+
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
   // Taille selon type (très agrandies + 2ème étage pour villas/maisons)
@@ -680,7 +685,7 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     // ========== 2ÈME ÉTAGE — villas + maisons (G+ 2026) ==========
     if (isTwoFloor) {
       // Plateforme 2ème étage + escalier
-      const upperFloorY = 3.5; // hauteur étage 2
+      const upperFloorY = UPPER_Y;
       const upperFloor = new THREE.Mesh(
         new THREE.BoxGeometry(size.w, 0.25, size.d * 0.55),
         new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.7 })
@@ -706,8 +711,8 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
         scene.add(bar);
       }
       // Escalier (12 marches plus larges + main courante en bois)
-      const stairCount = 12;
-      const stairW = 2.0, stairD = 0.42, stairH = upperFloorY / stairCount;
+      const stairCount = STAIR_COUNT;
+      const stairW = 2.0, stairD = STAIR_DEPTH, stairH = upperFloorY / stairCount;
       for (let i = 0; i < stairCount; i++) {
         const step = new THREE.Mesh(
           new THREE.BoxGeometry(stairW, stairH, stairD),
@@ -1000,9 +1005,9 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       // L'escalier est à x ≈ size.w/2 - 1.5, z ∈ [2.5 - 12*0.42, 2.5] ≈ [-2.5, 2.5]
       // Y monte progressivement avec Z (du bas en haut)
       if (isTwoFloor) {
-        const stairCount = 12;
-        const stairD = 0.42;
-        const upperY = 3.5;
+        const stairCount = STAIR_COUNT;
+        const stairD = STAIR_DEPTH;
+        const upperY = UPPER_Y;
         const stairXMin = size.w / 2 - 2.5;
         const stairXMax = size.w / 2 - 0.5;
         const stairZMax = 2.5;

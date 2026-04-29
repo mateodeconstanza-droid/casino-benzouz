@@ -315,6 +315,20 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - Cleanup AudioContext + useMemo confettis pour stabilité re-render
 - **`useHookah` custom hook extrait** (`/app/frontend/src/game/useHookah.js` — 19 LOC) : DRY entre Lobby3D / Street3D / HomeInterior3D. Retourne `{equippedHookah, hasHookah, usingHookah, useHookah}`. Anciens 3 blocs de code identiques (~10 lignes chacun) remplacés par 1 ligne d'appel au hook dans chaque fichier.
 
+### ✅ Implemented (Feb 2026 — Sprint G ext.4, validated iteration_12)
+- **Maisons agrandies × 2-3** :
+  - Appartement : 14×10×3 → **22×14×5** (×2.2 surface, +66% hauteur)
+  - Maison : 18×12×3.5 → **28×18×6.5** (×2.3 surface, +85% hauteur)
+  - Villa : 26×16×8 → **36×24×7** (×2.1 surface)
+- **2ème étage navigable pour villas ET maisons** (avant : villa uniquement) :
+  - Plateforme du 2ème étage + garde-corps blanc moderne avec barreaux dorés décoratifs
+  - Escalier amélioré : **12 marches** (vs 10) plus larges (2.0m vs 1.6m), avec contremarches alternées + main courante en bois sombre
+  - Mobilier étage 2 : grand lit 3.2×2.4m + tête de lit + 2 coussins blancs + 2 tables de chevet avec lampes (base + abat-jour émissif), bureau gaming 3.0m + pieds noirs + écran moniteur émissif + chaise gaming
+  - Lumière ponctuelle de l'étage suit la teinte du thème (PointLight `t.accent`)
+- **Player Y interpolation sur escalier** : detection X/Z au pas du player → progression linéaire 0→3.5m sur les marches, plateau auto à 3.5m sur l'étage 2, retour à 0 ailleurs
+- **Sol parquet bois** : nouvelle texture canvas 512×512 avec lattes alternées (offset×64), variation de teinte aléatoire, joints noirs entre lattes, veines bezier subtiles. CanvasTexture en RepeatWrapping pour s'étaler sur la surface complète.
+- **Constantes extraites** : `STAIR_COUNT=12`, `STAIR_DEPTH=0.42`, `UPPER_Y=3.5` au top du composant pour DRY entre la construction de l'escalier et la logique de player.y.
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.
