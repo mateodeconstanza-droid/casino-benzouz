@@ -294,6 +294,14 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - Au clic : animation 3s "tube vers la bouche" (translate + rotate -12°) PUIS 4s "grosse fumée blanche" (8 puffs radial-gradient avec scale 0.4→2.5, drift -180px, blur 8px)
   - Couleurs adaptées selon modèle : Classique blanc, Or doré, Platine bleu glacé
 
+### ✅ Implemented (Feb 2026 — Sprint G ext.2, validated iteration_10)
+- **Chicha étendue à Street3D + HomeInterior3D** : boutons `[data-testid=street-hookah-btn]` (ville) et `[data-testid=home-hookah-btn]` (maisons). FPHookahView rendu en bas-droite avec tube animé + fumée 4s. Le pattern useHookah() identique dans 3 fichiers (à extraire en hook custom plus tard).
+- **RankBadge** (`/app/frontend/src/game/RankBadge.jsx` — 89 LOC) : nouveau composant qui calcule le rang actuel basé sur `profile.totalWinnings` et le compare aux seuils TROPHIES.
+  - Variant **compact** (`[data-testid=rank-badge]`) : badge inline icône + nom + couleur du rang
+  - Variant **full** (`[data-testid=rank-badge-full]`) : carte complète avec icône grandiose + nom rang + barre de progression vers le prochain palier + pourcentage
+  - Intégré dans **FortniteLobby HUD** (top-right sous le nom du joueur, variant compact) et **UniversalMenu drawer** (variant full, remplace l'ancien "Niveau X")
+  - Fallback "RECRUE" pour les joueurs en dessous du premier seuil (150K)
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.
