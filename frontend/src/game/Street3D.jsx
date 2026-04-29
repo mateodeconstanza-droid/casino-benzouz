@@ -2252,9 +2252,22 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
     // ----- État FPS du joueur -----
     // Spawn par défaut : milieu de la rue. Si on vient du casino → position devant la porte.
-    const initialSpawn = spawnHint === 'casino_exit'
-      ? { x: 0, z: 12, rotY: Math.PI }   // devant le casino, regard tourné vers la rue
-      : { x: 0, z: 12, rotY: 0 };        // spawn par défaut au centre, face au casino
+    // Si on sort d'une maison → on spawn juste devant l'entrée de cette maison.
+    let initialSpawn = { x: 0, z: 12, rotY: 0 };
+    if (spawnHint === 'casino_exit') {
+      initialSpawn = { x: 0, z: 12, rotY: Math.PI };
+    } else if (typeof spawnHint === 'string' && spawnHint.startsWith('home_exit:')) {
+      const houseId = spawnHint.split(':')[1];
+      const house = HOUSES.find(h => h.id === houseId);
+      if (house && typeof house.x === 'number') {
+        // Spawn 3m devant l'entrée de la maison, face à la rue
+        initialSpawn = {
+          x: house.x,
+          z: house.z + 3.5,
+          rotY: Math.PI,
+        };
+      }
+    }
     stateRef.current = {
       ...(stateRef.current || {}),
       scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false,

@@ -341,6 +341,16 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **TrophyUnlock — Bouton partager rang** (`Trophies.jsx`) : `[data-testid=trophy-share-btn]` avec navigator.share API native (mobile) + fallback `window.open` Twitter intent (desktop). Feedback visuel "✓ Partagé !" / "✓ Twitter ouvert" après action. e.stopPropagation pour éviter close de l'overlay.
 - **Hook de test `window.__getPlayerPos`** : retourne `{x, z, rotY, y}` du joueur dans HomeInterior3D pour validation E2E déterministe.
 
+### ✅ Implemented (Feb 2026 — Sprint G ext.6, self-tested)
+- **Spawn point sortie de maison** (`Casino.jsx` + `Street3D.jsx`) :
+  - `handleExitHome` envoie maintenant `spawnHint = 'home_exit:<houseId>'` au lieu de juste `'home_exit'`
+  - Street3D consomme ce hint et **spawn 3.5m devant l'entrée de la maison qu'on vient de quitter**, face à la rue (rotY = π) au lieu du centre de la rue
+  - Vérifié pour Villa (`bj-villa`, x=42, z=-6) → spawn (x=42, z=-2.5)
+- **Son ambiant balcon** (HomeInterior3D, AudioContext) :
+  - Bruit blanc filtré low-pass 600Hz simulant vent + ville lointaine
+  - Volume crossfade 4% / frame entre 0 (intérieur) et 0.18 (sur balcon, y > 1 et z < -size.d/2 + 0.5)
+  - Cleanup propre du contexte audio au unmount
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.

@@ -101,6 +101,40 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
             : house?.type === 'house' ? { w: 28, d: 18, h: 6.5 }   // maison 2 étages
             : { w: 22, d: 14, h: 5 };                                // appart (toujours 1 étage)
 
+  // ====== Son ambiant balcon (vent + ville lointaine) ======
+  // Joue en boucle douce uniquement quand le joueur est sur le balcon (étage 2, z derrière la maison)
+  useEffect(() => {
+    if (!isTwoFloor) return;
+    let ctx, src, gain, raf;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.4;
+      src = ctx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 600; filter.Q.value = 1;
+      gain = ctx.createGain(); gain.gain.value = 0;
+      src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      src.start();
+      const tick = () => {
+        const p = stateRef.current?.player;
+        if (p && gain) {
+          const onBalcony = p.y > 1 && p.z < -size.d / 2 + 0.5;
+          const target = onBalcony ? 0.18 : 0;
+          gain.gain.value = gain.gain.value + (target - gain.gain.value) * 0.04;
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    } catch (_e) { /* noop */ }
+    return () => {
+      try { if (raf) cancelAnimationFrame(raf); if (src) src.stop(); if (ctx && ctx.state !== 'closed') ctx.close(); } catch (_e) { /* noop */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTwoFloor]);
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;

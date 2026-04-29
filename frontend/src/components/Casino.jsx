@@ -237,6 +237,8 @@ export default function Casino() {
     setScreen('home');
   };
   const handleExitHome = () => {
+    // Spawn devant la maison qu'on vient de quitter (pas téléporté à 0,0)
+    setSpawnHint(activeHouseId ? `home_exit:${activeHouseId}` : 'home_exit');
     setActiveHouseId(null);
     setScreen('street');
   };
