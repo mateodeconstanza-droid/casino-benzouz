@@ -226,9 +226,12 @@ const TrophyUnlock = ({ trophy, onClose }) => {
               const text = `🎰 Je viens de débloquer le rang ${trophy.icon} ${trophy.name} sur GambleLife ! +${fmt(trophy.reward)}$ bonus 💰`;
               const url = window.location.href;
               if (navigator.share) {
-                navigator.share({ title: 'GambleLife — Nouveau rang !', text, url }).catch(() => {});
+                navigator.share({ title: 'GambleLife — Nouveau rang !', text, url })
+                  .then(() => { e.target.textContent = '✓ Partagé !'; })
+                  .catch(() => {});
               } else {
                 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                e.target.textContent = '✓ Twitter ouvert';
               }
             }}
             style={{

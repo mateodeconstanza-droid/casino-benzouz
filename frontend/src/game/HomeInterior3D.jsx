@@ -887,6 +887,13 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
 
       // ====== SKYLINE FOND (vue depuis le balcon) ======
       // Backdrop SVG canvas → plan derrière le balcon montrant des bâtiments lointains
+      // Seed déterministe basé sur house.id pour cohérence visuelle entre visites
+      const seed = (house?.id || 'default').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      let rngState = seed;
+      const seededRand = () => {
+        rngState = (rngState * 9301 + 49297) % 233280;
+        return rngState / 233280;
+      };
       const skyCv = document.createElement('canvas');
       skyCv.width = 1024; skyCv.height = 384;
       const skyCx = skyCv.getContext('2d');
@@ -910,14 +917,14 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       skyCx.fillStyle = 'rgba(8,4,18,0.85)';
       let bx = 0;
       while (bx < 1024) {
-        const bw = 30 + Math.random() * 60;
-        const bh = 80 + Math.random() * 120;
+        const bw = 30 + seededRand() * 60;
+        const bh = 80 + seededRand() * 120;
         skyCx.fillRect(bx, 384 - bh, bw, bh);
         // Fenêtres lumineuses
-        skyCx.fillStyle = ['#ffd28a', '#ffa040', '#ff80a0', '#80c8ff'][Math.floor(Math.random() * 4)];
+        skyCx.fillStyle = ['#ffd28a', '#ffa040', '#ff80a0', '#80c8ff'][Math.floor(seededRand() * 4)];
         for (let r = 0; r < bh / 14; r++) {
           for (let c = 0; c < bw / 12; c++) {
-            if (Math.random() > 0.4) {
+            if (seededRand() > 0.4) {
               skyCx.fillRect(bx + c * 12 + 2, 384 - bh + r * 14 + 4, 6, 7);
             }
           }
@@ -929,8 +936,8 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       skyCx.fillStyle = 'rgba(0,0,0,0.92)';
       bx = 0;
       while (bx < 1024) {
-        const bw = 80 + Math.random() * 100;
-        const bh = 140 + Math.random() * 100;
+        const bw = 80 + seededRand() * 100;
+        const bh = 140 + seededRand() * 100;
         skyCx.fillRect(bx, 384 - bh, bw, bh);
         bx += bw;
       }
@@ -1025,10 +1032,10 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       scene, camera, renderer, disposed: false,
       customizeRing: cRing, customizeIcon: icSprite, customizeBeam: cBeam,
       // ====== Joueur 1ère pers. : déplacement WASD/joystick ======
-      // Spawn position : pour les maisons à 2 étages, on spawn proche de l'escalier
-      // pour que le joueur découvre rapidement le 2ème étage.
+      // Spawn position : pour les maisons à 2 étages, on spawn AU PIED de l'escalier
+      // (juste devant la 1ère marche) pour que le joueur découvre rapidement le 2ème étage.
       player: isTwoFloor
-        ? { x: size.w / 2 - 4, z: 4, rotY: -Math.PI / 2, y: 0 }   // près de l'escalier, face aux marches
+        ? { x: size.w / 2 - 1.5, z: 2.6, rotY: 0, y: 0 }   // au pied de l'escalier, face -Z (vers les marches qui montent)
         : { x: 0, z: size.d / 2 - 2.5, rotY: 0, y: 0 },
       input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0 },
     };
@@ -1061,6 +1068,10 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     window.addEventListener('keyup', onKeyUp);
     // Expose pour les boutons mobiles
     stateRef.current.setMoveKey = setKey;
+    // Hook de test
+    if (typeof window !== 'undefined') {
+      window.__getPlayerPos = () => stateRef.current?.player ? { ...stateRef.current.player } : null;
+    }
 
     // ===== Look controls (drag pour tourner la caméra) =====
     let isDragging = false;

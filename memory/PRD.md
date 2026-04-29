@@ -329,6 +329,18 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
 - **Sol parquet bois** : nouvelle texture canvas 512×512 avec lattes alternées (offset×64), variation de teinte aléatoire, joints noirs entre lattes, veines bezier subtiles. CanvasTexture en RepeatWrapping pour s'étaler sur la surface complète.
 - **Constantes extraites** : `STAIR_COUNT=12`, `STAIR_DEPTH=0.42`, `UPPER_Y=3.5` au top du composant pour DRY entre la construction de l'escalier et la logique de player.y.
 
+### ✅ Implemented (Feb 2026 — Sprint G ext.5, validated iteration_13)
+- **Spawn point optimisé pour maisons 2 étages** : pour les villas/maisons, le joueur spawn maintenant **AU PIED de l'escalier** (`{x: size.w/2-1.5, z: 2.6, rotY: 0}`) — appuyer sur ↑ démarre immédiatement l'ascension. Avant : spawn à la porte (16m de marche pour atteindre les marches).
+- **Balcon arrière étage 2** (uniquement pour maisons à 2 étages) :
+  - Plateforme balcon 0.45×3.5m derrière la maison, avec garde-corps blanc moderne (arrière + 2 côtés) + ~10 barreaux verticaux dorés décoratifs
+  - Mobilier : chaise longue beige + guéridon en bois + verre/cocktail doré décoratif
+  - Baie vitrée arrière transparente (face à la skyline)
+  - **Backdrop skyline canvas 1024×384** : ciel crépuscule (4 couleurs) + soleil couchant radial + 2 plans de bâtiments silhouette avec fenêtres lumineuses
+  - **Seed déterministe basé sur `house.id`** : la skyline reste cohérente entre visites
+  - Joueur peut marcher sur le balcon (collision z étendue à `-size.d/2-3.4` quand sur étage 2)
+- **TrophyUnlock — Bouton partager rang** (`Trophies.jsx`) : `[data-testid=trophy-share-btn]` avec navigator.share API native (mobile) + fallback `window.open` Twitter intent (desktop). Feedback visuel "✓ Partagé !" / "✓ Twitter ouvert" après action. e.stopPropagation pour éviter close de l'overlay.
+- **Hook de test `window.__getPlayerPos`** : retourne `{x, z, rotY, y}` du joueur dans HomeInterior3D pour validation E2E déterministe.
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.
