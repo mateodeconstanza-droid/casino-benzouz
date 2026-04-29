@@ -1,0 +1,37 @@
+{
+  "summary": "Sprint G+ iteration 10 — full validation of new RankBadge component (compact + full variants), Hookah animation across 3 contexts (Lobby3D/Street3D/HomeInterior3D), and harder Trophies thresholds. All 8 requested test scenarios PASS. Zero console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "verified_features": [
+    "RankBadge compact in FortniteLobby HUD: [data-testid=rank-badge] FOUND, content '🏅Recrue' next to player name tag.",
+    "RankBadge full in UniversalMenu drawer: [data-testid=rank-badge-full] FOUND with content 'RANG ACTUEL RECRUE 0% → 🥉 Bronze' for new player (winnings=0, threshold=150K). Replaces previous 'Niveau X' text.",
+    "Hookah in Lobby3D: lobby-hookah-btn + fp-hookah-view both render bottom-right when equippedHookah set; click sets disabled=True & label='...CHICHA' for ~7s then re-enables. Verified via SOLO→__openLobby flow.",
+    "Hookah in Street3D: street-hookah-btn + fp-hookah-view both render. Animation triggers on click.",
+    "Hookah in HomeInterior3D (bj-apt): home-hookah-btn + fp-hookah-view both render. Animation triggers on click.",
+    "Trophies thresholds verified in /app/frontend/src/game/constants.js: Bronze=150000 (line 83), Argent=750000, Or=2.5M, Platine=10M, Diamant=35M, Légende=100M, Mythique=300M, Titanium=800M, Cosmique=2B, GambleGod=5000000000 (line 92). Matches spec.",
+    "casino-arrival-overlay still appears on Lobby3D entry (verified within first 800ms via __openLobby).",
+    "home-arrival-overlay still appears on HomeInterior3D entry (verified ~500ms after __openHome).",
+    "Smoke test: Login → SOLO/Server → DeviceSelect → FortniteLobby → Shop (hookah purchase) → Lobby3D → Street3D → HomeInterior3D → back to FortniteLobby → UniversalMenu drawer → Trophies tab. Zero console errors throughout.",
+    "Drawer testids discovered: [rank-badge, universal-menu-btn, universal-menu-drawer, rank-badge-full, menu-trophies, menu-quests, menu-shop, menu-device]."
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RankBadge.jsx is clean (89 lines), well-structured. Uses TROPHIES list correctly with 'Recrue' fallback color #888 when winnings<150K — good UX.",
+    "Hookah state pattern (useState + setTimeout 7000ms) duplicated identically across Lobby3D.jsx (line 70-77), Street3D.jsx (95-101), HomeInterior3D.jsx (88-94). DRY violation — extract to a useHookah() custom hook.",
+    "Lobby3D.jsx (≈4600 lines), Street3D.jsx (≈3300 lines) remain over the 700-line guideline (carried over from iter_9). Split recommended.",
+    "FPHookahView in Lobby3D is gated by `viewMode==='first'` (line 4603) but lobby-hookah-btn (line 4446) is NOT gated by viewMode — clicking the button in 3rd-person triggers the animation but FPHookahView won't render. Consider gating both consistently or keeping the view-aware behavior intentional and documenting it.",
+    "Spec note: when entering casino via 'ENTRER AU CASINO' from FortniteLobby in online server mode, user lands on CasinoHall (hall picker) before Lobby3D, so the hookah button only appears AFTER selecting a casino. In SOLO mode the flow goes straight to Lobby3D. This is by design but worth documenting for testers."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend)", "frontend": "100% — all 8 requested scenarios pass"},
+  "test_credentials": "Any pseudo on Login (used TestRank3 in SOLO mode).",
+  "seed_data_creation": "window.__addBalance(20000000) + Shop hookah-classic purchase to enable hookah feature.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "(1) For testing Lobby3D hookah, prefer SOLO mode + window.__openLobby() — online server forces user through CasinoHall hall picker. (2) UniversalMenu drawer tab testids are 'menu-trophies / menu-quests / menu-shop / menu-device' (not prefixed with 'universal-menu-tab-'). (3) Hookah purchase via shop-hookah-buy-hookah-classic auto-equips the chicha (no separate equip step needed). (4) Hookah animation total duration 7s; button.is_disabled becomes true immediately after click and false at ~7s. (5) FPHookahView in Lobby3D only renders in first-person (viewMode==='first'); in Street3D/HomeInterior3D it always renders when hasHookah."
+}

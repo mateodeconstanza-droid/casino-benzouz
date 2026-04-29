@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
 import { UniversalMenu } from '@/game/UniversalMenu';
+import { RankBadge } from '@/game/RankBadge';
 
 // ============================================================
 // FortniteLobby — écran d'accueil pré-jeu (style Fortnite/AAA)
@@ -108,8 +109,8 @@ const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoP
         }}>
           <div style={{ fontSize: 9, letterSpacing: 2, color: '#cca366' }}>JOUEUR</div>
           <div style={{ fontSize: 18, fontWeight: 900, color: '#ffd700', letterSpacing: 1 }}>{profile.name}</div>
-          <div style={{ fontSize: 10, color: '#3fe6ff', marginTop: 2 }}>
-            ★ Niveau {Math.min(99, Math.floor((profile.totalWinnings || 0) / 100000) + 1)}
+          <div style={{ marginTop: 6 }}>
+            <RankBadge profile={profile} compact />
           </div>
         </div>
       )}

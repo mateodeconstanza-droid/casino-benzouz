@@ -6,6 +6,7 @@ import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
 import { getActiveEvents } from '@/game/dailyEvents';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
+import { FPHookahView } from '@/game/FPWeapon';
 import sfx from '@/game/sfx';
 
 // =============================================================
@@ -90,6 +91,15 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [nearbyPrompt, setNearbyPrompt] = useState(null);
   const [aptPickerOpen, setAptPickerOpen] = useState(false);
   const [garageOpen, setGarageOpen] = useState(false);
+  // ====== CHICHA — équipement + animation 3s tube + 4s fumée ======
+  const equippedHookah = profile?.equippedHookah;
+  const hasHookah = !!equippedHookah && (profile?.hookahs || []).includes(equippedHookah);
+  const [usingHookah, setUsingHookah] = useState(false);
+  const useHookah = () => {
+    if (!hasHookah || usingHookah) return;
+    setUsingHookah(true);
+    setTimeout(() => setUsingHookah(false), 7000);
+  };
   const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
   const [aimingWeapon, setAimingWeapon] = useState(null); // weapon id si on vise
   const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
@@ -2776,6 +2786,31 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       style={{ position: 'fixed', inset: 0, background: '#9fd7ff', overflow: 'hidden' }}
     >
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
+
+      {/* ====== CHICHA EN MAIN (ville) ====== */}
+      {hasHookah && (
+        <FPHookahView hookahId={equippedHookah} isUsing={usingHookah} />
+      )}
+      {hasHookah && (
+        <button
+          data-testid="street-hookah-btn"
+          onClick={useHookah}
+          disabled={usingHookah}
+          style={{
+            position: 'absolute', right: 16, bottom: 100,
+            width: 56, height: 56, borderRadius: '50%',
+            background: usingHookah
+              ? 'linear-gradient(135deg, #ff6a3a, #c41e3a)'
+              : 'linear-gradient(135deg, rgba(255,215,0,0.9), rgba(200,168,90,0.95))',
+            border: `2px solid ${usingHookah ? '#fff' : '#ffd700'}`,
+            color: '#000', cursor: usingHookah ? 'wait' : 'pointer',
+            fontSize: 11, fontWeight: 800,
+            boxShadow: '0 6px 14px rgba(0,0,0,0.6)', zIndex: 30,
+          }}>
+          <div style={{ fontSize: 22 }}>💨</div>
+          <div style={{ fontSize: 8 }}>{usingHookah ? '...' : 'CHICHA'}</div>
+        </button>
+      )}
 
       {/* === MENU UNIVERSEL G3 — accessible partout === */}
       <UniversalMenu

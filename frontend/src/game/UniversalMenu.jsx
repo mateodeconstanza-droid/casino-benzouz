@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fmt } from '@/game/constants';
+import { RankBadge } from '@/game/RankBadge';
 
 // ============================================================
 // UniversalMenu — bouton flottant + menu accessible PARTOUT
@@ -69,12 +70,10 @@ export const UniversalMenu = ({
             <div style={{ fontSize: 20, fontWeight: 900, color: '#ffd700' }}>
               {profile?.name || 'JOUEUR'}
             </div>
-            <div style={{ fontSize: 11, color: '#3fe6ff', marginTop: 2 }}>
-              ★ Niveau {Math.min(99, Math.floor((profile?.totalWinnings || 0) / 100000) + 1)}
-            </div>
-            <div style={{ fontSize: 13, color: '#cca366', marginTop: 4 }}>
+            <div style={{ fontSize: 13, color: '#cca366', marginTop: 4, marginBottom: 10 }}>
               💰 {fmt(balance)} $
             </div>
+            <RankBadge profile={profile} compact={false} />
           </div>
           {/* Boutons d'action */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

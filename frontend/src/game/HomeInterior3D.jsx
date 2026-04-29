@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { fmt, FURNITURE_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { HOUSES } from '@/game/Street3D';
+import { FPHookahView } from '@/game/FPWeapon';
 
 // =============================================================
 // THÈMES (décor complet : murs + sol + accent meubles)
@@ -82,6 +83,16 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     const t2 = setTimeout(() => setArriving(false), 4000);
     return () => clearTimeout(t2);
   }, []);
+
+  // ====== CHICHA — animation 3s + 4s ======
+  const equippedHookah = profile?.equippedHookah;
+  const hasHookah = !!equippedHookah && (profile?.hookahs || []).includes(equippedHookah);
+  const [usingHookah, setUsingHookah] = useState(false);
+  const useHookah = () => {
+    if (!hasHookah || usingHookah) return;
+    setUsingHookah(true);
+    setTimeout(() => setUsingHookah(false), 7000);
+  };
 
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
@@ -1000,8 +1011,32 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
         </div>
       )}
 
-      {/* Joystick déplacement mobile (D-pad) */}
-      <div style={{
+      {/* ====== CHICHA EN MAIN (maison) ====== */}
+      {hasHookah && (
+        <FPHookahView hookahId={equippedHookah} isUsing={usingHookah} />
+      )}
+      {hasHookah && (
+        <button
+          data-testid="home-hookah-btn"
+          onClick={useHookah}
+          disabled={usingHookah}
+          style={{
+            position: 'absolute', right: 16, bottom: 200,
+            width: 56, height: 56, borderRadius: '50%',
+            background: usingHookah
+              ? 'linear-gradient(135deg, #ff6a3a, #c41e3a)'
+              : 'linear-gradient(135deg, rgba(255,215,0,0.9), rgba(200,168,90,0.95))',
+            border: `2px solid ${usingHookah ? '#fff' : '#ffd700'}`,
+            color: '#000', cursor: usingHookah ? 'wait' : 'pointer',
+            fontSize: 11, fontWeight: 800,
+            boxShadow: '0 6px 14px rgba(0,0,0,0.6)', zIndex: 30,
+          }}>
+          <div style={{ fontSize: 22 }}>💨</div>
+          <div style={{ fontSize: 8 }}>{usingHookah ? '...' : 'CHICHA'}</div>
+        </button>
+      )}
+
+      {/* Joystick déplacement mobile (D-pad) */}      <div style={{
         position: 'absolute', left: 16, bottom: 90, zIndex: 25,
         display: 'grid', gridTemplateColumns: 'repeat(3, 48px)', gridTemplateRows: 'repeat(3, 48px)',
         gap: 4, pointerEvents: 'auto',
