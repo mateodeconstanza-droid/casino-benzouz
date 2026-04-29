@@ -285,6 +285,15 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - **GambleLife Store agrandi** : building 18×8×11m (vs 12×5.5×8 avant), 4 grandes vitrines avec mannequins multicolores, cadres dorés épais, porte centrale + tapis rouge, 2 piliers d'entrée dorés + boules lumineuses, enseigne "★ GAMBLELIFE STORE ★" 13×2.7m avec sous-titre "Armes · Véhicules · Cosmétiques", 2 néons cyan latéraux, corniche dorée sur le toit. Position (28, 0, 30).
   - **Garage + Store orientés vers le casino** : `garage.rotation.y = Math.PI` et `shopFr.rotation.y = Math.PI` — les façades sont maintenant face au casino (-Z).
 
+### ✅ Implemented (Feb 2026 — Sprint G ext., self-tested)
+- **Trophées plus difficiles** : seuils multipliés ×3-5 dans `constants.js` TROPHIES (Bronze 50K→150K, Argent 250K→750K, Or 750K→2.5M, ..., GambleGod 1B→5B). Récompenses augmentées en proportion (×1.6-2). Progression beaucoup plus lente vers les rangs supérieurs.
+- **Animation Chicha en main + fumée** (`FPWeapon.jsx` + `Lobby3D.jsx`) :
+  - Nouveau composant `<FPHookahView hookahId isUsing>` exporté depuis FPWeapon.jsx
+  - Quand profile.equippedHookah est défini et viewMode=='first' dans le casino, la chicha (base + tube + foyer + main qui tient) s'affiche en bas-droite
+  - Bouton `[data-testid=lobby-hookah-btn]` apparaît dans la barre de tir si chicha équipée
+  - Au clic : animation 3s "tube vers la bouche" (translate + rotate -12°) PUIS 4s "grosse fumée blanche" (8 puffs radial-gradient avec scale 0.4→2.5, drift -180px, blur 8px)
+  - Couleurs adaptées selon modèle : Classique blanc, Or doré, Platine bleu glacé
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.

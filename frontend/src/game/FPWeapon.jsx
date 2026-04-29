@@ -149,6 +149,99 @@ const FPWeaponView = ({ id }) => {
   return null;
 };
 
+// ============== VUE CHICHA 1ÈRE PERSONNE (G4 — animation tube + fumée) ==============
+// Affiché en bas de l'écran quand profile.equippedHookah est définie.
+// Quand isUsing=true, le tube se rapproche de la bouche pendant 3s, puis grosse fumée 4s.
+const FPHookahView = ({ hookahId, isUsing }) => {
+  // 'hookah-classic' | 'hookah-gold' | 'hookah-platinum'
+  const baseColor = hookahId === 'hookah-gold' ? '#ffd700'
+                  : hookahId === 'hookah-platinum' ? '#e5e4e2'
+                  : '#c8a85a';
+  const smokeColor = hookahId === 'hookah-gold' ? 'rgba(255,225,160,0.8)'
+                   : hookahId === 'hookah-platinum' ? 'rgba(220,240,255,0.85)'
+                   : 'rgba(255,255,255,0.85)';
+  return (
+    <div data-testid="fp-hookah-view" style={{
+      position: 'absolute', right: 30, bottom: 12,
+      width: 180, height: 240, pointerEvents: 'none', zIndex: 12,
+      animation: isUsing ? 'hookah-up 3s ease-in-out forwards' : 'none',
+    }}>
+      <svg viewBox="0 0 200 280" width="180" height="240">
+        {/* Main de joueur tenant le tuyau */}
+        <ellipse cx="50" cy="240" rx="38" ry="18" fill="#d2a27c" stroke="#8a6040" strokeWidth="2" />
+        {/* Tuyau qui monte vers la bouche */}
+        <path d="M70 230 Q100 170 130 90 Q140 50 165 30" stroke="#3a2010" strokeWidth="9" fill="none" strokeLinecap="round" />
+        <path d="M70 230 Q100 170 130 90 Q140 50 165 30" stroke="#5a3818" strokeWidth="6" fill="none" strokeLinecap="round" />
+        {/* Embout (bouchon) du tuyau */}
+        <ellipse cx="170" cy="28" rx="14" ry="6" fill={baseColor} stroke="#000" strokeWidth="1" />
+        <ellipse cx="170" cy="26" rx="10" ry="4" fill="#1a1a1a" />
+        {/* Base de la chicha posée à droite */}
+        <g transform="translate(105, 195)">
+          <ellipse cx="40" cy="60" rx="36" ry="8" fill="rgba(0,0,0,0.4)" />
+          {/* Bowl */}
+          <path d="M10 50 Q40 70 70 50 L70 30 Q40 38 10 30 Z" fill={baseColor} stroke="#000" strokeWidth="1.5" />
+          {/* Tige verticale */}
+          <rect x="36" y="-30" width="8" height="60" fill="#3a2010" />
+          {/* Foyer (charbon) */}
+          <ellipse cx="40" cy="-32" rx="14" ry="4" fill="#5a3818" />
+          <circle cx="36" cy="-34" r="2.5" fill="#ff4a00" />
+          <circle cx="44" cy="-33" r="2.5" fill="#ff6a30" />
+        </g>
+      </svg>
+      {/* Particules de fumée en bouche pendant l'utilisation (4s après les 3s d'inhalation) */}
+      {isUsing && (
+        <div style={{
+          position: 'absolute', top: -20, left: '50%',
+          transform: 'translateX(-50%)',
+          width: 200, height: 200,
+          animation: 'hookah-smoke-puff 7s ease-out forwards',
+          opacity: 0,
+        }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+            <div key={i} style={{
+              position: 'absolute',
+              left: `${30 + i * 6}%`, top: `${50 - i * 4}%`,
+              width: 60 + i * 8, height: 60 + i * 8,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, ${smokeColor}, transparent 70%)`,
+              filter: 'blur(8px)',
+              animation: `hookah-puff-${i % 3} 4s ${3 + i * 0.15}s ease-out forwards`,
+              opacity: 0,
+            }} />
+          ))}
+        </div>
+      )}
+      <style>{`
+        @keyframes hookah-up {
+          0%   { transform: translate(0, 0); }
+          40%  { transform: translate(-10px, -40px) rotate(-12deg); }
+          75%  { transform: translate(-10px, -40px) rotate(-12deg); }
+          100% { transform: translate(0, 0) rotate(0); }
+        }
+        @keyframes hookah-smoke-puff {
+          0%   { opacity: 0; }
+          43%  { opacity: 0; }
+          50%  { opacity: 1; }
+          95%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes hookah-puff-0 {
+          0%   { transform: scale(0.4) translate(0, 0); opacity: 0.85; }
+          100% { transform: scale(2.4) translate(-30px, -180px); opacity: 0; }
+        }
+        @keyframes hookah-puff-1 {
+          0%   { transform: scale(0.5) translate(0, 0); opacity: 0.85; }
+          100% { transform: scale(2.6) translate(20px, -200px); opacity: 0; }
+        }
+        @keyframes hookah-puff-2 {
+          0%   { transform: scale(0.45) translate(0, 0); opacity: 0.85; }
+          100% { transform: scale(2.5) translate(-10px, -190px); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 // ============== VUE PERSONNAGE 3ÈME PERSONNE ==============
 const TPPlayerView = ({ profile, selectedWeapon, firing }) => {
   const hair = (profile && profile.hair !== undefined) ? profile.hair : 0;
@@ -211,4 +304,4 @@ const TPPlayerView = ({ profile, selectedWeapon, firing }) => {
 };
 
 
-export { FPWeaponView, TPPlayerView };
+export { FPWeaponView, TPPlayerView, FPHookahView };

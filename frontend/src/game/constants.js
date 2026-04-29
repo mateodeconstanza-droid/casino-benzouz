@@ -80,16 +80,16 @@ export const CASINOS = {
 // Système de rang redesigné : seuils × 5 plus difficiles mais récompenses × 8 plus généreuses
 // + ajout de paliers Titanium/Cosmic au-dessus de Mythique
 export const TROPHIES = [
-  { threshold:      50000, name: 'Bronze',    icon: '🥉', color: '#cd7f32', reward:      5000 },
-  { threshold:     250000, name: 'Argent',    icon: '🥈', color: '#c0c0c0', reward:     25000 },
-  { threshold:     750000, name: 'Or',        icon: '🥇', color: '#ffd700', reward:     75000 },
-  { threshold:    2500000, name: 'Platine',   icon: '💎', color: '#e5e4e2', reward:    250000 },
-  { threshold:    7500000, name: 'Diamant',   icon: '💠', color: '#b9f2ff', reward:    750000 },
-  { threshold:   25000000, name: 'Légende',   icon: '👑', color: '#ff6b9d', reward:   2500000 },
-  { threshold:   75000000, name: 'Mythique',  icon: '🏆', color: '#ff0080', reward:   7500000 },
-  { threshold:  200000000, name: 'Titanium',  icon: '⚔️', color: '#c0d0e0', reward:  25000000 },
-  { threshold:  500000000, name: 'Cosmique',  icon: '🌌', color: '#9a7aff', reward:  75000000 },
-  { threshold: 1000000000, name: 'GambleGod', icon: '✨', color: '#ffd700', reward: 250000000 },
+  { threshold:      150000, name: 'Bronze',    icon: '🥉', color: '#cd7f32', reward:      8000 },
+  { threshold:      750000, name: 'Argent',    icon: '🥈', color: '#c0c0c0', reward:     50000 },
+  { threshold:     2500000, name: 'Or',        icon: '🥇', color: '#ffd700', reward:    150000 },
+  { threshold:    10000000, name: 'Platine',   icon: '💎', color: '#e5e4e2', reward:    500000 },
+  { threshold:    35000000, name: 'Diamant',   icon: '💠', color: '#b9f2ff', reward:   1500000 },
+  { threshold:   100000000, name: 'Légende',   icon: '👑', color: '#ff6b9d', reward:   5000000 },
+  { threshold:   300000000, name: 'Mythique',  icon: '🏆', color: '#ff0080', reward:  15000000 },
+  { threshold:   800000000, name: 'Titanium',  icon: '⚔️', color: '#c0d0e0', reward:  50000000 },
+  { threshold:  2000000000, name: 'Cosmique',  icon: '🌌', color: '#9a7aff', reward: 150000000 },
+  { threshold:  5000000000, name: 'GambleGod', icon: '✨', color: '#ffd700', reward: 500000000 },
 ];
 
 // ============== ARMES ==============

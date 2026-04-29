@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, DEALER_PROFILES, WHEEL_PRIZES, fmt } from '@/game/constants';
 import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle, StatCard } from '@/game/ui';
-import { FPWeaponView, TPPlayerView } from '@/game/FPWeapon';
+import { FPWeaponView, TPPlayerView, FPHookahView } from '@/game/FPWeapon';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
@@ -65,6 +65,17 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const [arriving, setArriving] = useState(true);
   const arrivingRef = useRef(true);
   const arrivalStartRef = useRef(performance.now());
+
+  // ====== CHICHA — équipement + animation 3s tube + 4s fumée ======
+  const equippedHookah = profile?.equippedHookah;
+  const hasHookah = !!equippedHookah && (profile?.hookahs || []).includes(equippedHookah);
+  const [usingHookah, setUsingHookah] = useState(false);
+  const useHookah = () => {
+    if (!hasHookah || usingHookah) return;
+    setUsingHookah(true);
+    // Anim totale = 3s (tube vers la bouche) + 4s (fumée) = 7s
+    setTimeout(() => setUsingHookah(false), 7000);
+  };
   useEffect(() => { arrivingRef.current = arriving; }, [arriving]);
   useEffect(() => {
     arrivalStartRef.current = performance.now();
@@ -4431,6 +4442,27 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             <div style={{ fontSize: 8 }}>{isAiming ? 'VISE' : 'VISER'}</div>
           </button>
         )}
+        {/* Bouton CHICHA — visible si chicha équipée. Animation tube 3s + fumée 4s */}
+        {hasHookah && (
+          <button
+            data-testid="lobby-hookah-btn"
+            onClick={useHookah}
+            disabled={usingHookah}
+            style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: usingHookah
+                ? 'linear-gradient(135deg, #ff6a3a, #c41e3a)'
+                : 'linear-gradient(135deg, rgba(255,215,0,0.85), rgba(200,168,90,0.95))',
+              border: `2px solid ${usingHookah ? '#fff' : '#ffd700'}`,
+              color: '#000',
+              fontSize: 11, fontWeight: 'bold',
+              cursor: usingHookah ? 'wait' : 'pointer',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.6)',
+            }}>
+            <div style={{ fontSize: 22 }}>💨</div>
+            <div style={{ fontSize: 8 }}>{usingHookah ? '...' : 'CHICHA'}</div>
+          </button>
+        )}
         <button
           data-testid="lobby-fire-btn"
           onPointerDown={(e) => {
@@ -4565,6 +4597,11 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 100%)',
           pointerEvents: 'none', zIndex: 9,
         }} />
+      )}
+
+      {/* ====== CHICHA EN MAIN (G4) ====== */}
+      {hasHookah && viewMode === 'first' && (
+        <FPHookahView hookahId={equippedHookah} isUsing={usingHookah} />
       )}
 
       {/* ====== ARME EN MAIN (1ère personne) ====== */}
