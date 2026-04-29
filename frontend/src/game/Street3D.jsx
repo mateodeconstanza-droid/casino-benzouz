@@ -7,6 +7,7 @@ import { getActiveEvents } from '@/game/dailyEvents';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 import { FPHookahView } from '@/game/FPWeapon';
+import { useHookah } from '@/game/useHookah';
 import sfx from '@/game/sfx';
 
 // =============================================================
@@ -91,15 +92,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [nearbyPrompt, setNearbyPrompt] = useState(null);
   const [aptPickerOpen, setAptPickerOpen] = useState(false);
   const [garageOpen, setGarageOpen] = useState(false);
-  // ====== CHICHA — équipement + animation 3s tube + 4s fumée ======
-  const equippedHookah = profile?.equippedHookah;
-  const hasHookah = !!equippedHookah && (profile?.hookahs || []).includes(equippedHookah);
-  const [usingHookah, setUsingHookah] = useState(false);
-  const useHookah = () => {
-    if (!hasHookah || usingHookah) return;
-    setUsingHookah(true);
-    setTimeout(() => setUsingHookah(false), 7000);
-  };
+  // ====== CHICHA — hook partagé ======
+  const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
   const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
   const [aimingWeapon, setAimingWeapon] = useState(null); // weapon id si on vise
   const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
@@ -2794,7 +2788,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       {hasHookah && (
         <button
           data-testid="street-hookah-btn"
-          onClick={useHookah}
+          onClick={useHookahFn}
           disabled={usingHookah}
           style={{
             position: 'absolute', right: 16, bottom: 100,

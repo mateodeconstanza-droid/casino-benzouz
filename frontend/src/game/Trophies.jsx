@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { fmt, TROPHIES } from '@/game/constants';
 // ============== ÉCRAN TROPHÉES COMPLET ==============
 const TrophyScreen = ({ profile, casino, onClose }) => (
@@ -78,27 +78,168 @@ const TrophyScreen = ({ profile, casino, onClose }) => (
   </div>
 );
 
-// ============== TROPHÉE DÉBLOQUÉ ==============
-const TrophyUnlock = ({ trophy, onClose }) => (
-  <div onClick={onClose} style={{
-    position: 'fixed', top: 20, left: '50%',
-    transform: 'translateX(-50%)',
-    background: `linear-gradient(135deg, ${trophy.color}, ${trophy.color}88)`,
-    border: '2px solid #fff', borderRadius: 12, padding: 16,
-    color: '#000', fontFamily: 'Georgia, serif',
-    boxShadow: '0 0 40px ' + trophy.color,
-    zIndex: 2000, animation: 'trophyPop 0.5s ease-out',
-    display: 'flex', alignItems: 'center', gap: 12,
-    maxWidth: '90vw', cursor: 'pointer',
-  }}>
-    <div style={{ fontSize: 40 }}>{trophy.icon}</div>
-    <div>
-      <div style={{ fontSize: 12, opacity: 0.7 }}>TROPHÉE DÉBLOQUÉ !</div>
-      <div style={{ fontSize: 20, fontWeight: 'bold' }}>{trophy.name}</div>
-      <div style={{ fontSize: 11 }}>+{fmt(trophy.reward)} $ bonus !</div>
+// ============== TROPHÉE DÉBLOQUÉ — animation plein écran (paillettes + son) ==============
+const TrophyUnlock = ({ trophy, onClose }) => {
+  // Joue un son de victoire dès le mount
+  useEffect(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Fanfare ascendante : 3 notes (C5, E5, G5) en arpège
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        osc.connect(gain); gain.connect(ctx.destination);
+        const start = ctx.currentTime + i * 0.12;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+        osc.start(start);
+        osc.stop(start + 0.55);
+      });
+      // Cymbal final (filtered noise)
+      setTimeout(() => {
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.6, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const cgain = ctx.createGain();
+        cgain.gain.setValueAtTime(0.12, ctx.currentTime);
+        cgain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        src.connect(cgain); cgain.connect(ctx.destination);
+        src.start();
+      }, 350);
+    } catch (_e) { /* noop */ }
+  }, []);
+
+  // 50 confettis aléatoires
+  const confetti = [];
+  for (let i = 0; i < 50; i++) {
+    const colors = [trophy.color, '#ffd700', '#ff2ad4', '#3fe6ff', '#ffffff', '#ff8a3a'];
+    confetti.push({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.6,
+      duration: 2 + Math.random() * 1.5,
+      color: colors[i % colors.length],
+      size: 8 + Math.random() * 10,
+      rotate: Math.random() * 360,
+    });
+  }
+
+  return (
+    <div
+      data-testid="trophy-unlock-overlay"
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 5000,
+        background: `radial-gradient(circle at 50% 40%, ${trophy.color}55 0%, rgba(0,0,0,0.85) 70%)`,
+        backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', overflow: 'hidden',
+        animation: 'trophy-overlay-in 0.4s ease-out',
+      }}
+    >
+      {/* Confetti */}
+      {confetti.map(c => (
+        <div key={c.id} style={{
+          position: 'absolute',
+          left: `${c.left}%`, top: '-30px',
+          width: c.size, height: c.size * 0.4,
+          background: c.color,
+          borderRadius: 2,
+          animation: `trophy-confetti ${c.duration}s ${c.delay}s linear forwards`,
+          transform: `rotate(${c.rotate}deg)`,
+          boxShadow: `0 0 8px ${c.color}80`,
+        }} />
+      ))}
+
+      {/* Lignes de rayons partant du centre */}
+      <div style={{
+        position: 'absolute', top: '50%', left: '50%',
+        width: 6, height: '120vh',
+        transform: 'translate(-50%,-50%)',
+        background: `repeating-conic-gradient(from 0deg, transparent 0deg 8deg, ${trophy.color}40 8deg 16deg)`,
+        animation: 'trophy-rays-spin 6s linear infinite',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Carte centrale */}
+      <div style={{
+        position: 'relative',
+        padding: '36px 50px',
+        borderRadius: 20,
+        background: `linear-gradient(135deg, rgba(0,0,0,0.85), rgba(20,15,30,0.9))`,
+        border: `4px solid ${trophy.color}`,
+        boxShadow: `0 0 80px ${trophy.color}, inset 0 0 32px ${trophy.color}40`,
+        textAlign: 'center',
+        color: '#fff',
+        animation: 'trophy-card-in 0.6s cubic-bezier(.2,.9,.25,1.6) forwards',
+        transform: 'scale(0)',
+        maxWidth: '90vw',
+      }}>
+        <div style={{
+          fontSize: 13, letterSpacing: 6,
+          color: trophy.color, marginBottom: 14,
+          textTransform: 'uppercase',
+          textShadow: `0 0 12px ${trophy.color}`,
+        }}>★ NOUVEAU RANG DÉBLOQUÉ ★</div>
+        <div style={{
+          fontSize: 'clamp(80px, 14vw, 140px)',
+          lineHeight: 1, marginBottom: 14,
+          filter: `drop-shadow(0 0 30px ${trophy.color})`,
+          animation: 'trophy-icon-pop 1s ease-out infinite alternate',
+        }}>{trophy.icon}</div>
+        <div style={{
+          fontSize: 'clamp(36px, 6vw, 64px)',
+          fontWeight: 900,
+          color: trophy.color,
+          letterSpacing: 6,
+          textShadow: `0 0 20px ${trophy.color}, 0 0 40px ${trophy.color}80`,
+          marginBottom: 12,
+        }}>{trophy.name.toUpperCase()}</div>
+        <div style={{
+          display: 'inline-block',
+          padding: '10px 22px',
+          background: 'linear-gradient(135deg, #ffd700, #ff8a3a)',
+          color: '#1a1a1a', borderRadius: 12,
+          fontWeight: 800, fontSize: 18, letterSpacing: 1,
+          boxShadow: '0 6px 16px rgba(255,215,0,0.5)',
+        }}>+ {fmt(trophy.reward)} $ BONUS</div>
+        <div style={{
+          marginTop: 22, fontSize: 11, color: '#888',
+          letterSpacing: 2, opacity: 0.7,
+        }}>CLIQUE N'IMPORTE OÙ POUR CONTINUER</div>
+      </div>
+
+      <style>{`
+        @keyframes trophy-overlay-in {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes trophy-card-in {
+          0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+          70% { transform: scale(1.1) rotate(2deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        @keyframes trophy-icon-pop {
+          0% { transform: scale(1); }
+          100% { transform: scale(1.06); }
+        }
+        @keyframes trophy-confetti {
+          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes trophy-rays-spin {
+          from { transform: translate(-50%,-50%) rotate(0deg); }
+          to   { transform: translate(-50%,-50%) rotate(360deg); }
+        }
+      `}</style>
     </div>
-  </div>
-);
+  );
+};
 
 
 export { TrophyScreen, TrophyUnlock };

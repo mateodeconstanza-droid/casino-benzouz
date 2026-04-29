@@ -4,6 +4,7 @@ import { fmt, FURNITURE_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { HOUSES } from '@/game/Street3D';
 import { FPHookahView } from '@/game/FPWeapon';
+import { useHookah } from '@/game/useHookah';
 
 // =============================================================
 // THÈMES (décor complet : murs + sol + accent meubles)
@@ -84,15 +85,8 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     return () => clearTimeout(t2);
   }, []);
 
-  // ====== CHICHA — animation 3s + 4s ======
-  const equippedHookah = profile?.equippedHookah;
-  const hasHookah = !!equippedHookah && (profile?.hookahs || []).includes(equippedHookah);
-  const [usingHookah, setUsingHookah] = useState(false);
-  const useHookah = () => {
-    if (!hasHookah || usingHookah) return;
-    setUsingHookah(true);
-    setTimeout(() => setUsingHookah(false), 7000);
-  };
+  // ====== CHICHA — hook partagé ======
+  const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
@@ -1018,7 +1012,7 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       {hasHookah && (
         <button
           data-testid="home-hookah-btn"
-          onClick={useHookah}
+          onClick={useHookahFn}
           disabled={usingHookah}
           style={{
             position: 'absolute', right: 16, bottom: 200,

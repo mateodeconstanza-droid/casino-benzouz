@@ -446,7 +446,7 @@ export default function Casino() {
         p.totalWinnings = p.totalWinnings + t.reward;
         setBalance(p.balance);
         setUnlockedTrophy(t);
-        setTimeout(() => setUnlockedTrophy(null), 5000);
+        setTimeout(() => setUnlockedTrophy(null), 6500);
         break; // Un à la fois pour ne pas spammer
       }
     }

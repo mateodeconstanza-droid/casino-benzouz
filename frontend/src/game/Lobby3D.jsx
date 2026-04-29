@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, DEALER_PROFILES, WHEEL_PRIZES, fmt } from '@/game/constants';
 import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle, StatCard } from '@/game/ui';
 import { FPWeaponView, TPPlayerView, FPHookahView } from '@/game/FPWeapon';
+import { useHookah } from '@/game/useHookah';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
@@ -66,16 +67,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const arrivingRef = useRef(true);
   const arrivalStartRef = useRef(performance.now());
 
-  // ====== CHICHA — équipement + animation 3s tube + 4s fumée ======
-  const equippedHookah = profile?.equippedHookah;
-  const hasHookah = !!equippedHookah && (profile?.hookahs || []).includes(equippedHookah);
-  const [usingHookah, setUsingHookah] = useState(false);
-  const useHookah = () => {
-    if (!hasHookah || usingHookah) return;
-    setUsingHookah(true);
-    // Anim totale = 3s (tube vers la bouche) + 4s (fumée) = 7s
-    setTimeout(() => setUsingHookah(false), 7000);
-  };
+  // ====== CHICHA — hook partagé ======
+  const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
   useEffect(() => { arrivingRef.current = arriving; }, [arriving]);
   useEffect(() => {
     arrivalStartRef.current = performance.now();
@@ -4446,7 +4439,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         {hasHookah && (
           <button
             data-testid="lobby-hookah-btn"
-            onClick={useHookah}
+            onClick={useHookahFn}
             disabled={usingHookah}
             style={{
               width: 52, height: 52, borderRadius: '50%',
