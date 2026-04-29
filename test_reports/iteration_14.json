@@ -1,0 +1,52 @@
+{
+  "summary": "Sprint G ext.7 — AMBIANCE SONORE CONTEXTUELLE. Tested useAmbientAudio hook integration in Street3D, Lobby3D, HomeInterior3D. CRITICAL REGRESSION FOUND: Lobby3D.jsx crashes with `ReferenceError: stateRef is not defined` at line 76 — the useAmbientAudio block references stateRef but Lobby3D only declares cameraRef (line 3321). This crashes the entire Casino lobby flow (white error overlay 'Uncaught runtime errors'). Street3D + HomeInterior3D(villa) load successfully with no AudioContext errors, including beach teleport (x=80). Hook file useAmbientAudio.js is correctly structured (175 LOC, exports default + named, proper cleanup with cancelAnimationFrame + clearTimeout + src.stop() + ctx.close()). All regression testids verified by code review: trophy-share-btn, lobby-hookah-btn, street-hookah-btn, home-hookah-btn, rank-badge, rank-badge-full all present. FortniteLobby rank-badge confirmed present in DOM (count=1).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Lobby3D",
+        "issue": "ReferenceError: stateRef is not defined — Lobby3D.jsx line 76 inside useAmbientAudio({ stateRef, ... }). Lobby3D never declares `stateRef`; it uses `cameraRef` (declared line 3321). Crashes entire casino interior flow with React dev error overlay. Stack: at Lobby3D (bundle.js:107190:5).",
+        "selector": "n/a — runtime ReferenceError, blocks render",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "FortniteLobby → ENTRER AU CASINO → Lobby3D / Street3D → Lobby (return path)",
+        "issue": "Any code path that mounts Lobby3D (clicking ENTRER AU CASINO in FortniteLobby, or window.__openLobby(), or returning from Street3D/HomeInterior3D to lobby) immediately throws stateRef is not defined and the canvas does not render (canvas count = 0).",
+        "affected_selectors": ["[data-testid=lobby-hookah-btn]", "lobby canvas", "lobby HUD"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "verified_features": [
+    "useAmbientAudio.js (175 LOC) exists at /app/frontend/src/game/useAmbientAudio.js — exports useAmbientAudio (named) + default. Supports continuous layers (wind/waves/crowd via createBufferSource + biquad filter + loop) and one-shot layers (seagull 3-note descending squares; horn 2-note sawtooth couplet). Auto-scheduling: 4-12s random intervals, gain ramps via lerp factor 0.04. Cleanup: cancelAnimationFrame + clearTimeout (all timers) + src.stop() + ctx.close() inside useEffect return. enabled flag honored. Code is clean.",
+    "Street3D.jsx ambience: imports useAmbientAudio (line 11), uses it (line 100-110) with stateRef (defined line 88). Layers: waves target=lerp((p.x-65)/50*0.32) clamped to [0,0.32] — ramps near beach; seagull oneshot at p.x>60 (gain 0.12); horn oneshot when |p.x|<60 && |p.z|<100 (gain 0.05). Smoke test: __openStreet → canvas=2; __streetTeleport(80,0) → no crash, no AudioContext errors, 0 page errors.",
+    "HomeInterior3D.jsx refactor: imports useAmbientAudio (line 8), uses it (line 105-112) with `enabled: isTwoFloor` so wind only fires for villa/house — apartment skips audio context entirely. Wind target conditional: p.y>1 && p.z<-size.d/2+0.5 → 0.18 else 0. stateRef defined line 74. Smoke test: __openHome('bj-villa') → canvas=1, 0 errors. DRY refactor verified — old balcony useEffect removed/replaced.",
+    "FortniteLobby rank-badge: data-testid=rank-badge present in DOM after device select (count=1). Verified.",
+    "Trophies.jsx trophy-share-btn at line 223 (code review). RankBadge.jsx exposes rank-badge (line 35) + rank-badge-full (line 49).",
+    "Hookah testids: lobby-hookah-btn (Lobby3D:4451), street-hookah-btn (Street3D:2817), home-hookah-btn (HomeInterior3D:1320). All present (code review)."
+  ],
+  "action_items": [
+    "FIX CRITICAL: Lobby3D.jsx line 76 — `stateRef` is undefined. Either (a) add `const stateRef = useRef({});` before line 75 (consistent with Street3D:88 and HomeInterior3D:74), or (b) since the crowd layer's target is constant `() => 0.12` and never reads p, pass `stateRef={ current: {} }` literal or change the hook to make stateRef optional. Option (a) is cleanest and aligns with the other two integrations. After fix, rerun: __openLobby() → confirm canvas mounts and crowd ambience initializes without ReferenceError.",
+    "Optional: run a dev sanity ESLint pass (`yarn eslint src/game/Lobby3D.jsx`) — `no-undef` would have caught `stateRef` immediately. Recommend adding pre-commit lint."
+  ],
+  "critical_code_review_comments": [
+    "useAmbientAudio.js cleanup: layerRefs.current.forEach(node => { if (node?.src) try { node.src.stop(); } ... }) — good defensive coding. ctx.close() guarded by ctx.state !== 'closed' ✓. localOneshotTimers properly captured in closure to avoid stale ref issues at unmount.",
+    "useAmbientAudio.js useEffect deps: only [enabled] — `layers` and `stateRef` excluded by eslint-disable comment. This is intentional (parent passes new layer array each render which would re-create AudioContext). Acceptable but documented eslint-disable is appropriate here. Layers' target functions are read via closure — they will use the ORIGINAL layer functions captured at mount, even if parent re-renders with new closures. This is OK since layer logic in Street3D/Lobby3D/HomeInterior3D reads p from stateRef.current (always fresh).",
+    "Lobby3D.jsx: stateRef bug is a clear oversight from Sprint G ext.7 — copy-paste from Street3D pattern without verifying Lobby3D's local variable names. CRITICAL bug, breaks main casino entry flow.",
+    "Lobby3D.jsx is now 5127 lines (>700 line guideline) — split candidates: lobby-scene-builders, lobby-hud, lobby-modals. Carry-over from previous iterations.",
+    "Street3D.jsx is 3519 lines, HomeInterior3D.jsx is 1650 lines — also large. Refactor recommended.",
+    "Procedural audio: AudioContext is created on every mount of Street3D/Lobby3D/HomeInterior3D. If a user rapidly navigates Street ↔ Lobby ↔ Home, multiple contexts are created and torn down. The hook does ctx.close() in cleanup so memory is released, but Chrome has a soft cap of ~6 active AudioContexts before warnings. Should be fine in practice since cleanup is synchronous.",
+    "Browser autoplay policy: AudioContext starts in 'suspended' state until user interacts. The first navigation to Street3D/Lobby3D/HomeInterior3D after page load should be after a user click (Login, etc.) so context will resume automatically. No explicit ctx.resume() call — typically relied on by browser implicit-resume on user gesture. Could add `if (ctx.state === 'suspended') ctx.resume();` for safety, but not critical."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend)", "frontend": "60% — 3 of 5 ambience integrations work (Street3D ✓, HomeInterior3D ✓, useAmbientAudio.js ✓). Lobby3D ✗ CRITICAL crash. Regression testids ✓."},
+  "test_credentials": "Pseudo TestT14 / TestT14b on Login (any name accepted; localStorage profile).",
+  "seed_data_creation": "localStorage.setItem('gamblelife_onboarding_done','1') + localStorage.removeItem('gamblelife_device') before login.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent fixes Lobby3D stateRef bug: (1) re-run __openLobby() and confirm canvas mounts without error overlay. (2) Verify return-to-lobby path from Street3D and HomeInterior3D. (3) Confirm crowd ambience layer is built (no console error from buildLayer). (4) Validate that AudioContext close + recreate cycle works on rapid Lobby ↔ Street navigation. (5) Other useAmbientAudio integrations (Street3D, HomeInterior3D) are already validated to load and run with 0 console errors and 0 page errors.",
+  "rca of the issue": "Sprint G ext.7 added `useAmbientAudio({ stateRef, layers: [...] })` block to Lobby3D.jsx at lines 75-81. The pattern was copy-pasted from Street3D.jsx (which declares `const stateRef = useRef({});` at line 88) without verifying that Lobby3D has its own stateRef. Lobby3D uses `cameraRef` instead (declared line 3321) and never declares stateRef. Result: ReferenceError thrown at component render, blocking entire Lobby3D mount. Reproduction: navigate to FortniteLobby and click ENTRER AU CASINO, OR call window.__openLobby() in console. Mitigation: add `const stateRef = useRef({});` near the top of the Lobby3D function (e.g., between line 60 and line 67 with the other refs). The crowd layer's target callback (() => 0.12) doesn't read player position, so stateRef can stay empty {}. Estimated fix: 1 line added."
+}

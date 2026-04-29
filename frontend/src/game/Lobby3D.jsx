@@ -4,6 +4,7 @@ import { WEAPONS, VEHICLES, CASINO_3D_COLORS, HAIR_CATALOG, OUTFIT_CATALOG, SHOE
 import { ArrowButton, Dealer, WeaponIcon, menuBtnStyle, StatCard } from '@/game/ui';
 import { FPWeaponView, TPPlayerView, FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
+import { useAmbientAudio } from '@/game/useAmbientAudio';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
@@ -69,6 +70,15 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
 
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
+
+  // ====== AMBIANCE SONORE casino (foule + chuchotements) ======
+  useAmbientAudio({
+    stateRef,
+    layers: [
+      // Foule : toujours présente dans le lobby (volume constant 0.12)
+      { type: 'crowd', target: () => 0.12 },
+    ],
+  });
   useEffect(() => { arrivingRef.current = arriving; }, [arriving]);
   useEffect(() => {
     arrivalStartRef.current = performance.now();

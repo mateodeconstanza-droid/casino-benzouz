@@ -8,6 +8,7 @@ import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 import { FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
+import { useAmbientAudio } from '@/game/useAmbientAudio';
 import sfx from '@/game/sfx';
 
 // =============================================================
@@ -94,6 +95,19 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [garageOpen, setGarageOpen] = useState(false);
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
+
+  // ====== AMBIANCE SONORE ville (vagues plage, mouettes, klaxons) ======
+  useAmbientAudio({
+    stateRef,
+    layers: [
+      // Vagues : volume ramps up à mesure qu'on s'approche de la plage (x > 65)
+      { type: 'waves', target: (p) => Math.max(0, Math.min(0.32, (p.x - 65) / 50 * 0.32)) },
+      // Mouettes : oneshots aléatoires, volume basé sur proximité plage
+      { type: 'seagull', target: (p) => p.x > 60 ? 0.12 : 0, oneshot: true },
+      // Klaxons : oneshots aléatoires, volume basé sur centre de la ville (proche du casino)
+      { type: 'horn', target: (p) => (Math.abs(p.x) < 60 && Math.abs(p.z) < 100) ? 0.05 : 0, oneshot: true },
+    ],
+  });
   const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
   const [aimingWeapon, setAimingWeapon] = useState(null); // weapon id si on vise
   const [hud, setHud] = useState({ npcKilled: 0, health: 100 });
