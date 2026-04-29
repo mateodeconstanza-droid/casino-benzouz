@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { fmt, TROPHIES } from '@/game/constants';
 // ============== ÉCRAN TROPHÉES COMPLET ==============
 const TrophyScreen = ({ profile, casino, onClose }) => (
@@ -80,10 +80,11 @@ const TrophyScreen = ({ profile, casino, onClose }) => (
 
 // ============== TROPHÉE DÉBLOQUÉ — animation plein écran (paillettes + son) ==============
 const TrophyUnlock = ({ trophy, onClose }) => {
-  // Joue un son de victoire dès le mount
+  // Joue un son de victoire dès le mount + cleanup audio context
   useEffect(() => {
+    let ctx;
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
       // Fanfare ascendante : 3 notes (C5, E5, G5) en arpège
       [523.25, 659.25, 783.99].forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -100,6 +101,7 @@ const TrophyUnlock = ({ trophy, onClose }) => {
       });
       // Cymbal final (filtered noise)
       setTimeout(() => {
+        if (!ctx || ctx.state === 'closed') return;
         const buf = ctx.createBuffer(1, ctx.sampleRate * 0.6, ctx.sampleRate);
         const data = buf.getChannelData(0);
         for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
@@ -112,22 +114,28 @@ const TrophyUnlock = ({ trophy, onClose }) => {
         src.start();
       }, 350);
     } catch (_e) { /* noop */ }
+    return () => {
+      try { if (ctx && ctx.state !== 'closed') ctx.close(); } catch (_e) { /* noop */ }
+    };
   }, []);
 
-  // 50 confettis aléatoires
-  const confetti = [];
-  for (let i = 0; i < 50; i++) {
-    const colors = [trophy.color, '#ffd700', '#ff2ad4', '#3fe6ff', '#ffffff', '#ff8a3a'];
-    confetti.push({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 0.6,
-      duration: 2 + Math.random() * 1.5,
-      color: colors[i % colors.length],
-      size: 8 + Math.random() * 10,
-      rotate: Math.random() * 360,
-    });
-  }
+  // 50 confettis générés une fois (stabilité au re-render)
+  const confetti = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 50; i++) {
+      const colors = [trophy.color, '#ffd700', '#ff2ad4', '#3fe6ff', '#ffffff', '#ff8a3a'];
+      arr.push({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.6,
+        duration: 2 + Math.random() * 1.5,
+        color: colors[i % colors.length],
+        size: 8 + Math.random() * 10,
+        rotate: Math.random() * 360,
+      });
+    }
+    return arr;
+  }, [trophy.name, trophy.color]);
 
   return (
     <div

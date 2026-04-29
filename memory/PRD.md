@@ -302,6 +302,19 @@ Jeu mobile 3D (React + Three.js). Objectifs principaux :
   - Intégré dans **FortniteLobby HUD** (top-right sous le nom du joueur, variant compact) et **UniversalMenu drawer** (variant full, remplace l'ancien "Niveau X")
   - Fallback "RECRUE" pour les joueurs en dessous du premier seuil (150K)
 
+### ✅ Implemented (Feb 2026 — Sprint G ext.3, validated iteration_11)
+- **Animation Trophée déblocage plein écran** (`Trophies.jsx` — TrophyUnlock complètement refait, ~160 LOC) :
+  - Overlay plein écran `[data-testid=trophy-unlock-overlay]` avec radial-gradient coloré au centre + backdrop-filter blur
+  - **50 confettis** qui tombent du haut (paillettes colorées avec rotation 720°)
+  - **Rayons rotatifs** sortant du centre (repeating-conic-gradient + animation 6s)
+  - **Carte centrale animée** : scale-in cubic-bezier(.2,.9,.25,1.6) avec bounce, icône qui pulse 6%, nom du rang en majuscules avec text-shadow lumineux + bordure couleur du rang
+  - **Audio fanfare** : 3 notes triangle (C5/E5/G5) en arpège 0.12s + cymbal noise burst à 350ms (filtered noise)
+  - **Badge récompense doré** "+ X $ BONUS" avec glow
+  - Auto-fermeture à 6.5s (Casino.jsx setTimeout adjusté de 5s → 6.5s)
+  - Clickable pour fermer manuellement
+  - Cleanup AudioContext + useMemo confettis pour stabilité re-render
+- **`useHookah` custom hook extrait** (`/app/frontend/src/game/useHookah.js` — 19 LOC) : DRY entre Lobby3D / Street3D / HomeInterior3D. Retourne `{equippedHookah, hasHookah, usingHookah, useHookah}`. Anciens 3 blocs de code identiques (~10 lignes chacun) remplacés par 1 ligne d'appel au hook dans chaque fichier.
+
 ## Architecture
 - **Roulette 3D sync corrigée** : `Roulette3DWheel.jsx` — correction du bug mathématique de rotation (worldAngle = pocketAngle − wheelAngle, pas +). Pré-calcul de `wheelFinalAngle` au spin start avec 4-5 tours complets + lerp ease-out cubic pour atterrir précisément sous le pointeur. La bille se verrouille sur `POINTER_WORLD_ANGLE = −π/2` au dernier quart de l'animation. Numéros lisibles sur chaque poche via CanvasTexture.
 - **Porte de sortie 3D dans le casino** : ajout d'une porte en bois + cadre doré + enseigne cyan "SORTIE" + anneau cyan au sol, à (0, 0, 17.5) dans `Lobby3D.jsx`. Zone d'interaction `zoneId: 'exit'` avec callback `onExitCasino()`. Testids `lobby-exit-label` / `lobby-exit-action-btn`.
