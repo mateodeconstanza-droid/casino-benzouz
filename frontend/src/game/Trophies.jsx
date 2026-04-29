@@ -216,6 +216,34 @@ const TrophyUnlock = ({ trophy, onClose }) => {
           fontWeight: 800, fontSize: 18, letterSpacing: 1,
           boxShadow: '0 6px 16px rgba(255,215,0,0.5)',
         }}>+ {fmt(trophy.reward)} $ BONUS</div>
+
+        {/* Bouton partager */}
+        <div style={{ marginTop: 18 }}>
+          <button
+            data-testid="trophy-share-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              const text = `🎰 Je viens de débloquer le rang ${trophy.icon} ${trophy.name} sur GambleLife ! +${fmt(trophy.reward)}$ bonus 💰`;
+              const url = window.location.href;
+              if (navigator.share) {
+                navigator.share({ title: 'GambleLife — Nouveau rang !', text, url }).catch(() => {});
+              } else {
+                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+              }
+            }}
+            style={{
+              padding: '8px 18px', borderRadius: 8,
+              background: 'linear-gradient(135deg, #1da1f2, #0d8ed4)',
+              color: '#fff', border: 'none', fontSize: 13, fontWeight: 800,
+              letterSpacing: 1, cursor: 'pointer',
+              boxShadow: '0 4px 10px rgba(29,161,242,0.5)',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            🚀 Partager mon rang
+          </button>
+        </div>
+
         <div style={{
           marginTop: 22, fontSize: 11, color: '#888',
           letterSpacing: 2, opacity: 0.7,

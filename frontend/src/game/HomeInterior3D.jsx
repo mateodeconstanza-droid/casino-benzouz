@@ -822,6 +822,125 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       const upperLight = new THREE.PointLight(t.accent, 1.0, 12);
       upperLight.position.set(0, upperFloorY + 1.8, -size.d * 0.25);
       scene.add(upperLight);
+
+      // ====== BALCON arrière avec vue skyline ======
+      // Plateforme balcon dépassant à l'arrière (z = -size.d/2 - 2.5)
+      const balcony = new THREE.Mesh(
+        new THREE.BoxGeometry(size.w * 0.45, 0.2, 3.5),
+        new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.7 })
+      );
+      balcony.position.set(0, upperFloorY, -size.d / 2 - 1.6);
+      scene.add(balcony);
+      // Garde-corps balcon (3 côtés : gauche, droite, arrière)
+      const railMat = new THREE.MeshStandardMaterial({ color: 0xc8b87a, metalness: 0.7, roughness: 0.3 });
+      const balRailBack = new THREE.Mesh(
+        new THREE.BoxGeometry(size.w * 0.45, 1.0, 0.06), railMat
+      );
+      balRailBack.position.set(0, upperFloorY + 0.5, -size.d / 2 - 3.3);
+      scene.add(balRailBack);
+      for (const ss of [-1, 1]) {
+        const sideRail = new THREE.Mesh(
+          new THREE.BoxGeometry(0.06, 1.0, 3.5), railMat
+        );
+        sideRail.position.set(ss * size.w * 0.225, upperFloorY + 0.5, -size.d / 2 - 1.6);
+        scene.add(sideRail);
+      }
+      // Barreaux verticaux décoratifs (~10 sur le côté arrière)
+      for (let bx = -size.w * 0.22; bx < size.w * 0.22; bx += 0.6) {
+        const bar = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.025, 0.025, 1.0, 6), railMat
+        );
+        bar.position.set(bx, upperFloorY + 0.5, -size.d / 2 - 3.3);
+        scene.add(bar);
+      }
+      // Chaise longue
+      const chair2 = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.25, 1.8),
+        new THREE.MeshStandardMaterial({ color: 0xf4e4c0, roughness: 0.6 })
+      );
+      chair2.position.set(-size.w * 0.12, upperFloorY + 0.22, -size.d / 2 - 2);
+      scene.add(chair2);
+      // Petit guéridon avec verre
+      const sideTable = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.3, 0.32, 0.5, 12),
+        new THREE.MeshStandardMaterial({ color: t.table, roughness: 0.5 })
+      );
+      sideTable.position.set(size.w * 0.05, upperFloorY + 0.35, -size.d / 2 - 2);
+      scene.add(sideTable);
+      // Verre/cocktail décoratif
+      const glass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.05, 0.18, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffd700, transparent: true, opacity: 0.7, metalness: 0.4 })
+      );
+      glass.position.set(size.w * 0.05, upperFloorY + 0.7, -size.d / 2 - 2);
+      scene.add(glass);
+      // Grande baie vitrée arrière (plan transparent vers la skyline)
+      const window2 = new THREE.Mesh(
+        new THREE.PlaneGeometry(size.w * 0.45, 2.5),
+        new THREE.MeshStandardMaterial({
+          color: 0x9be0ff, transparent: true, opacity: 0.35,
+          metalness: 0.7, roughness: 0.05,
+        })
+      );
+      window2.position.set(0, upperFloorY + 1.5, -size.d / 2 + 0.05);
+      scene.add(window2);
+
+      // ====== SKYLINE FOND (vue depuis le balcon) ======
+      // Backdrop SVG canvas → plan derrière le balcon montrant des bâtiments lointains
+      const skyCv = document.createElement('canvas');
+      skyCv.width = 1024; skyCv.height = 384;
+      const skyCx = skyCv.getContext('2d');
+      // Ciel dégradé crépuscule
+      const skyGrad = skyCx.createLinearGradient(0, 0, 0, 384);
+      skyGrad.addColorStop(0, '#1a0c2c');
+      skyGrad.addColorStop(0.5, '#5a1a3c');
+      skyGrad.addColorStop(0.85, '#ff6a3a');
+      skyGrad.addColorStop(1, '#ffd28a');
+      skyCx.fillStyle = skyGrad;
+      skyCx.fillRect(0, 0, 1024, 384);
+      // Soleil couchant
+      const sunGrad = skyCx.createRadialGradient(820, 180, 8, 820, 180, 70);
+      sunGrad.addColorStop(0, '#fff8d8');
+      sunGrad.addColorStop(0.5, '#ffaa50');
+      sunGrad.addColorStop(1, 'rgba(200,80,40,0)');
+      skyCx.fillStyle = sunGrad;
+      skyCx.fillRect(750, 100, 180, 180);
+      // Bâtiments silhouette (3 plans de profondeur)
+      // Plan loin (sombre)
+      skyCx.fillStyle = 'rgba(8,4,18,0.85)';
+      let bx = 0;
+      while (bx < 1024) {
+        const bw = 30 + Math.random() * 60;
+        const bh = 80 + Math.random() * 120;
+        skyCx.fillRect(bx, 384 - bh, bw, bh);
+        // Fenêtres lumineuses
+        skyCx.fillStyle = ['#ffd28a', '#ffa040', '#ff80a0', '#80c8ff'][Math.floor(Math.random() * 4)];
+        for (let r = 0; r < bh / 14; r++) {
+          for (let c = 0; c < bw / 12; c++) {
+            if (Math.random() > 0.4) {
+              skyCx.fillRect(bx + c * 12 + 2, 384 - bh + r * 14 + 4, 6, 7);
+            }
+          }
+        }
+        skyCx.fillStyle = 'rgba(8,4,18,0.85)';
+        bx += bw;
+      }
+      // Plan proche (plus sombre encore)
+      skyCx.fillStyle = 'rgba(0,0,0,0.92)';
+      bx = 0;
+      while (bx < 1024) {
+        const bw = 80 + Math.random() * 100;
+        const bh = 140 + Math.random() * 100;
+        skyCx.fillRect(bx, 384 - bh, bw, bh);
+        bx += bw;
+      }
+      const skyTex = new THREE.CanvasTexture(skyCv);
+      const skyBackdrop = new THREE.Mesh(
+        new THREE.PlaneGeometry(size.w * 1.4, size.w * 0.5),
+        new THREE.MeshBasicMaterial({ map: skyTex })
+      );
+      skyBackdrop.position.set(0, upperFloorY + 2, -size.d / 2 - 8);
+      scene.add(skyBackdrop);
     }
 
     // ========== PISCINE VILLA (uniquement villa) ==========
@@ -906,7 +1025,11 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       scene, camera, renderer, disposed: false,
       customizeRing: cRing, customizeIcon: icSprite, customizeBeam: cBeam,
       // ====== Joueur 1ère pers. : déplacement WASD/joystick ======
-      player: { x: 0, z: size.d / 2 - 2.5, rotY: 0 },
+      // Spawn position : pour les maisons à 2 étages, on spawn proche de l'escalier
+      // pour que le joueur découvre rapidement le 2ème étage.
+      player: isTwoFloor
+        ? { x: size.w / 2 - 4, z: 4, rotY: -Math.PI / 2, y: 0 }   // près de l'escalier, face aux marches
+        : { x: 0, z: size.d / 2 - 2.5, rotY: 0, y: 0 },
       input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0 },
     };
 
@@ -991,11 +1114,14 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
         dx = (dx / len) * SPEED;
         dz = (dz / len) * SPEED;
         // Collision murs : reste dans la pièce avec marge 0.5m
+        // Exception : sur l'étage 2 d'une maison à 2 étages, le balcon arrière est accessible (z jusqu'à -size.d/2 - 3.5)
         const margin = 0.5;
+        const onUpper = isTwoFloor && p.y > 1;
+        const minZ = onUpper ? -size.d / 2 - 3.4 : -size.d / 2 + margin;
         const nx = p.x + dx;
         const nz = p.z + dz;
         if (nx > -size.w / 2 + margin && nx < size.w / 2 - margin) p.x = nx;
-        if (nz > -size.d / 2 + margin && nz < size.d / 2 - margin) p.z = nz;
+        if (nz > minZ && nz < size.d / 2 - margin) p.z = nz;
       }
 
       camera.position.set(p.x, 1.7 + (p.y || 0), p.z);
@@ -1019,7 +1145,8 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
           p.y = Math.min(upperY, progress * upperY);
         }
         // Sur la plateforme étage 2 ? (z < 2.5 - 12*0.42 ≈ -2.5 et au-dessus de la limite arrière de l'étage)
-        else if (p.z < stairZMin && p.z > -size.d / 2 + 0.5) {
+        // Étend aussi sur le balcon arrière (z < -size.d/2)
+        else if (p.z < stairZMin && p.z > -size.d / 2 - 3.5) {
           p.y = upperY;
         } else {
           // Retour rez-de-chaussée
