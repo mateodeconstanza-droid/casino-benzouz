@@ -7,8 +7,9 @@ import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
 import { useLookControls } from '@/game/useLookControls';
+import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
+const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -4282,6 +4283,18 @@ const Lobby3D = ({ profile, casino, casinoId, onSelectGame, onLogout, onExitCasi
           `}</style>
         </div>
       )}
+
+      {/* === MENU UNIVERSEL — accessible partout === */}
+      <UniversalMenu
+        profile={profile}
+        balance={balance}
+        deviceType={deviceType}
+        onOpenTrophies={onOpenTrophies}
+        onOpenQuests={onOpenQuests}
+        onOpenShop={onOpenShop}
+        onChangeDevice={() => { /* TODO bring back to deviceSelect */ }}
+        position="top-right"
+      />
 
       {/* HUD Haut */}
       <div className="hud-control" style={{

@@ -108,12 +108,22 @@ export const WEAPONS = [
   { id: 'laserrifle',   name: 'Fusil laser prototype',  price: 3500000, damage: 'dévastateur', desc: 'Rayon instantané, traverse tout',        type: 'laser',      projectile: 'laser' },
 ];
 
+// ============== CHICHAS — accessoires casino (G4) ==============
+// Achetables en boutique casino (1M $ standard). Animation tube 3s + fumée 4s.
+export const HOOKAHS = [
+  { id: 'hookah-classic',  name: 'Chicha Classique',     price: 1000000, color: '#c8a85a', desc: 'Goût pomme — animation tube 3s + grande fumée blanche 4s' },
+  { id: 'hookah-gold',     name: 'Chicha Or VIP',        price: 5000000, color: '#ffd700', desc: 'Édition limitée or massif — fumée dorée scintillante' },
+  { id: 'hookah-platinum', name: 'Chicha Platine',       price: 12000000, color: '#e5e4e2', desc: 'Modèle prestige diamant — double dose de fumée, plus de prestige' },
+];
+
 // ============== VÉHICULES ==============
 // Marche = 1x, Skateboard = 2x, Vélo = 3x
 export const VEHICLES = [
   { id: 'skateboard', name: 'Skateboard GambleLife', price: 1000000,  speedMul: 2,   emoji: '🛹', desc: 'Plateau carbone, roues uréthane – 2× plus rapide qu\'à pied' },
   { id: 'bike',       name: 'Vélo Turbo GambleLife',  price: 5000000,  speedMul: 3,   emoji: '🚴', desc: 'Cadre titane, assistance secrète – 3× plus rapide qu\'à pied' },
-  { id: 'hoverboard', name: 'Overboard GambleLife',   price: 25000000, speedMul: 4.2, emoji: '🛸', desc: 'Lévitation magnétique, propulseurs LED – 4× plus rapide qu\'à pied' },
+  { id: 'quad',       name: 'Quad GambleLife XR',     price: 8000000,  speedMul: 3.6, emoji: '🏍️', desc: 'Quad 4×4 tout-terrain – plus rapide que le vélo' },
+  { id: 'quad-pro',   name: 'Quad GambleLife PRO',    price: 18000000, speedMul: 4.5, emoji: '🏍️', desc: 'Quad sport haut de gamme – performances supérieures' },
+  { id: 'hoverboard', name: 'Overboard GambleLife',   price: 25000000, speedMul: 5.0, emoji: '🛸', desc: 'Lévitation magnétique, propulseurs LED – 5× plus rapide qu\'à pied' },
 ];
 
 // ============== CATALOGUE PERSONNALISATION PERSONNAGE ==============

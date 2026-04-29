@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
+import { UniversalMenu } from '@/game/UniversalMenu';
 
 // ============================================================
 // FortniteLobby — écran d'accueil pré-jeu (style Fortnite/AAA)
@@ -8,7 +9,7 @@ import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constan
 // - Carrousel cosmétiques (changer coiffure/tenue/chaussures sur place)
 // - 4 CTAs : VILLE / CASINO / BOUTIQUE / PROFIL
 // ============================================================
-const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoProfile, onLogout, setProfile }) => {
+const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoProfile, onLogout, setProfile, deviceType, onChangeDevice }) => {
   const [tick, setTick] = useState(0);
   const [selHair, setSelHair] = useState(profile?.hair ?? 0);
   const [selOutfit, setSelOutfit] = useState(profile?.outfit ?? 0);
@@ -99,7 +100,7 @@ const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoP
       {/* ===== HUD HAUT-DROITE : profil tag ===== */}
       {profile?.name && (
         <div style={{
-          position: 'absolute', top: 20, right: 24, zIndex: 5,
+          position: 'absolute', top: 20, right: 90, zIndex: 5,
           padding: '10px 18px', borderRadius: 10,
           background: 'linear-gradient(135deg, rgba(0,0,0,0.7), rgba(20,15,30,0.7))',
           border: '2px solid #ffd700', backdropFilter: 'blur(10px)',
@@ -186,6 +187,17 @@ const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoP
         <LobbyBtn testId="lobby-btn-profile" icon="👤" title="PROFIL & TROPHÉES"
           subtitle="Stats · Trophées · Personnage" onClick={onGoProfile} />
       </div>
+
+      {/* ===== MENU UNIVERSEL ===== */}
+      <UniversalMenu
+        profile={profile}
+        balance={balance}
+        deviceType={deviceType}
+        onOpenTrophies={onGoProfile}
+        onOpenShop={onGoShop}
+        onChangeDevice={onChangeDevice}
+        position="top-right"
+      />
 
       {/* ===== BOUTON DÉCONNEXION (bas-gauche) ===== */}
       <button

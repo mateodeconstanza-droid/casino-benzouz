@@ -76,6 +76,12 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
   const [showTrophies, setShowTrophies] = useState(false);
   const [showFurnStore, setShowFurnStore] = useState(false);
   const [furnTab, setFurnTab] = useState('salon');
+  // G3 — Animation d'arrivée 4s (similaire au casino)
+  const [arriving, setArriving] = useState(true);
+  useEffect(() => {
+    const t2 = setTimeout(() => setArriving(false), 4000);
+    return () => clearTimeout(t2);
+  }, []);
 
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
@@ -934,6 +940,65 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#000' }}
     >
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
+
+      {/* G3 — Animation d'arrivée 4s — flash blanc + anneaux + message */}
+      {arriving && (
+        <div
+          data-testid="home-arrival-overlay"
+          style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            zIndex: 9999, overflow: 'hidden',
+          }}
+        >
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(180,220,255,0.55) 35%, rgba(255,255,255,0) 75%)',
+            animation: 'home-arrival-flash 4s ease-out forwards',
+          }} />
+          <div style={{
+            position: 'absolute', left: '50%', bottom: '34%',
+            transform: 'translateX(-50%)',
+            width: 220, height: 56,
+            borderRadius: '50%',
+            border: '3px solid rgba(255,215,0,0.85)',
+            boxShadow: '0 0 60px rgba(255,215,0,0.9), inset 0 0 30px rgba(255,255,255,0.6)',
+            animation: 'home-arrival-ring 2.4s ease-out infinite',
+          }} />
+          <div style={{
+            position: 'absolute', top: '38%', left: '50%',
+            transform: 'translate(-50%,-50%)',
+            color: '#fff', textAlign: 'center',
+            textShadow: '0 0 24px #fff, 0 0 48px #ffd700',
+            animation: 'home-arrival-text 4s ease-out forwards',
+          }}>
+            <div style={{ fontSize: 38, fontWeight: 900, letterSpacing: 6 }}>
+              {house?.name || 'TA PROPRIÉTÉ'}
+            </div>
+            <div style={{ fontSize: 13, letterSpacing: 5, marginTop: 4, color: '#3fe6ff' }}>
+              ★ BIENVENUE ★
+            </div>
+          </div>
+          <style>{`
+            @keyframes home-arrival-flash {
+              0%   { opacity: 1; }
+              25%  { opacity: 0.85; }
+              60%  { opacity: 0.4; }
+              100% { opacity: 0; }
+            }
+            @keyframes home-arrival-ring {
+              0%   { transform: translateX(-50%) translateY(40px) scale(0.3); opacity: 0; }
+              30%  { opacity: 1; }
+              100% { transform: translateX(-50%) translateY(-180px) scale(1.4); opacity: 0; }
+            }
+            @keyframes home-arrival-text {
+              0%   { transform: translate(-50%,-50%) scale(0.4); opacity: 0; filter: blur(20px); }
+              30%  { transform: translate(-50%,-50%) scale(1.1); opacity: 1; filter: blur(0px); }
+              80%  { transform: translate(-50%,-50%) scale(1.0); opacity: 1; }
+              100% { transform: translate(-50%,-60%) scale(1.0); opacity: 0; }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Joystick déplacement mobile (D-pad) */}
       <div style={{

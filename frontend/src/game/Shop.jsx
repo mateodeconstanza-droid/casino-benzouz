@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
+import { fmt, handValue, createDeck, RED_NUMBERS, ROULETTE_NUMBERS, WHEEL_PRIZES, WEAPONS, VEHICLES, HOOKAHS, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, TROPHIES, CASINOS, DEALER_PROFILES, CASINO_3D_COLORS, BENZBET_MATCHES, generateMatches, BENZBET_KEY, getColor, bjValue, sportBtnStyle, FOUR_HOURS, POKER_HAND_NAMES, evaluatePokerHand, evaluateHand5, compareTB } from '@/game/constants';
 import { Card, Chip, ChipStack, GameHeader, btnStyle, menuBtnStyle, StatCard, ArrowButton, Dealer, WeaponIcon, FlyingProjectile, pokerBtnStyle, numStyle, choiceBtn, VehicleGraphic, WeaponMenu } from '@/game/ui';
 import { applyEventDiscount, getActiveEvents } from '@/game/dailyEvents';
 
@@ -135,6 +135,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
           {[
             ['weapons',   '🔫 Armes'],
             ['vehicles',  '🏎 Véhicules'],
+            ['hookahs',   '💨 Chichas'],
             ['hair',      '💇 Cheveux'],
             ['outfit',    '👕 Vêtements'],
             ['shoes',     '👟 Chaussures'],
@@ -322,6 +323,114 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
         {tab === 'hair'   && renderCosmetics(HAIR_CATALOG,   ownedHair,   'hair',   'coiffures', profile.hair)}
         {tab === 'outfit' && renderCosmetics(OUTFIT_CATALOG, ownedOutfit, 'outfit', 'vêtements', profile.outfit)}
         {tab === 'shoes'  && renderCosmetics(SHOES_CATALOG,  ownedShoes,  'shoes',  'chaussures', profile.shoes)}
+
+        {tab === 'hookahs' && (
+          <div data-testid="shop-hookahs" style={{
+            background: 'linear-gradient(180deg, #2a1530, #150a1a)',
+            border: `2px solid ${casino.secondary}40`,
+            borderRadius: 14, padding: 20,
+          }}>
+            <div style={{ fontSize: 12, color: casino.secondary, letterSpacing: 3, textAlign: 'center', marginBottom: 18 }}>
+              💨  CHICHAS PREMIUM — UTILISABLES AU CASINO  💨
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+              {HOOKAHS.map(h => {
+                const ownedH = (profile.hookahs || []).includes(h.id);
+                const equipped = profile.equippedHookah === h.id;
+                const canAfford = balance >= h.price;
+                return (
+                  <div key={h.id}
+                    data-testid={`shop-hookah-${h.id}`}
+                    style={{
+                      padding: 14, borderRadius: 12,
+                      background: 'rgba(20,10,30,0.85)',
+                      border: `1.5px solid ${ownedH ? '#00aa44' : 'rgba(212,175,55,0.45)'}`,
+                      textAlign: 'center',
+                    }}>
+                    {/* Mini illustration chicha */}
+                    <div style={{
+                      height: 90, marginBottom: 10,
+                      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                    }}>
+                      <div style={{ position: 'relative', width: 70, height: 90 }}>
+                        {/* Base */}
+                        <div style={{
+                          position: 'absolute', left: '50%', bottom: 0,
+                          transform: 'translateX(-50%)',
+                          width: 50, height: 30, borderRadius: '50% 50% 30% 30% / 70% 70% 30% 30%',
+                          background: `radial-gradient(circle at 30% 30%, ${h.color}, #2a1a10)`,
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.5)',
+                        }} />
+                        {/* Tube */}
+                        <div style={{
+                          position: 'absolute', left: '50%', bottom: 30,
+                          transform: 'translateX(-50%)',
+                          width: 8, height: 35, background: '#2a1a10',
+                          borderRadius: 4,
+                        }} />
+                        {/* Embout */}
+                        <div style={{
+                          position: 'absolute', left: '50%', top: 14,
+                          transform: 'translateX(-50%)',
+                          width: 18, height: 12,
+                          background: `linear-gradient(180deg, ${h.color}, #2a1a10)`,
+                          borderRadius: 4,
+                          boxShadow: `0 0 10px ${h.color}80`,
+                        }} />
+                        {/* Fumée animée */}
+                        <div style={{
+                          position: 'absolute', top: -8, left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 24, height: 24, borderRadius: '50%',
+                          background: 'rgba(255,255,255,0.45)',
+                          filter: 'blur(6px)',
+                          animation: 'shop-hookah-smoke 2.5s ease-out infinite',
+                        }} />
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#ffd700' }}>{h.name}</div>
+                    <div style={{ fontSize: 11, color: '#cca366', marginTop: 4, minHeight: 28 }}>{h.desc}</div>
+                    <div style={{ fontSize: 13, color: casino.secondary, fontWeight: 700, margin: '8px 0' }}>
+                      {fmt(h.price)} $
+                    </div>
+                    {ownedH ? (
+                      equipped ? (
+                        <div style={{ color: '#00ff88', fontWeight: 900, fontSize: 12 }}>✓ ÉQUIPÉE</div>
+                      ) : (
+                        <button
+                          data-testid={`shop-hookah-equip-${h.id}`}
+                          onClick={() => onEquipCosmetic && onEquipCosmetic('hookah', h.id)}
+                          style={{
+                            width: '100%', padding: 8, borderRadius: 8,
+                            background: `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`,
+                            color: '#000', border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 12,
+                          }}>Équiper</button>
+                      )
+                    ) : (
+                      <button
+                        data-testid={`shop-hookah-buy-${h.id}`}
+                        disabled={!canAfford}
+                        onClick={() => onBuyCosmetic && onBuyCosmetic('hookah', h)}
+                        style={{
+                          width: '100%', padding: 8, borderRadius: 8,
+                          background: canAfford ? `linear-gradient(135deg, ${casino.primary}, ${casino.accent})` : '#333',
+                          color: canAfford ? '#000' : '#888',
+                          border: 'none', fontWeight: 800,
+                          cursor: canAfford ? 'pointer' : 'not-allowed', fontSize: 12,
+                        }}>{canAfford ? 'Acheter' : 'Solde insuffisant'}</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <style>{`
+              @keyframes shop-hookah-smoke {
+                0%   { transform: translateX(-50%) translateY(0) scale(0.8); opacity: 0.65; }
+                100% { transform: translateX(-50%) translateY(-30px) scale(1.6); opacity: 0; }
+              }
+            `}</style>
+          </div>
+        )}
 
         <button onClick={onClose} style={{
           width: '100%', marginTop: 16, padding: 12,

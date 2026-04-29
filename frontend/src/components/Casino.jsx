@@ -12,6 +12,7 @@ import BlackjackGame from '@/game/Blackjack';
 import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
 import ServerSelect from '@/game/ServerSelect';
+import DeviceSelect from '@/game/DeviceSelect';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -28,6 +29,10 @@ export default function Casino() {
   const [profile, setProfile] = useState(null);
   const [casino, setCasino] = useState(CASINOS.vegas);
   const [balance, setBalance] = useState(500);
+  // Type d'appareil (mobile/pc) — sauvegardé localement, contrôle l'UI/UX
+  const [deviceType, setDeviceType] = useState(() => {
+    try { return localStorage.getItem('gamblelife_device') || null; } catch (_e) { return null; }
+  });
   const [minBet, setMinBet] = useState(20);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
@@ -176,8 +181,9 @@ export default function Casino() {
   const handleServerChoice = ({ mode, serverId }) => {
     setMpMode(mode);
     setMpServerId(serverId || null);
-    // Le joueur arrive d'abord sur le Lobby type Fortnite, puis choisit son action
-    setScreen('fortniteLobby');
+    // Si pas encore choisi de device → écran DeviceSelect, sinon FortniteLobby
+    if (!deviceType) setScreen('deviceSelect');
+    else setScreen('fortniteLobby');
   };
 
   const handleEnterCasino = () => {
@@ -388,9 +394,26 @@ export default function Casino() {
     await saveProfile(newProfile);
   };
 
-  // ====== COSMÉTIQUES (cheveux / vêtements / chaussures) ======
+  // ====== COSMÉTIQUES (cheveux / vêtements / chaussures / chichas) ======
   const handleBuyCosmetic = async (slot, item) => {
     if (balance < item.price) return;
+    // G4 — Chichas (hookahs) ont une logique différente : stockage par id dans `hookahs`
+    if (slot === 'hookah') {
+      const ownedList = profile.hookahs || [];
+      const itemId = typeof item === 'object' ? item.id : item;
+      if (ownedList.includes(itemId)) return;
+      const newBalance = balance - (typeof item === 'object' ? item.price : 0);
+      setBalance(newBalance);
+      const newProfile = {
+        ...profile,
+        balance: newBalance,
+        hookahs: [...ownedList, itemId],
+        equippedHookah: itemId,
+      };
+      setProfile(newProfile);
+      await saveProfile(newProfile);
+      return;
+    }
     const key = slot === 'hair' ? 'ownedHair' : slot === 'outfit' ? 'ownedOutfit' : 'ownedShoes';
     const ownedList = profile[key] || [0, 1, 2];
     if (ownedList.includes(item.id)) return;
@@ -408,7 +431,8 @@ export default function Casino() {
   };
 
   const handleEquipCosmetic = async (slot, itemId) => {
-    const newProfile = { ...profile, [slot]: itemId };
+    const key = slot === 'hookah' ? 'equippedHookah' : slot;
+    const newProfile = { ...profile, [key]: itemId };
     setProfile(newProfile);
     await saveProfile(newProfile);
   };
@@ -700,11 +724,19 @@ export default function Casino() {
       {screen === 'serverSelect' && profile && (
         <ServerSelect casino={casino} onChoose={handleServerChoice} />
       )}
+      {screen === 'deviceSelect' && profile && (
+        <DeviceSelect
+          profile={{ ...profile, balance }}
+          onChoose={(t) => { setDeviceType(t); setScreen('fortniteLobby'); }}
+        />
+      )}
 
       {screen === 'fortniteLobby' && profile && (
         <FortniteLobby
           profile={profile}
           balance={balance}
+          deviceType={deviceType}
+          onChangeDevice={() => setScreen('deviceSelect')}
           setProfile={async (next) => { setProfile(next); await saveProfile({ ...next, balance }); }}
           onGoCity={() => { setSpawnHint('lobby_to_city'); setScreen('street'); }}
           onGoCasino={() => setScreen('casinoHall')}
@@ -729,6 +761,9 @@ export default function Casino() {
           <Street3D
             profile={profile}
             spawnHint={spawnHint}
+            deviceType={deviceType}
+            onOpenTrophies={() => setShowTrophies(true)}
+            onOpenQuests={() => setShowQuests(true)}
             onSpawnConsumed={() => setSpawnHint(null)}
             setProfile={(nextOrFn) => {
               const next = typeof nextOrFn === 'function' ? nextOrFn(profile) : nextOrFn;
@@ -784,6 +819,7 @@ export default function Casino() {
           casino={casino}
           casinoId={profile.casino}
           balance={balance}
+          deviceType={deviceType}
           mpMode={mpMode}
           mpServerId={mpServerId}
           onSelectGame={(tableId) => handleSelectGame(tableId)}

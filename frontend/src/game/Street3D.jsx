@@ -5,6 +5,7 @@ import { STAKE } from '@/game/stake/theme';
 import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
 import { getActiveEvents } from '@/game/dailyEvents';
 import { useLookControls } from '@/game/useLookControls';
+import { UniversalMenu } from '@/game/UniversalMenu';
 import sfx from '@/game/sfx';
 
 // =============================================================
@@ -78,7 +79,7 @@ export const HOUSES = [
 // Composant Street3D — Scène extérieure
 // Props : profile, balance, setBalance, onEnterCasino(), onBuyHouse(houseId), onExitGame()
 // =============================================================
-const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, onOpenShop, setProfile, spawnHint, onSpawnConsumed }) => {
+const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, onOpenShop, onOpenTrophies, onOpenQuests, deviceType, setProfile, spawnHint, onSpawnConsumed }) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
   const stateRef = useRef({});
@@ -1227,6 +1228,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     // Zone jouable centrale étendue : x ∈ [-360, 360], z ∈ [-360, 360] (×~7.5 par axe)
     // Mais on protège le PARK CENTRAL [-55, 55] × [-45, 20] pour les maisons interactives
     const isInCentralProtected = (x, z) => (x > -58 && x < 58 && z > -46 && z < 22);
+    // Zone plage/mer protégée (G2) : pas de bâtiments à partir de x>75
+    const isInBeachSeaArea = (x) => x > 75;
     // Semence déterministe pour éviter des variations
     let seed = 1337;
     const rand = () => {
@@ -1238,6 +1241,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const bx = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
       const bz = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
       if (isInCentralProtected(bx, bz)) return null;
+      if (isInBeachSeaArea(bx)) return null;
       // Évite les routes (bande de ±7m autour des multiples de 80)
       const onRoadX = Math.abs(((bx + 400) % 80) - 40) < 9;
       const onRoadZ = Math.abs(((bz + 400) % 80) - 40) < 9;
@@ -1298,6 +1302,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       for (let xPos = -380; xPos <= 380; xPos += 30) {
         // Évite la zone centrale où il y a déjà des éléments
         if (Math.abs(xPos) < 50) continue;
+        // G2 : pas de lampadaires sur la plage / dans la mer
+        if (xPos > 75) continue;
         const lampGroup = new THREE.Group();
         const post = new THREE.Mesh(
           new THREE.CylinderGeometry(0.12, 0.18, 5, 8),
@@ -1325,6 +1331,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const fenceMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 });
     for (let xPos = -380; xPos <= 380; xPos += 60) {
       if (Math.abs(xPos) < 60) continue;
+      // G2 : pas de barrières sur la plage / dans la mer
+      if (xPos > 75) continue;
       // 6 piquets formant une barrière
       for (let i = 0; i < 6; i++) {
         const post = new THREE.Mesh(
@@ -1350,6 +1358,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const tz = (Math.floor(i / 10) - 2) * 80 + 25 + (Math.random() - 0.5) * 10;
       // Évite zone centrale
       if (Math.abs(tx) < 50 && Math.abs(tz) < 40) continue;
+      // G2 : pas d'arbres sur la plage / dans la mer
+      if (tx > 75) continue;
       const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.18, 0.28, 2.4, 6),
         new THREE.MeshStandardMaterial({ color: 0x4a2a14 })
@@ -1483,7 +1493,180 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       scene.add(bb);
     });
 
-    // ========== SPRINT F1+F2 — PLAGE / MER / GARAGE / BOUTIQUE / DÉCO ==========
+    // ========== G2 — CIEL : SOLEIL + NUAGES ==========
+    // Soleil — grand disque émissif au loin (côté Est, au-dessus de la mer)
+    const sunGroup = new THREE.Group();
+    const sunDisk = new THREE.Mesh(
+      new THREE.CircleGeometry(28, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xfff2c4, transparent: true, opacity: 0.95,
+      })
+    );
+    sunDisk.position.set(380, 90, -20);
+    sunDisk.lookAt(0, 50, 0);
+    sunGroup.add(sunDisk);
+    // Halo doux autour du soleil
+    const sunHalo = new THREE.Mesh(
+      new THREE.CircleGeometry(50, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd060, transparent: true, opacity: 0.35,
+      })
+    );
+    sunHalo.position.copy(sunDisk.position);
+    sunHalo.lookAt(0, 50, 0);
+    sunGroup.add(sunHalo);
+    const sunHalo2 = new THREE.Mesh(
+      new THREE.CircleGeometry(80, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xff8a3a, transparent: true, opacity: 0.18,
+      })
+    );
+    sunHalo2.position.copy(sunDisk.position);
+    sunHalo2.lookAt(0, 50, 0);
+    sunGroup.add(sunHalo2);
+    scene.add(sunGroup);
+    // Lumière directionnelle additionnelle qui suit le soleil pour une ambiance "couchant"
+    const sunLightG2 = new THREE.DirectionalLight(0xffd6a8, 0.5);
+    sunLightG2.position.set(200, 100, 0);
+    scene.add(sunLightG2);
+
+    // Nuages : ~14 nuages volumétriques (sphères blanches groupées)
+    const cloudsGroup = new THREE.Group();
+    for (let c = 0; c < 14; c++) {
+      const cloud = new THREE.Group();
+      const cx = (Math.random() - 0.5) * 700;
+      const cz = (Math.random() - 0.5) * 700;
+      const cy = 55 + Math.random() * 25;
+      // 4-6 sphères qui se chevauchent
+      const puffs = 4 + Math.floor(Math.random() * 3);
+      for (let p = 0; p < puffs; p++) {
+        const r = 4 + Math.random() * 4;
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(r, 12, 8),
+          new THREE.MeshStandardMaterial({
+            color: 0xffffff, transparent: true, opacity: 0.85,
+            roughness: 0.95,
+          })
+        );
+        puff.position.set(p * 5 + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 3);
+        cloud.add(puff);
+      }
+      cloud.position.set(cx, cy, cz);
+      cloud.userData.driftSpeed = 0.02 + Math.random() * 0.04;
+      cloudsGroup.add(cloud);
+    }
+    scene.add(cloudsGroup);
+
+    // ========== G2 — ALLÉE DE PALMIERS 10m AUTOUR DE LA PLAGE ==========
+    // Allée parallèle à la plage côté terrestre (x=78) et côté plage interne (x=110), de z=-180 à z=180
+    const palmAlley = new THREE.Group();
+    const buildPalm = (px, py, pz) => {
+      const palm = new THREE.Group();
+      // Tronc 10m
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.45, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0x6a4322, roughness: 1 })
+      );
+      trunk.position.y = 5;
+      palm.add(trunk);
+      // Base renflée
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.55, 0.7, 0.6, 10),
+        new THREE.MeshStandardMaterial({ color: 0x4a2e15 })
+      );
+      base.position.y = 0.3;
+      palm.add(base);
+      // Couronne de feuilles : 8 feuilles arquées
+      for (let f = 0; f < 8; f++) {
+        const leaf = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.5, 4.2, 1, 4),
+          new THREE.MeshStandardMaterial({
+            color: f % 2 === 0 ? 0x2c8b3a : 0x3aaa48,
+            roughness: 0.85, side: THREE.DoubleSide,
+          })
+        );
+        const ang = (f / 8) * Math.PI * 2;
+        leaf.position.set(Math.cos(ang) * 1.3, 10.2, Math.sin(ang) * 1.3);
+        leaf.rotation.set(-0.4, ang, 0.2);
+        palm.add(leaf);
+      }
+      // Cocotiers : 3-5 noix de coco brunes
+      const nCoco = 3 + Math.floor(Math.random() * 3);
+      for (let n = 0; n < nCoco; n++) {
+        const coco = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 8, 6),
+          new THREE.MeshStandardMaterial({ color: 0x4a2010 })
+        );
+        coco.position.set(
+          (Math.random() - 0.5) * 0.7,
+          9.6 + Math.random() * 0.4,
+          (Math.random() - 0.5) * 0.7
+        );
+        palm.add(coco);
+      }
+      palm.position.set(px, py, pz);
+      palmAlley.add(palm);
+    };
+    // Côté terrestre (x=78), tous les 12m
+    for (let pz = -180; pz <= 180; pz += 12) buildPalm(78, 0, pz);
+    // Côté mer (x=112), tous les 12m, décalés
+    for (let pz = -174; pz <= 180; pz += 12) buildPalm(112, 0, pz);
+    scene.add(palmAlley);
+
+    // ========== G2 — DEATH BARRIÈRE PÉRIMÈTRE VILLE ==========
+    // Une barrière visuelle (poteaux + bandes) entoure la ville jouable.
+    // Zone vivante : x ∈ [-400, 75], z ∈ [-400, 400], + plage [75..120, -200..200]
+    // Barrière sur 4 côtés : nord/sud/ouest, plus 2 segments pour cadrer la plage côté Est.
+    const perimeterFence = new THREE.Group();
+    const fenceMatRed = new THREE.MeshStandardMaterial({
+      color: 0xff2020, emissive: 0xff2020, emissiveIntensity: 0.35,
+    });
+    const fenceMatYellow = new THREE.MeshStandardMaterial({
+      color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.25,
+    });
+    const buildFenceSegment = (x1, z1, x2, z2) => {
+      const dx = x2 - x1, dz = z2 - z1;
+      const len = Math.hypot(dx, dz);
+      const steps = Math.ceil(len / 8);
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const px = x1 + dx * t;
+        const pz = z1 + dz * t;
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.15, 0.18, 4, 6),
+          i % 2 === 0 ? fenceMatRed : fenceMatYellow
+        );
+        post.position.set(px, 2, pz);
+        perimeterFence.add(post);
+      }
+      // Bandes alternées (rouge/jaune)
+      const ang = Math.atan2(dz, dx);
+      for (let h = 0; h < 3; h++) {
+        const band = new THREE.Mesh(
+          new THREE.BoxGeometry(len, 0.15, 0.05),
+          h % 2 === 0 ? fenceMatRed : fenceMatYellow
+        );
+        band.position.set((x1 + x2) / 2, 0.5 + h * 1.4, (z1 + z2) / 2);
+        band.rotation.y = -ang;
+        perimeterFence.add(band);
+      }
+    };
+    // Côté Ouest (x=-410)
+    buildFenceSegment(-410, -410, -410, 410);
+    // Côté Nord (z=-410)
+    buildFenceSegment(-410, -410, 75, -410);
+    // Côté Sud (z=410)
+    buildFenceSegment(-410, 410, 75, 410);
+    // Côté Est partie inférieure (en dessous de la plage)
+    buildFenceSegment(75, -410, 75, -210);
+    // Côté Est partie supérieure (au-dessus de la plage)
+    buildFenceSegment(75, 210, 75, 410);
+    // Liaison plage → mer (côtés Z de la plage à 500m de chaque côté = z=±200)
+    buildFenceSegment(75, -210, 124, -210);
+    buildFenceSegment(75, 210, 124, 210);
+    scene.add(perimeterFence);
+
+
     // ─── 1) PLAGE + MER (côté EST de la map, x > 80) ───────────────────────────
     // Sable : grand rectangle (x: 80..120, z: -200..200)
     const beach = new THREE.Mesh(
@@ -1618,9 +1801,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
     scene.add(beachDeco);
 
-    // ─── 3) GARAGE (devant le casino, x = -22, z = 30) ────────────────────────
+    // ─── 3) GARAGE (devant le casino, orienté vers le casino) ───────────────
     const garage = new THREE.Group();
     garage.position.set(-22, 0, 30);
+    garage.rotation.y = Math.PI; // G4 — face au casino (-Z)
     // Bâtiment principal — large façade
     const garBld = new THREE.Mesh(
       new THREE.BoxGeometry(16, 6, 9),
@@ -1709,76 +1893,143 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     scene.add(garage);
     interactables.push({ type: 'garage', id: 'garage', pos: new THREE.Vector3(-22, 0, 30), radius: 7 });
 
-    // ─── 4) BOUTIQUE (devant le casino, x = +22, z = 30) ──────────────────────
+    // ─── 4) GAMBLELIFE STORE — façade premium style casino (G4) ────────────────
+    // Plus grand, vitres XL, néons, alignement vers casino
     const shopFr = new THREE.Group();
-    shopFr.position.set(22, 0, 30);
+    shopFr.position.set(28, 0, 30);
+    shopFr.rotation.y = Math.PI; // face au casino
+    // Bâtiment principal — 18×8×11 m (plus grand qu'avant)
     const shopBld = new THREE.Mesh(
-      new THREE.BoxGeometry(12, 5.5, 8),
-      new THREE.MeshStandardMaterial({ color: 0xf2eadc, roughness: 0.7 })
+      new THREE.BoxGeometry(18, 8, 11),
+      new THREE.MeshStandardMaterial({ color: 0x18101e, roughness: 0.6, metalness: 0.2 })
     );
-    shopBld.position.y = 2.75;
+    shopBld.position.y = 4;
     shopBld.castShadow = true;
+    shopBld.receiveShadow = true;
     shopFr.add(shopBld);
-    // Vitrines avant (verre teinté)
-    for (let s = -1; s <= 1; s += 2) {
+    // Toit avec corniche dorée
+    const shopRoof = new THREE.Mesh(
+      new THREE.BoxGeometry(18.6, 0.6, 11.6),
+      new THREE.MeshStandardMaterial({ color: 0x0a0610 })
+    );
+    shopRoof.position.y = 8.3;
+    shopFr.add(shopRoof);
+    const shopRoofGold = new THREE.Mesh(
+      new THREE.BoxGeometry(18.4, 0.2, 11.4),
+      new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 })
+    );
+    shopRoofGold.position.y = 7.9;
+    shopFr.add(shopRoofGold);
+    // 4 grandes vitrines avant (verre teinté + cadres dorés)
+    for (let s = -1.5; s <= 1.5; s += 1) {
       const window1 = new THREE.Mesh(
-        new THREE.PlaneGeometry(4.5, 3.2),
+        new THREE.PlaneGeometry(3.5, 4.5),
         new THREE.MeshStandardMaterial({
           color: 0x9be0ff, transparent: true, opacity: 0.55,
-          metalness: 0.5, roughness: 0.1, emissive: 0xffd700, emissiveIntensity: 0.05,
+          metalness: 0.5, roughness: 0.1, emissive: 0xffd700, emissiveIntensity: 0.06,
         })
       );
-      window1.position.set(s * 3, 2.3, 4.01);
+      window1.position.set(s * 4.2, 3.5, 5.51);
       shopFr.add(window1);
-      // Cadre doré
+      // Cadre doré épais
       const frame2 = new THREE.Mesh(
-        new THREE.BoxGeometry(4.7, 3.4, 0.1),
+        new THREE.BoxGeometry(3.7, 4.7, 0.15),
         new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 })
       );
-      frame2.position.set(s * 3, 2.3, 4.00);
+      frame2.position.set(s * 4.2, 3.5, 5.50);
       shopFr.add(frame2);
       // Mannequin stylisé dans la vitrine
       const mannBody = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.3, 1.4, 8),
-        new THREE.MeshStandardMaterial({ color: s > 0 ? 0xff2ad4 : 0xffd700 })
+        new THREE.CylinderGeometry(0.25, 0.4, 1.8, 10),
+        new THREE.MeshStandardMaterial({
+          color: ['#ff2ad4', '#3fe6ff', '#ffd700', '#ff8a3a'][Math.floor((s + 1.5))],
+        })
       );
-      mannBody.position.set(s * 3, 1.0, 3.6);
+      mannBody.position.set(s * 4.2, 1.3, 5.0);
       shopFr.add(mannBody);
       const mannHead = new THREE.Mesh(
-        new THREE.SphereGeometry(0.18, 12, 10),
+        new THREE.SphereGeometry(0.25, 14, 12),
         new THREE.MeshStandardMaterial({ color: 0xe8d5b7 })
       );
-      mannHead.position.set(s * 3, 1.95, 3.6);
+      mannHead.position.set(s * 4.2, 2.5, 5.0);
       shopFr.add(mannHead);
     }
-    // Porte centrale (verre)
+    // Porte centrale double vitrée + tapis rouge
     const shopDoor = new THREE.Mesh(
-      new THREE.PlaneGeometry(2, 3.2),
+      new THREE.PlaneGeometry(3.2, 4.2),
       new THREE.MeshStandardMaterial({ color: 0x1a1a25, metalness: 0.7, roughness: 0.3 })
     );
-    shopDoor.position.set(0, 1.6, 4.02);
+    shopDoor.position.set(0, 2.1, 5.52);
     shopFr.add(shopDoor);
-    // Enseigne "BOUTIQUE" lumineuse
+    const doorFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(3.4, 4.4, 0.15),
+      new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 })
+    );
+    doorFrame.position.set(0, 2.1, 5.51);
+    shopFr.add(doorFrame);
+    // Tapis rouge devant la porte
+    const carpet = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.2, 4),
+      new THREE.MeshStandardMaterial({ color: 0xc41e3a, roughness: 0.8 })
+    );
+    carpet.rotation.x = -Math.PI / 2;
+    carpet.position.set(0, 0.04, 7.5);
+    shopFr.add(carpet);
+    // 2 piliers d'entrée dorés avec lumière
+    for (const ps of [-1, 1]) {
+      const pil = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.3, 4, 12),
+        new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.15 })
+      );
+      pil.position.set(ps * 2, 2, 5.6);
+      shopFr.add(pil);
+      const ball = new THREE.Mesh(
+        new THREE.SphereGeometry(0.32, 14, 12),
+        new THREE.MeshBasicMaterial({ color: 0xfff4c8 })
+      );
+      ball.position.set(ps * 2, 4.2, 5.6);
+      shopFr.add(ball);
+      const bLight = new THREE.PointLight(0xfff4c8, 0.7, 6);
+      bLight.position.copy(ball.position);
+      shopFr.add(bLight);
+    }
+    // Enseigne lumineuse principale "★ GAMBLELIFE STORE ★"
     const shopSignCv = document.createElement('canvas');
-    shopSignCv.width = 512; shopSignCv.height = 128;
+    shopSignCv.width = 768; shopSignCv.height = 160;
     const sCx = shopSignCv.getContext('2d');
-    sCx.fillStyle = '#000'; sCx.fillRect(0, 0, 512, 128);
-    sCx.fillStyle = '#ff2ad4'; sCx.font = 'bold 70px Georgia';
+    sCx.fillStyle = '#000'; sCx.fillRect(0, 0, 768, 160);
+    sCx.fillStyle = '#ffd700'; sCx.font = 'bold 78px Georgia';
     sCx.textAlign = 'center';
-    sCx.shadowColor = '#ff2ad4'; sCx.shadowBlur = 22;
-    sCx.fillText('★ BOUTIQUE ★', 256, 92);
+    sCx.shadowColor = '#ffd700'; sCx.shadowBlur = 30;
+    sCx.fillText('★ GAMBLELIFE STORE ★', 384, 90);
+    sCx.font = 'bold 26px Georgia';
+    sCx.fillStyle = '#3fe6ff';
+    sCx.shadowColor = '#3fe6ff';
+    sCx.fillText('Armes · Véhicules · Cosmétiques', 384, 130);
     const shopSign = new THREE.Mesh(
-      new THREE.PlaneGeometry(8, 2),
+      new THREE.PlaneGeometry(13, 2.7),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shopSignCv), transparent: true })
     );
-    shopSign.position.set(0, 5.0, 4.05);
+    shopSign.position.set(0, 7.0, 5.55);
     shopFr.add(shopSign);
-    // Lumière chaude au-dessus de la porte
-    const shopLight = new THREE.PointLight(0xffd700, 0.9, 14);
-    shopLight.position.set(0, 4.5, 5.5);
+    // Lumière forte au-dessus de l'enseigne
+    const shopLight = new THREE.PointLight(0xffd700, 1.4, 22);
+    shopLight.position.set(0, 7.2, 8);
     shopFr.add(shopLight);
+    // Néons cyan latéraux
+    for (const ns of [-1, 1]) {
+      const neon = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 7.5, 0.15),
+        new THREE.MeshBasicMaterial({ color: 0x3fe6ff })
+      );
+      neon.position.set(ns * 9.0, 4, 5.55);
+      shopFr.add(neon);
+      const neonL = new THREE.PointLight(0x3fe6ff, 0.4, 6);
+      neonL.position.copy(neon.position);
+      shopFr.add(neonL);
+    }
     scene.add(shopFr);
-    interactables.push({ type: 'shopfront', id: 'shopfront', pos: new THREE.Vector3(22, 0, 30), radius: 7 });
+    interactables.push({ type: 'shopfront', id: 'shopfront', pos: new THREE.Vector3(28, 0, 30), radius: 8 });
 
     // ─── 5) DÉCORATIONS VILLE : plantes, bancs, fontaine, place piétonne ──────
     // Place piétonne pavée entre garage et boutique (x=0, z=30)
@@ -1920,7 +2171,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
 
     // ─── 6) Refs sauvegardés pour animation dans le loop ──────────────────────
-    const decoRefs = { sea, seaPos, seaBaseZ, foam, fountainJet };
+    const decoRefs = { sea, seaPos, seaBaseZ, foam, fountainJet, clouds: cloudsGroup };
 
     // ─── 7) DEATH ZONES ÉTENDUES (mer + lateraux plage) ───────────────────────
     // Joueur ne peut entrer que ~3-4 m dans la mer (jusqu'à x ≈ 124).
@@ -2114,6 +2365,13 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         if (decoRefs.fountainJet) {
           decoRefs.fountainJet.scale.y = 1 + Math.abs(Math.sin(tWave * 4)) * 0.3;
           decoRefs.fountainJet.material.opacity = 0.4 + Math.abs(Math.sin(tWave * 4)) * 0.3;
+        }
+        // Nuages dérivent lentement
+        if (decoRefs.clouds) {
+          decoRefs.clouds.children.forEach(cl => {
+            cl.position.x += cl.userData.driftSpeed || 0.03;
+            if (cl.position.x > 400) cl.position.x = -400;
+          });
         }
       }
 
@@ -2518,6 +2776,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       style={{ position: 'fixed', inset: 0, background: '#9fd7ff', overflow: 'hidden' }}
     >
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
+
+      {/* === MENU UNIVERSEL G3 — accessible partout === */}
+      <UniversalMenu
+        profile={profile}
+        balance={balance}
+        deviceType={deviceType}
+        onOpenTrophies={onOpenTrophies}
+        onOpenQuests={onOpenQuests}
+        onOpenShop={onOpenShop}
+        position="top-right"
+      />
 
       {/* HUD top */}
       <div style={{
