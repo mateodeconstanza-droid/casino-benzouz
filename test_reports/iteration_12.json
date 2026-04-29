@@ -1,0 +1,39 @@
+{
+  "summary": "Sprint G ext.4 — HOUSES IMPROVED. Verified all 3 house types render via window.__openHome: villa (bj-villa, type=villa, 36x24x7), house (bj-house, type=house, 28x18x6.5, NEW 2nd floor), appart (bj-apt, type=apartment, 22x14x5, single floor). All scenes mount without errors. 2nd floor structure visible in villa screenshot (upper platform + white guardrail). D-pad fwd/right walking simulated to climb stairs in villa & house — no console/page errors throughout. Wood parquet floor texture renders correctly (visible plank pattern with joints).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "verified_features": [
+    "size constants tripled at HomeInterior3D.jsx lines 95-97: villa {w:36,d:24,h:7}, house {w:28,d:18,h:6.5}, appart {w:22,d:14,h:5} — confirmed via code review.",
+    "isTwoFloor flag at line 94 covers BOTH 'villa' AND 'house' types — confirmed; appart (type='apartment') correctly excluded → no stairs, no upper floor.",
+    "2nd floor block (lines 681-820) wrapped in `if (isTwoFloor)` — adds upperFloor BoxGeometry, white rail, vertical bars, 12-step staircase, 2.0m wide, with risers + dark wood handrail (CylinderGeometry rotated), master bed 3.2x2.4 + headboard 3.4x1.4 + 2 pillows + 2 nightstands w/ lamp base+shade + 3.0m gaming desk + emissive monitor + gaming chair + accent point light. Code well-structured.",
+    "Stair player.y interpolation (lines 1002-1025): isTwoFloor branch detects p.x in [size.w/2-2.5, size.w/2-0.5] AND p.z in [stairZMin, 2.5]; computes progress (1 → 0 from bottom→top) and sets p.y = progress * 3.5. Upper plateau (z<stairZMin && z>-size.d/2+0.5) clamps p.y=3.5. Otherwise p.y=0. Logic looks correct.",
+    "Wood parquet floor canvas texture (lines 134-165): 8 rows × 4 cols of staggered planks (offset%2*64), per-plank random hue variation, dark joints (rgba 0,0,0,0.35) + subtle wood veins via bezier curves. CanvasTexture with RepeatWrapping size.w/4 × size.d/4. Rendered visibly in screenshots (parquet pattern with alternating plank shades).",
+    "Hooks present (window.__openHome / __openLobby / __openStreet / __addBalance / __getProfile etc.) — all exposed properly.",
+    "End-to-end smoke test PASS: Login → SOLO → PC → __openHome('bj-villa') 4s arrival overlay clears → __openHome('bj-house') → __openHome('bj-apt'). All 3 [data-testid=home-interior] visible. Zero console errors / zero page errors during full sequence including ~10s cumulative WASD movement (keyboard 'd'+'w' 5.5s, then more 'w' 2.5s in villa).",
+    "Visual evidence (screenshots .screenshots/villa_after_stairs.png and villa_upper_floor.png): clearly shows 2nd-floor platform suspended above wood parquet floor + white horizontal guardrail with golden trim bars — confirms upperFloor + rail render. Villa ByJaze label visible top-right.",
+    "Hookah regression: home-hookah-btn only shown when hasHookah → not present in fresh profile (expected). Hook code unchanged from iter_11 — no regression risk."
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Player position initial p.z = size.d/2 - 2.5 = 9.5 in villa. Stairs are at z ∈ [-2.5, 2.5]. Player can reach the bottom of stairs by walking forward (-z) ~7m, then needs to be at x ≈ 16.5 (x range stair: [size.w/2-2.5=15.5, size.w/2-0.5=17.5], width=2m). Current spawn x=0 → must walk +x ≈16m to reach stair zone. With SPEED=0.07/frame at 60fps = 4.2m/s, ~4s to reach. Not blocking but could feel long; consider spawning closer or adding teleport-to-stairs interaction zone.",
+    "The 'apart' size case at line 76 uses string 'apartment' (matches HOUSES Street3D.jsx) BUT the comment at line 97 says 'appart'. Naming consistency: apartment vs apart — please pick one for the user-facing French label. Functionally OK.",
+    "stairCount=12 is hardcoded twice (line 709 and line 1003). Extract to a const at component top to avoid drift if redesigned again.",
+    "handrail rotation chain (line 734-735): `rotation.z = PI/2` then `rotation.y = atan2(...)` — Euler order default is XYZ, so applying y after z may produce unintended orientation depending on order. Verify visually that handrail aligns with stair slope. Minor — current screenshot doesn't disprove it.",
+    "Upper floor slab covers z ∈ [-size.d*0.22 - size.d*0.55/2, -size.d*0.22 + size.d*0.55/2]. For villa d=24: z ∈ [-11.88, 1.32]. But stair top reaches z = 2.5 - 12*0.42 = -2.54. So at z=-2.54 player is on slab (z ≤ 1.32) ✓. Upper plateau detection uses z<stairZMin=-2.54 && z>-size.d/2+0.5=-11.5. OK consistent. House d=18: slab z ∈ [-9.07, -1.13], stair top z=-2.54 — STILL OK. ✓ verified.",
+    "HomeInterior3D.jsx is now ≈1497 lines (>700 line guideline) — split candidates: HomeFurnitureModal, HomeTrophyModal, HomeArrivalOverlay, scene builders. Carry-over from iter_9.",
+    "FURNITURE_CATALOG slot positions (lines 632-638) reference -size.w/2 + 2.5 etc. With villa size.w=36, slot is at x=-15.5, well inside. But cuisine/jeux quadrants now overlap with upper floor slab footprint (z range covers -11.88..1.32). Furniture placed at e.g. (x=size.w/2-2.5=15.5, z=-size.d/2+2.5=-9.5) is UNDER the upper floor slab — visually OK (rez-de-chaussée). Just note ceiling clearance for tall items is now ~3.5m instead of 7m at those positions.",
+    "Onboarding overlay [data-testid=onboarding-overlay] still intercepts pointer events on first entry — pre-set localStorage.gamblelife_onboarding_done='1' before login (carry-over from iter_11)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend)", "frontend": "100% — all 7 requested scenarios pass"},
+  "test_credentials": "Any pseudo on Login (used 'TestT12' / 'TestT12b' in SOLO + PC).",
+  "seed_data_creation": "localStorage.gamblelife_onboarding_done=1 before login. localStorage.removeItem('gamblelife_device') to force DeviceSelect.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "(1) House IDs are 'bj-villa', 'bj-house', 'bj-apt' (creator) and 'v-1/2', 'h-1/2/3', 'apt-1..5'. The original review_request used 'sh-22' and 'luxe-villa' which DO NOT exist in HOUSES export — confirm with E1 if those are mocked or test-only IDs. (2) The 4-second arrival overlay [data-testid=home-arrival-overlay] blocks pointer events with zIndex 9999 — wait >4s before interacting. (3) D-pad presses dispatched via pointerdown/pointerup on [data-testid=home-dpad-{fwd,right,back,left,rotL,rotR}]. Keyboard 'wasdqe' / arrows also work. (4) To verify p.y during stairs without React DevTools, push a debug __getCameraY hook in HomeInterior3D — currently none exposed. Visual screenshot at upper floor remains the most reliable verification."
+}

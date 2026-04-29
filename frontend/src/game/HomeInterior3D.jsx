@@ -90,12 +90,11 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
 
   const t = HOME_THEMES[theme];
   const stats = computeStats(profile);
-  // Taille selon type (villa plus grande que appart)
-  // Villas = 2 étages : on simule en doublant la hauteur intérieure et en ajoutant un escalier + plateforme.
-  const isTwoFloor = house?.type === 'villa';
-  const size = isTwoFloor ? { w: 26, d: 16, h: 8 }    // villa 2 étages
-            : house?.type === 'house' ? { w: 18, d: 12, h: 3.5 }
-            : { w: 14, d: 10, h: 3 };
+  // Taille selon type (très agrandies + 2ème étage pour villas/maisons)
+  const isTwoFloor = house?.type === 'villa' || house?.type === 'house';
+  const size = house?.type === 'villa' ? { w: 36, d: 24, h: 7 }     // villa luxe 2 étages
+            : house?.type === 'house' ? { w: 28, d: 18, h: 6.5 }   // maison 2 étages
+            : { w: 22, d: 14, h: 5 };                                // appart (toujours 1 étage)
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -132,10 +131,41 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     accent.position.set(0, size.h - 0.3, 0);
     scene.add(accent);
 
-    // Sol
+    // Sol — texture parquet bois (canvas pattern)
+    const floorCv = document.createElement('canvas');
+    floorCv.width = 512; floorCv.height = 512;
+    const fCx = floorCv.getContext('2d');
+    fCx.fillStyle = `#${(t.floor || 0x6a4322).toString(16).padStart(6, '0')}`;
+    fCx.fillRect(0, 0, 512, 512);
+    // Lattes de parquet horizontales
+    for (let r = 0; r < 8; r++) {
+      const offset = (r % 2) * 64;
+      for (let c = 0; c < 4; c++) {
+        const x = c * 128 + offset;
+        const y = r * 64;
+        // Variation de teinte subtile entre les lattes
+        const hueAdj = (Math.random() - 0.5) * 30;
+        fCx.fillStyle = `rgba(${Math.max(0, Math.min(255, 80 + hueAdj))}, ${Math.max(0, Math.min(255, 60 + hueAdj))}, ${Math.max(0, Math.min(255, 40 + hueAdj))}, 0.4)`;
+        fCx.fillRect(x, y, 124, 60);
+        // Joints sombres entre les lattes
+        fCx.strokeStyle = 'rgba(0,0,0,0.35)';
+        fCx.lineWidth = 1.5;
+        fCx.strokeRect(x, y, 124, 60);
+        // Veines du bois (lignes courbes subtiles)
+        fCx.strokeStyle = 'rgba(0,0,0,0.12)';
+        fCx.lineWidth = 0.5;
+        fCx.beginPath();
+        fCx.moveTo(x + 5, y + 30 + Math.sin(c) * 10);
+        fCx.bezierCurveTo(x + 40, y + 25, x + 80, y + 35, x + 119, y + 30 + Math.cos(r) * 8);
+        fCx.stroke();
+      }
+    }
+    const floorTex = new THREE.CanvasTexture(floorCv);
+    floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+    floorTex.repeat.set(size.w / 4, size.d / 4);
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(size.w, size.d),
-      new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.75, metalness: 0.1 })
+      new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.65, metalness: 0.05 })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -647,10 +677,10 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       scene.add(fg);
     });
 
-    // ========== PISCINE VILLA (zone dédiée au fond du salon) ==========
-    if (house?.type === 'villa') {
+    // ========== 2ÈME ÉTAGE — villas + maisons (G+ 2026) ==========
+    if (isTwoFloor) {
       // Plateforme 2ème étage + escalier
-      const upperFloorY = 4; // hauteur étage 2
+      const upperFloorY = 3.5; // hauteur étage 2
       const upperFloor = new THREE.Mesh(
         new THREE.BoxGeometry(size.w, 0.25, size.d * 0.55),
         new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.7 })
@@ -659,43 +689,138 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
       upperFloor.receiveShadow = true;
       upperFloor.castShadow = true;
       scene.add(upperFloor);
-      // Garde-corps blanc moderne
-      for (let s = -1; s <= 1; s += 2) {
-        const rail = new THREE.Mesh(
-          new THREE.BoxGeometry(size.w, 1.0, 0.08),
-          new THREE.MeshStandardMaterial({ color: 0xf4f4f4, metalness: 0.3, roughness: 0.5 })
+      // Garde-corps blanc moderne (face au vide)
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(size.w, 1.0, 0.08),
+        new THREE.MeshStandardMaterial({ color: 0xf4f4f4, metalness: 0.3, roughness: 0.5 })
+      );
+      rail.position.set(0, upperFloorY + 0.5, size.d * 0.55 / 2 - size.d * 0.22);
+      scene.add(rail);
+      // Barreaux verticaux décoratifs
+      for (let bx = -size.w / 2 + 1; bx < size.w / 2; bx += 1.5) {
+        const bar = new THREE.Mesh(
+          new THREE.BoxGeometry(0.04, 1.0, 0.04),
+          new THREE.MeshStandardMaterial({ color: 0xc8b87a, metalness: 0.7, roughness: 0.3 })
         );
-        rail.position.set(0, upperFloorY + 0.5, s * (size.d * 0.55 / 2));
-        scene.add(rail);
+        bar.position.set(bx, upperFloorY + 0.5, size.d * 0.55 / 2 - size.d * 0.22);
+        scene.add(bar);
       }
-      // Escalier (10 marches)
-      const stairCount = 10;
-      const stairW = 1.6, stairD = 0.4, stairH = upperFloorY / stairCount;
+      // Escalier (12 marches plus larges + main courante en bois)
+      const stairCount = 12;
+      const stairW = 2.0, stairD = 0.42, stairH = upperFloorY / stairCount;
       for (let i = 0; i < stairCount; i++) {
         const step = new THREE.Mesh(
           new THREE.BoxGeometry(stairW, stairH, stairD),
-          new THREE.MeshStandardMaterial({ color: t.floor, roughness: 0.6 })
+          new THREE.MeshStandardMaterial({ color: 0x6a4322, roughness: 0.7 })
         );
-        step.position.set(size.w / 2 - 1.5, stairH / 2 + i * stairH, 1.5 - i * stairD);
+        step.position.set(size.w / 2 - 1.5, stairH / 2 + i * stairH, 2.5 - i * stairD);
         step.castShadow = true; step.receiveShadow = true;
         scene.add(step);
+        // Contremarche (verticale)
+        if (i > 0) {
+          const riser = new THREE.Mesh(
+            new THREE.BoxGeometry(stairW, stairH, 0.04),
+            new THREE.MeshStandardMaterial({ color: 0xc8a87a, roughness: 0.6 })
+          );
+          riser.position.set(size.w / 2 - 1.5, (stairH / 2) + (i - 0.5) * stairH, 2.5 - (i - 0.5) * stairD + stairD / 2);
+          scene.add(riser);
+        }
       }
-      // Lit du 2ème étage (chambre maître)
+      // Main courante en bois sombre
+      const handrail = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 5.5, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3a2010, roughness: 0.5 })
+      );
+      handrail.rotation.z = Math.PI / 2;
+      handrail.rotation.y = Math.atan2(stairCount * stairD, upperFloorY);
+      handrail.position.set(size.w / 2 - 1.5 + stairW / 2 - 0.1, upperFloorY / 2 + 1, 2.5 - (stairCount * stairD) / 2);
+      scene.add(handrail);
+      // Lit du 2ème étage (chambre maître) — plus grand
       const masterBed = new THREE.Mesh(
-        new THREE.BoxGeometry(2.6, 0.6, 2.1),
+        new THREE.BoxGeometry(3.2, 0.6, 2.4),
         new THREE.MeshStandardMaterial({ color: t.bed, roughness: 0.6 })
       );
-      masterBed.position.set(-size.w * 0.25, upperFloorY + 0.55, -size.d * 0.3);
+      masterBed.position.set(-size.w * 0.25, upperFloorY + 0.55, -size.d * 0.32);
       masterBed.castShadow = true;
       scene.add(masterBed);
-      // Bureau salle de jeux étage 2
+      // Tête de lit
+      const headboard = new THREE.Mesh(
+        new THREE.BoxGeometry(3.4, 1.4, 0.15),
+        new THREE.MeshStandardMaterial({ color: t.sofa, roughness: 0.6 })
+      );
+      headboard.position.set(-size.w * 0.25, upperFloorY + 1.2, -size.d * 0.32 - 1.2);
+      scene.add(headboard);
+      // Coussins
+      for (const sx of [-0.7, 0.7]) {
+        const pillow = new THREE.Mesh(
+          new THREE.BoxGeometry(0.7, 0.18, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.8 })
+        );
+        pillow.position.set(-size.w * 0.25 + sx, upperFloorY + 0.95, -size.d * 0.32 - 0.7);
+        scene.add(pillow);
+      }
+      // Tables de chevet
+      for (const sx of [-1, 1]) {
+        const nightstand = new THREE.Mesh(
+          new THREE.BoxGeometry(0.7, 0.65, 0.5),
+          new THREE.MeshStandardMaterial({ color: t.table, roughness: 0.6 })
+        );
+        nightstand.position.set(-size.w * 0.25 + sx * 2.3, upperFloorY + 0.4, -size.d * 0.32 - 0.5);
+        scene.add(nightstand);
+        // Lampe
+        const lampBase = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.12, 0.4, 8),
+          new THREE.MeshStandardMaterial({ color: t.accent })
+        );
+        lampBase.position.set(-size.w * 0.25 + sx * 2.3, upperFloorY + 0.95, -size.d * 0.32 - 0.5);
+        scene.add(lampBase);
+        const lampShade = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.16, 0.22, 0.25, 12),
+          new THREE.MeshStandardMaterial({ color: 0xfff0c8, emissive: 0xffd28a, emissiveIntensity: 0.6 })
+        );
+        lampShade.position.set(-size.w * 0.25 + sx * 2.3, upperFloorY + 1.25, -size.d * 0.32 - 0.5);
+        scene.add(lampShade);
+      }
+      // Bureau salle de jeux étage 2 — plus moderne avec écran
       const deskUp = new THREE.Mesh(
-        new THREE.BoxGeometry(2.4, 0.8, 1.0),
+        new THREE.BoxGeometry(3.0, 0.08, 1.2),
         new THREE.MeshStandardMaterial({ color: t.table, roughness: 0.5, metalness: 0.4 })
       );
-      deskUp.position.set(size.w * 0.25, upperFloorY + 0.65, -size.d * 0.25);
+      deskUp.position.set(size.w * 0.25, upperFloorY + 0.78, -size.d * 0.25);
       scene.add(deskUp);
+      // Pieds du bureau
+      for (const dx of [-1.3, 1.3]) {
+        const leg = new THREE.Mesh(
+          new THREE.BoxGeometry(0.06, 0.78, 0.06),
+          new THREE.MeshStandardMaterial({ color: 0x1a1a1f })
+        );
+        leg.position.set(size.w * 0.25 + dx, upperFloorY + 0.39, -size.d * 0.25);
+        scene.add(leg);
+      }
+      // Écran moniteur PC gaming
+      const monitor = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.9, 0.06),
+        new THREE.MeshStandardMaterial({
+          color: 0x0a0a0e, emissive: t.accent, emissiveIntensity: 0.45,
+        })
+      );
+      monitor.position.set(size.w * 0.25, upperFloorY + 1.4, -size.d * 0.25 - 0.4);
+      scene.add(monitor);
+      // Chaise gaming
+      const gameChair = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 1.4, 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.5 })
+      );
+      gameChair.position.set(size.w * 0.25, upperFloorY + 0.7, -size.d * 0.25 + 0.8);
+      scene.add(gameChair);
+      // Lumière étage 2
+      const upperLight = new THREE.PointLight(t.accent, 1.0, 12);
+      upperLight.position.set(0, upperFloorY + 1.8, -size.d * 0.25);
+      scene.add(upperLight);
+    }
 
+    // ========== PISCINE VILLA (uniquement villa) ==========
+    if (house?.type === 'villa') {
       // Piscine 5x3 + bordures
       const poolWater = new THREE.Mesh(
         new THREE.BoxGeometry(5, 0.15, 3),
@@ -868,8 +993,36 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
         if (nz > -size.d / 2 + margin && nz < size.d / 2 - margin) p.z = nz;
       }
 
-      camera.position.set(p.x, 1.7, p.z);
+      camera.position.set(p.x, 1.7 + (p.y || 0), p.z);
       camera.rotation.set(stateRef.current.pitch || 0, p.rotY, 0, 'YXZ');
+
+      // === 2ÈME ÉTAGE — escalier auto (villa/maison) ===
+      // L'escalier est à x ≈ size.w/2 - 1.5, z ∈ [2.5 - 12*0.42, 2.5] ≈ [-2.5, 2.5]
+      // Y monte progressivement avec Z (du bas en haut)
+      if (isTwoFloor) {
+        const stairCount = 12;
+        const stairD = 0.42;
+        const upperY = 3.5;
+        const stairXMin = size.w / 2 - 2.5;
+        const stairXMax = size.w / 2 - 0.5;
+        const stairZMax = 2.5;
+        const stairZMin = 2.5 - stairCount * stairD;
+        // Sur l'escalier ?
+        if (p.x > stairXMin && p.x < stairXMax && p.z > stairZMin && p.z < stairZMax) {
+          // Progression : 1 (bas, z=2.5) → 0 (haut, z=stairZMin)
+          const progress = 1 - (p.z - stairZMin) / (stairZMax - stairZMin);
+          p.y = Math.min(upperY, progress * upperY);
+        }
+        // Sur la plateforme étage 2 ? (z < 2.5 - 12*0.42 ≈ -2.5 et au-dessus de la limite arrière de l'étage)
+        else if (p.z < stairZMin && p.z > -size.d / 2 + 0.5) {
+          p.y = upperY;
+        } else {
+          // Retour rez-de-chaussée
+          p.y = 0;
+        }
+      } else {
+        p.y = 0;
+      }
 
       // === Détection de proximité avec le cercle bleu — ouvre la modal automatiquement ===
       if (stateRef.current.customizeWorldPos && !showFurnStore) {
