@@ -1252,13 +1252,11 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const bgBuildings = new THREE.Group();
     const bgColors = [0x4a5a6a, 0x6a5a4a, 0x5a4a6a, 0x3a4a5a, 0x6a4a3a, 0x4a6a5a, 0x5a5a5a, 0x7a6a5a, 0x8a7a6a, 0x4a3a5a];
     // On génère ~350 bâtiments répartis sur toute la ville (hors zone centrale jouable)
-    // Zone protégée AGRANDIE : couvre le casino, le shop (28,30), le garage (-22,30),
-    // les rangées de maisons frontales (z=44 et z=54) et arrière (z=-30..-36),
-    // pour que les bgBuildings ne viennent plus se planter dans le shop/garage/maisons.
-    const isInCentralProtected = (x, z) => (x > -90 && x < 90 && z > -60 && z < 65);
-    // Quartier de luxe (côté ouest) — protégé séparément
-    const isInLuxuryDistrict = (x, z) => (x > -200 && x < -45 && z > -60 && z < 30);
-    // Zone plage/mer protégée (G2) : pas de bâtiments à partir de x>75
+    // Zone protégée = TOUT l'enclos (même rectangle que le fence + ses ~5 m de
+    // marge). Les bgBuildings forment le décor de la "ville morte" autour, et
+    // ne doivent JAMAIS se faufiler à l'intérieur de la zone jouable.
+    const isInCentralProtected = (x, z) => (x > -215 && x < 125 && z > -70 && z < 70);
+    // Zone plage/mer protégée : pas de bâtiments dans la mer
     const isInBeachSeaArea = (x) => x > 75;
     // Semence déterministe pour éviter des variations
     let seed = 1337;
@@ -1271,7 +1269,6 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const bx = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
       const bz = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
       if (isInCentralProtected(bx, bz)) return null;
-      if (isInLuxuryDistrict(bx, bz)) return null;
       if (isInBeachSeaArea(bx)) return null;
       // Évite les routes (bande de ±7m autour des multiples de 80)
       const onRoadX = Math.abs(((bx + 400) % 80) - 40) < 9;
@@ -2568,16 +2565,16 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
 
     // ─── 5b) BARRIÈRE DE ZONE DE JEU (clôture haute, fer forgé noir) ──────────
-    // Délimite la zone qui contient toutes les maisons achetables, le casino,
-    // le shop, le garage et le quartier de luxe. Sépare nettement de la plage.
-    // Portails (gates) :
-    //  - Est (vers la plage) : passage à z=0, large 8 m
-    //  - Sud (vers le reste de la ville) : passage à x=0, large 8 m
-    const PZ_MIN_X = -210, PZ_MAX_X = 65;
+    // Délimite la zone JOUABLE qui contient toutes les maisons achetables, le
+    // casino, le shop, le garage, le quartier de luxe ET la plage. Au-delà
+    // de cette barrière = death zone (mer ou nulle part). Aucun portail :
+    // l'enclos est fermé sur les 4 côtés. Seule sortie possible = la rue
+    // intérieure → spawn → entrée casino.
+    const PZ_MIN_X = -210, PZ_MAX_X = 120; // étendu jusqu'au bord de la mer (x=120)
     const PZ_MIN_Z = -65,  PZ_MAX_Z = 65;
     const FENCE_H = 3.2;       // hauteur de la clôture
     const POST_GAP = 4;        // distance entre 2 piliers
-    const GATE_HALF = 4;       // demi-largeur d'un portail (4 m → 8 m d'ouverture)
+    const GATE_HALF = 0;       // pas de portail → enclos fermé
 
     const playZoneFence = new THREE.Group();
     const pzPostMat = new THREE.MeshStandardMaterial({
@@ -2690,48 +2687,37 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       }
     };
 
-    // Côté Nord (z = PZ_MAX_Z), pas de portail (face aux maisons frontales)
+    // Les 4 côtés sont fermés (aucun portail). La plage (x ∈ [65, 120]) est
+    // incluse dans l'enclos donc accessible librement, mais le bord est de la
+    // clôture (x = 120) borde directement la mer pour empêcher l'entrée dans
+    // l'eau.
     buildSide({ axis: 'x', fixed: PZ_MAX_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: false });
-    // Côté Sud (z = PZ_MIN_Z), portail principal (vers le reste de la ville)
-    buildSide({ axis: 'x', fixed: PZ_MIN_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: true });
-    // Côté Ouest (x = PZ_MIN_X), pas de portail
+    buildSide({ axis: 'x', fixed: PZ_MIN_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: false });
     buildSide({ axis: 'z', fixed: PZ_MIN_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: false });
-    // Côté Est (x = PZ_MAX_X), portail vers la plage
-    buildSide({ axis: 'z', fixed: PZ_MAX_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: true });
-
-    // Petit panneau "PROPRIÉTÉ PRIVÉE" lumineux au portail sud
-    const fenceSign = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.6, 0.9),
-      new THREE.MeshStandardMaterial({
-        color: 0x111111, emissive: 0xd4af37, emissiveIntensity: 0.35,
-      }),
-    );
-    fenceSign.position.set(0, FENCE_H + 0.7, PZ_MIN_Z);
-    playZoneFence.add(fenceSign);
+    buildSide({ axis: 'z', fixed: PZ_MAX_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: false });
 
     scene.add(playZoneFence);
 
     // ─── 6) Refs sauvegardés pour animation dans le loop ──────────────────────
     const decoRefs = { sea, seaPos, seaBaseZ, foam, fountainJet, clouds: cloudsGroup };
 
-    // ─── 7) DEATH ZONES ÉTENDUES (mer + lateraux plage) ───────────────────────
-    // Joueur ne peut entrer que ~3-4 m dans la mer (jusqu'à x ≈ 124).
-    // Plage limitée à |z| < 200 ; au-delà = death barrière.
-    // ========== BARRIÈRE DE MORT (agrandie × 10) + plage/mer ==========
-    // Limites jouables très larges : x ∈ [-400, 400], z ∈ [-400, 400]
-    // Death zone classique : hors [-440, 440] sur les 2 axes (~40m de grâce)
-    // + Death zone plage/mer : entrer dans la mer (x > 124) ou sortir 500m de chaque côté
-    const isInBeachOrSeaDeath = (x, z) => {
-      if (x > 124) return true;                          // 3-4 m dans la mer
-      if (x > 80 && (z < -200 || z > 200)) return true;  // plage limitée z
-      return false;
-    };
+    // ─── 7) DEATH ZONE = HORS DE L'ENCLOS PLAYABLE ────────────────────────────
+    // Le fence (PZ_MIN_X..PZ_MAX_X, PZ_MIN_Z..PZ_MAX_Z) délimite la zone
+    // jouable. Tout ce qui est au-delà est une death zone immédiate. Petite
+    // grâce de 1.5 m pour absorber le rayon de collision et éviter que le
+    // joueur meure en touchant la barrière elle-même.
+    const DEATH_GRACE = 1.5;
     const isInDeathZone = (x, z) => {
-      if (x < -440 || x > 440 || z < -440 || z > 440) return true;
-      if (isInBeachOrSeaDeath(x, z)) return true;
+      if (x < PZ_MIN_X - DEATH_GRACE) return true;
+      if (x > PZ_MAX_X + DEATH_GRACE) return true;
+      if (z < PZ_MIN_Z - DEATH_GRACE) return true;
+      if (z > PZ_MAX_Z + DEATH_GRACE) return true;
       return false;
     };
-    const isNearBarrier = (x, z) => (x < -400 || x > 400 || z < -400 || z > 400);
+    const isNearBarrier = (x, z) => (
+      x < PZ_MIN_X + 4 || x > PZ_MAX_X - 4 ||
+      z < PZ_MIN_Z + 4 || z > PZ_MAX_Z - 4
+    );
 
     // ========== VEHICLE RIG (skateboard/bike/hoverboard) ==========
     let vehicleRig = null;
