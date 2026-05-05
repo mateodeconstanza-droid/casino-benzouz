@@ -59,14 +59,17 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const [myHp, setMyHp] = useState(100);
   const [onlinePlayersCount, setOnlinePlayersCount] = useState(0);
 
-  // ====== ANIMATION D'ARRIVÉE TÉLÉPORTATION (4s, 3ème pers., flash blanc) ======
-  // Quand le joueur arrive dans le casino, on joue une cinématique :
-  //   - caméra 3ème personne en orbite autour du joueur (point de spawn)
-  //   - overlay blanc transparent qui pulse comme une téléportation
-  //   - durée totale = 4000 ms, puis retour vue normale (1ère pers.)
+  // ====== ANIMATION D'ARRIVÉE — cinématique d'entrée 3 s ======
+  // Caméra qui descend en spirale depuis 7m de haut, atterrit pile à la position
+  // 1ère personne du joueur (œil à 1.7m), avec overlay flash + nom du casino.
+  // Le spawn est capturé à la 1ère frame (`arrivalSpawnRef`) pour que la caméra
+  // ne dérive pas, et `camera.position` est restauré à chaque frame pour ne pas
+  // déplacer le joueur dans le monde pendant la cinématique.
+  const ARRIVAL_DURATION_MS = 3000;
   const [arriving, setArriving] = useState(true);
   const arrivingRef = useRef(true);
   const arrivalStartRef = useRef(performance.now());
+  const arrivalSpawnRef = useRef(null); // { x, z } figés à la 1ère frame
 
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
@@ -86,8 +89,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   useEffect(() => { arrivingRef.current = arriving; }, [arriving]);
   useEffect(() => {
     arrivalStartRef.current = performance.now();
+    arrivalSpawnRef.current = null; // reset pour qu'elle soit re-capturée à la 1ère frame
     setArriving(true);
-    const t = setTimeout(() => setArriving(false), 4000);
+    const t = setTimeout(() => setArriving(false), ARRIVAL_DURATION_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line
   }, []);
@@ -3169,33 +3173,71 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       // ========== Vue 3ème personne : avatar + caméra orbitale ==========
       const tps = viewModeRef.current === 'third' || arrivingRef.current;
       playerAvatar.visible = tps;
-      // ========== ANIMATION D'ARRIVÉE — cinématique 4s ==========
+      // ========== ANIMATION D'ARRIVÉE — cinématique 3 s ==========
       if (arrivingRef.current) {
-        const elapsed = (performance.now() - arrivalStartRef.current) / 1000; // 0..4
-        const progress = Math.min(1, elapsed / 4);
-        // Caméra orbitale qui regarde le joueur arriver
-        // Position du joueur (spawn) = camera.position courante
-        const playerX = camera.position.x;
-        const playerZ = camera.position.z;
-        // Caméra : démarre haute et lointaine, descend vers le joueur
-        const angle = progress * Math.PI * 0.5; // léger arc
-        const dist = 6 - progress * 2.5;        // 6m -> 3.5m
-        const camY = 5.5 - progress * 2.5;      // 5.5m -> 3.0m
+        const elapsed = performance.now() - arrivalStartRef.current; // ms
+        const t = Math.min(1, elapsed / ARRIVAL_DURATION_MS);
+
+        // Capture le spawn à la 1ère frame (sinon la caméra dérive car elle
+        // relit camera.position chaque frame, qu'on a déjà muté la frame d'avant).
+        if (!arrivalSpawnRef.current) {
+          arrivalSpawnRef.current = { x: camera.position.x, z: camera.position.z };
+        }
+        const spawn = arrivalSpawnRef.current;
+
+        // Sauvegarde la position "monde" du joueur pour la restaurer après render
+        // → la cinématique ne déplace pas le joueur dans le niveau.
+        const origPos = camera.position.clone();
+
+        // Easings
+        const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+        const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+        const e = easeInOut(t);
+        const eO = easeOut(t);
+
+        // Trajectoire caméra : spirale descendante qui se termine pile à la
+        // position 1ère personne (œil à 1.7m, sur le spawn).
+        // - angle : démarre à ~100° à droite du joueur, ferme jusqu'à 0°
+        // - radius : 5 m → 0 m (atterrit sur la tête du joueur)
+        // - height : 7 m → 1.7 m (œil)
+        const angle = (Math.PI * 0.55) * (1 - e);
+        const radius = 5 * (1 - eO);
+        const height = 7 + (1.7 - 7) * e;
+
         camera.position.set(
-          playerX + Math.cos(angle) * dist,
-          camY,
-          playerZ + Math.sin(angle) * dist + 4
+          spawn.x + Math.sin(angle) * radius,
+          height,
+          spawn.z + Math.cos(angle) * radius
         );
-        camera.lookAt(playerX, 1.4, playerZ);
-        // Avatar visible et orienté
+        // Cible légèrement vers l'avant (-Z) pour finir orienté forward
+        camera.lookAt(spawn.x, 1.7, spawn.z - 0.5);
+
+        // Avatar : visible, posé sur le sol, oriente face -Z (par défaut joueur).
+        // Effet "matérialisation" sur les 600 premières ms : scale 0.6 → 1, rise.
         playerAvatar.visible = true;
-        playerAvatar.position.set(playerX, 0, playerZ);
-        playerAvatar.rotation.y = angle - Math.PI / 2;
-        // Léger bob "chargement de matière"
-        playerAvatar.position.y = Math.max(0, 0.2 - progress * 0.2);
-        // Render
+        playerAvatar.position.set(spawn.x, 0, spawn.z);
+        playerAvatar.rotation.y = 0;
+        if (elapsed < 600) {
+          const m = elapsed / 600;
+          playerAvatar.position.y = (1 - m) * 0.4;
+          playerAvatar.scale.setScalar(0.6 + m * 0.4);
+        } else {
+          playerAvatar.position.y = 0;
+          playerAvatar.scale.setScalar(1);
+        }
+
         updateRemoteAvatars();
         renderer.render(scene, camera);
+
+        // Restaure la position "monde" → le joueur reste pile au spawn pendant
+        // toute la cinématique, et y est exactement à la sortie.
+        if (t >= 1) {
+          camera.position.set(spawn.x, 1.7, spawn.z);
+          // Reset scale au cas où (sécurité)
+          playerAvatar.scale.setScalar(1);
+        } else {
+          camera.position.copy(origPos);
+        }
       } else if (tps) {
         // camera direction (horizontal)
         const camDir = new THREE.Vector3();
@@ -4231,7 +4273,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#000', touchAction: 'none' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* === ANIMATION D'ARRIVÉE TÉLÉPORTATION (4s) === */}
+      {/* === ANIMATION D'ARRIVÉE — overlay 3 s === */}
       {arriving && (
         <div
           data-testid="casino-arrival-overlay"
@@ -4240,63 +4282,96 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             zIndex: 9999, overflow: 'hidden',
           }}
         >
-          {/* Flash blanc qui démarre intense, fade out */}
+          {/* Flash radial blanc → transparent (0–0.7s) */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(180,220,255,0.65) 35%, rgba(255,255,255,0) 75%)',
-            animation: 'arrival-flash 4s ease-out forwards',
+            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0) 70%)',
+            animation: 'gl-arrival-flash 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           }} />
-          {/* Anneaux de téléportation qui montent */}
+
+          {/* Vignette douce qui pulse (0–3s) — ramène l'œil au centre */}
           <div style={{
-            position: 'absolute', left: '50%', bottom: '32%',
-            transform: 'translateX(-50%)',
-            width: 240, height: 60,
-            borderRadius: '50%',
-            border: '3px solid rgba(180,220,255,0.85)',
-            boxShadow: '0 0 60px rgba(180,220,255,0.85), inset 0 0 30px rgba(255,255,255,0.6)',
-            animation: 'arrival-ring1 2.4s ease-out infinite',
+            position: 'absolute', inset: 0,
+            background: 'radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%)',
+            animation: 'gl-arrival-vignette 3s ease-out forwards',
           }} />
-          <div style={{
-            position: 'absolute', left: '50%', bottom: '34%',
-            transform: 'translateX(-50%)',
-            width: 200, height: 50,
-            borderRadius: '50%',
-            border: '2px solid rgba(255,215,0,0.6)',
-            animation: 'arrival-ring2 2.4s ease-out 0.4s infinite',
-          }} />
-          {/* Texte d'arrivée */}
-          <div style={{
-            position: 'absolute', top: '38%', left: '50%',
-            transform: 'translate(-50%,-50%)',
-            color: '#fff', textAlign: 'center',
-            textShadow: '0 0 24px #fff, 0 0 48px #3fe6ff',
-            animation: 'arrival-text 4s ease-out forwards',
-          }}>
-            <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: 8 }}>GAMBLELIFE</div>
-            <div style={{ fontSize: 14, letterSpacing: 6, marginTop: 4, color: '#3fe6ff' }}>★ ENTRÉE EN MATIÈRE ★</div>
+
+          {/* Carte d'identité du casino : drapeau + nom + tagline */}
+          <div
+            style={{
+              position: 'absolute', top: '38%', left: '50%',
+              transform: 'translate(-50%,-50%)',
+              textAlign: 'center', color: '#fff',
+              animation: 'gl-arrival-card 3s ease-out forwards',
+              willChange: 'transform, opacity, filter',
+            }}
+          >
+            <div style={{
+              fontSize: 12, letterSpacing: 8, fontWeight: 600,
+              color: casino?.primary || '#d4af37', opacity: 0.9, marginBottom: 14,
+              textTransform: 'uppercase', textShadow: '0 0 20px rgba(0,0,0,0.6)',
+            }}>
+              Bienvenue à
+            </div>
+            <div style={{ fontSize: 84, lineHeight: 1, marginBottom: 12 }}>
+              {casino?.country || '🎰'}
+            </div>
+            <div style={{
+              fontSize: 56, fontWeight: 900, letterSpacing: 4,
+              fontFamily: 'Georgia, "Playfair Display", serif',
+              color: '#fff',
+              textShadow: `0 0 28px rgba(255,255,255,0.85), 0 0 64px ${casino?.primary || '#3fe6ff'}, 0 4px 12px rgba(0,0,0,0.6)`,
+            }}>
+              {(casino?.name || 'CASINO').toUpperCase()}
+            </div>
+            {casino?.tagline && (
+              <div style={{
+                marginTop: 12, fontSize: 14, letterSpacing: 3,
+                color: 'rgba(255,255,255,0.85)', fontStyle: 'italic',
+                textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+              }}>
+                « {casino.tagline} »
+              </div>
+            )}
           </div>
+
+          {/* Barre de progression discrète en bas pour signaler la durée */}
+          <div style={{
+            position: 'absolute', bottom: 32, left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'min(280px, 50vw)', height: 2,
+            background: 'rgba(255,255,255,0.15)', borderRadius: 2,
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%',
+              background: `linear-gradient(90deg, ${casino?.primary || '#d4af37'}, ${casino?.accent || '#fff'})`,
+              transformOrigin: 'left center',
+              animation: 'gl-arrival-progress 3s linear forwards',
+            }} />
+          </div>
+
           <style>{`
-            @keyframes arrival-flash {
+            @keyframes gl-arrival-flash {
               0%   { opacity: 1; }
-              25%  { opacity: 0.85; }
-              60%  { opacity: 0.4; }
               100% { opacity: 0; }
             }
-            @keyframes arrival-ring1 {
-              0%   { transform: translateX(-50%) translateY(40px) scale(0.3); opacity: 0; }
-              30%  { opacity: 1; }
-              100% { transform: translateX(-50%) translateY(-200px) scale(1.3); opacity: 0; }
+            @keyframes gl-arrival-vignette {
+              0%   { opacity: 0; }
+              25%  { opacity: 1; }
+              80%  { opacity: 0.6; }
+              100% { opacity: 0; }
             }
-            @keyframes arrival-ring2 {
-              0%   { transform: translateX(-50%) translateY(40px) scale(0.3); opacity: 0; }
-              30%  { opacity: 1; }
-              100% { transform: translateX(-50%) translateY(-180px) scale(1.5); opacity: 0; }
+            @keyframes gl-arrival-card {
+              0%   { transform: translate(-50%,-45%) scale(0.85); opacity: 0; filter: blur(14px); }
+              22%  { transform: translate(-50%,-50%) scale(1.04); opacity: 1; filter: blur(0); }
+              35%  { transform: translate(-50%,-50%) scale(1.0);  opacity: 1; }
+              82%  { transform: translate(-50%,-50%) scale(1.0);  opacity: 1; }
+              100% { transform: translate(-50%,-58%) scale(1.02); opacity: 0; filter: blur(2px); }
             }
-            @keyframes arrival-text {
-              0%   { transform: translate(-50%,-50%) scale(0.4); opacity: 0; filter: blur(20px); }
-              30%  { transform: translate(-50%,-50%) scale(1.1); opacity: 1; filter: blur(0px); }
-              80%  { transform: translate(-50%,-50%) scale(1.0); opacity: 1; }
-              100% { transform: translate(-50%,-60%) scale(1.0); opacity: 0; }
+            @keyframes gl-arrival-progress {
+              0%   { transform: scaleX(0); }
+              100% { transform: scaleX(1); }
             }
           `}</style>
         </div>
