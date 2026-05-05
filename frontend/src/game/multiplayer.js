@@ -1,7 +1,9 @@
 // Client WebSocket multijoueur pour GambleLife.
 // Connecte à /api/mp/ws/<server>/<username> et expose callbacks.
 
-const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
+// Priorité : variable d'env explicite > même domaine que le frontend (déploiement unifié)
+const ENV_BACKEND = process.env.REACT_APP_BACKEND_URL || '';
+const BACKEND = ENV_BACKEND || (typeof window !== 'undefined' ? window.location.origin : '');
 const wsBase = BACKEND.replace(/^http/, 'ws');
 
 // Exporté pour que ServerSelect/Lobby sachent si le multi est disponible

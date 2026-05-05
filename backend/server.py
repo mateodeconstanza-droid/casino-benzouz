@@ -1,4 +1,6 @@
 from fastapi import FastAPI, APIRouter
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -93,3 +95,31 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+# --- Serve frontend build (SPA) for production single-site deployment ---
+FRONTEND_BUILD_DIR = Path(os.environ.get(
+    'FRONTEND_BUILD_DIR',
+    str(ROOT_DIR.parent / 'frontend' / 'build'),
+))
+
+if FRONTEND_BUILD_DIR.is_dir():
+    app.mount(
+        "/static",
+        StaticFiles(directory=FRONTEND_BUILD_DIR / "static"),
+        name="static",
+    )
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        # Serve hashed assets directly if they exist at the build root
+        candidate = FRONTEND_BUILD_DIR / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        # SPA fallback — let React Router handle the route
+        return FileResponse(FRONTEND_BUILD_DIR / "index.html")
+else:
+    logger.warning(
+        "Frontend build directory not found at %s — backend will only serve /api",
+        FRONTEND_BUILD_DIR,
+    )

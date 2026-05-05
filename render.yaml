@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: gamblelife
+    runtime: docker
+    region: frankfurt
+    plan: free
+    healthCheckPath: /api/
+    envVars:
+      - key: MONGO_URL
+        sync: false   # set in dashboard — your MongoDB Atlas SRV connection string
+      - key: DB_NAME
+        value: casino_benzouz
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PORT
+        value: "8000"
