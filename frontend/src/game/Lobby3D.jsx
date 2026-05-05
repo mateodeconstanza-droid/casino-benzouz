@@ -71,6 +71,10 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
+  // Position du joueur lue par les couches sonores ambiantes (mise à jour
+  // depuis la boucle de rendu Three.js — voir useEffect plus bas).
+  const stateRef = useRef({ player: { x: 0, y: 0, z: 0 } });
+
   // ====== AMBIANCE SONORE casino (foule + chuchotements) ======
   useAmbientAudio({
     stateRef,
