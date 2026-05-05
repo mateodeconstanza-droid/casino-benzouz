@@ -114,9 +114,11 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     sceneRefLocal.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
-    // Spawn au centre du casino (pas collé à la porte de sortie z=17.5)
-    // La porte de sortie étant à z=17.5, on apparaît bien à l'intérieur (z=5)
-    camera.position.set(0, 1.7, 5);
+    // Spawn juste devant la porte d'entrée (z=17.5 = porte). On apparaît à
+    // z=14, face -Z, avec une vue dégagée sur le hall (poker à z=4,
+    // blackjack/highcard à z=-2, roulette à z=-8). Avant on spawnait à z=5,
+    // pile à 1m derrière la table de poker (z=4) — donc bloqué dès l'arrivée.
+    camera.position.set(0, 1.7, 14);
     cameraRef.current = camera;
 
     // ========== AVATAR 3D JOUEUR (vue 3ème personne) ==========

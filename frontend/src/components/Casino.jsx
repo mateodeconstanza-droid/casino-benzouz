@@ -200,9 +200,8 @@ export default function Casino() {
     }
     setCasino(CASINOS[casinoId] || CASINOS.vegas);
     setScreen('lobby');
-    if (profile && canSpinWheel(profile)) {
-      setTimeout(() => setShowWheel(true), 500);
-    }
+    // (la roue ne s'ouvre plus automatiquement à l'entrée — le joueur peut
+    // y aller librement via la zone "Roue" ou le menu)
   };
 
   const handleBuyHouse = async (houseId) => {
