@@ -15,7 +15,6 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
-  const [showMenu, setShowMenu] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [shooting, setShooting] = useState(false);
   const [viewMode, setViewMode] = useState('first'); // 'first' | 'third'
@@ -4401,7 +4400,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         </div>
       )}
 
-      {/* === MENU UNIVERSEL — accessible partout === */}
+      {/* === MENU UNIVERSEL — seul menu du casino, accessible partout === */}
       <UniversalMenu
         profile={profile}
         balance={balance}
@@ -4411,6 +4410,13 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         onOpenShop={onOpenShop}
         onChangeDevice={() => { /* TODO bring back to deviceSelect */ }}
         position="top-right"
+        extraItems={[
+          { testId: 'menu-character', icon: '👤', label: 'Personnaliser le personnage', onClick: () => onOpenCharacter && onOpenCharacter() },
+          { testId: 'menu-change-casino', icon: '🌍', label: 'Changer de casino', onClick: () => onChangeCasino && onChangeCasino() },
+          { testId: 'menu-replay-tutorial', icon: '❔', label: 'Revoir le tutoriel', onClick: () => onReplayTutorial && onReplayTutorial(), accent: '#3fe6ff' },
+          { testId: 'menu-exit-casino', icon: '🚪', label: 'Sortir du casino', onClick: () => onExitCasino && onExitCasino(), accent: '#ffd700' },
+          { testId: 'menu-logout', icon: '⏻', label: 'Déconnexion', onClick: () => onLogout && onLogout(), accent: '#ff6666' },
+        ]}
       />
 
       {/* HUD Haut */}
@@ -4449,14 +4455,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             );
           })()}
         </div>
-        <button onClick={() => setShowMenu(true)}
-          style={{
-            background: `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`,
-            border: `1px solid ${casino.secondary}`,
-            color: '#fff', borderRadius: 8, padding: '8px 14px',
-            cursor: 'pointer', fontFamily: 'inherit', fontWeight: 'bold',
-            pointerEvents: 'auto', fontSize: 13,
-          }}>☰ MENU</button>
+        {/* Bouton MENU custom retiré : on utilise UniversalMenu (≡ MENU en haut à droite) */}
       </div>
 
       {/* CONTRÔLES MOBILE/HUD - Flèches en bas à gauche */}
@@ -4959,113 +4958,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         </div>
       )}
 
-      {/* MENU */}
-      {showMenu && (
-        <div className="hud-control" style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
-          zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 20, overflowY: 'auto', fontFamily: 'Georgia, serif',
-        }}>
-          <div style={{
-            background: `linear-gradient(145deg, #1a0a0a, #0a0503)`,
-            border: `2px solid ${casino.primary}`, borderRadius: 14,
-            maxWidth: 600, width: '100%', maxHeight: '90vh', overflowY: 'auto',
-          }}>
-            <div style={{
-              padding: '14px 20px', borderBottom: `1px solid ${casino.primary}`,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: 'rgba(0,0,0,0.4)',
-            }}>
-              <div style={{ color: casino.secondary, fontSize: 18, fontWeight: 'bold' }}>
-                {casino.country} {casino.name}
-              </div>
-              <button onClick={() => setShowMenu(false)} style={{
-                background: 'transparent', border: `1px solid ${casino.secondary}`,
-                color: casino.secondary, padding: '6px 12px', borderRadius: 6,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>✕</button>
-            </div>
-            <div style={{ padding: 16 }}>
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                gap: 8, marginBottom: 16,
-              }}>
-                <StatCard label="Solde" value={fmt(balance || 0) + ' $'} color="#ffd700" />
-                <StatCard label="Gains cum." value={fmt(profile?.totalWinnings || 0) + ' $'} color="#00ff88" />
-                <StatCard label="Trophées" value={`${earned.length}/${TROPHIES.length}`} color="#ff6b9d" />
-                <StatCard label="Armes" value={(weapons || []).length} color={casino.primary} />
-              </div>
-
-              {nextTrophy && (
-                <div style={{
-                  background: 'rgba(0,0,0,0.5)',
-                  border: `1px solid ${nextTrophy.color}`,
-                  borderRadius: 8, padding: 10, marginBottom: 12,
-                }}>
-                  <div style={{ color: nextTrophy.color, fontSize: 11, marginBottom: 4 }}>
-                    Prochain : {nextTrophy.icon} {nextTrophy.name}
-                  </div>
-                  <div style={{ background: '#333', height: 5, borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${Math.min(100, ((profile?.totalWinnings || 0) / nextTrophy.threshold) * 100)}%`,
-                      height: '100%',
-                      background: `linear-gradient(90deg, ${nextTrophy.color}, #fff)`,
-                    }} />
-                  </div>
-                </div>
-              )}
-
-              <div style={{ color: '#cca366', fontSize: 12, marginBottom: 10, textAlign: 'center', fontStyle: 'italic' }}>
-                💡 Déplace-toi dans le casino pour accéder aux jeux, bar, WC, ATM, roue, boutique et GambleBet
-              </div>
-
-              <button onClick={() => { setShowMenu(false); onOpenTrophies(); }} style={menuBtnStyle('#ff6b9d')}>
-                🏆 Voir tous les trophées
-              </button>
-
-              <button onClick={() => { setShowMenu(false); onOpenCharacter && onOpenCharacter(); }}
-                data-testid="menu-character-btn"
-                style={{ ...menuBtnStyle('#b48cff'), marginTop: 10 }}>
-                👤 Personnaliser le personnage
-              </button>
-
-              <button onClick={() => { setShowMenu(false); onOpenQuests && onOpenQuests(); }}
-                data-testid="menu-quests-btn"
-                style={{ ...menuBtnStyle('#ffd43b'), marginTop: 10 }}>
-                🎯 Quêtes du jour
-              </button>
-
-              <button onClick={() => { setShowMenu(false); onChangeCasino && onChangeCasino(); }} style={{
-                ...menuBtnStyle(casino.accent),
-                marginTop: 10,
-              }}>
-                🌍 Changer de casino
-              </button>
-
-              <button onClick={() => { setShowMenu(false); onReplayTutorial?.(); }} style={{
-                width: '100%', marginTop: 10, padding: 10,
-                background: 'rgba(63,230,255,0.15)',
-                border: '1px solid #3fe6ff', color: '#3fe6ff',
-                borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-              }} data-testid="menu-replay-tutorial">❔ Revoir le tutoriel</button>
-
-              <button onClick={() => { setShowMenu(false); onExitCasino?.(); }} style={{
-                width: '100%', marginTop: 10, padding: 10,
-                background: 'linear-gradient(135deg, #d4af37, #8b6914)',
-                border: '1px solid #ffd700', color: '#fff',
-                borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800,
-              }} data-testid="menu-exit-casino">🚪 Sortir (voir la rue)</button>
-
-              <button onClick={() => { setShowMenu(false); onLogout(); }} style={{
-                width: '100%', marginTop: 10, padding: 10,
-                background: 'rgba(180,40,40,0.3)',
-                border: '1px solid #aa3030', color: '#ff7777',
-                borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-              }}>Déconnexion</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* L'ancien menu plein écran a été retiré : UniversalMenu (≡ MENU) le remplace
+          avec les mêmes options (trophées, quêtes, perso, changer casino, sortir, etc.). */}
 
       <style>{`
         @keyframes pulseGlow {

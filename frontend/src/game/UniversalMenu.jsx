@@ -10,6 +10,10 @@ import { RankBadge } from '@/game/RankBadge';
 export const UniversalMenu = ({
   profile, balance, onOpenTrophies, onOpenQuests, onOpenShop,
   onChangeDevice, deviceType, position = 'top-right',
+  // Items contextuels propres à l'écran (casino : changer casino,
+  // personnaliser, sortir, déconnexion, etc.)
+  // Format : [{ testId, icon, label, onClick, accent? }]
+  extraItems,
 }) => {
   const [open, setOpen] = useState(false);
   // Ferme le menu au clic extérieur
@@ -83,6 +87,23 @@ export const UniversalMenu = ({
             <MenuItem testId="menu-device" icon={deviceType === 'mobile' ? '📱' : '🖥️'}
               label={`Appareil : ${deviceType === 'mobile' ? 'Mobile' : 'PC'}`}
               onClick={() => { setOpen(false); onChangeDevice?.(); }} />
+            {Array.isArray(extraItems) && extraItems.length > 0 && (
+              <>
+                <div style={{
+                  height: 1, background: 'rgba(255,215,0,0.18)', margin: '6px 0',
+                }} />
+                {extraItems.map((it, i) => (
+                  <MenuItem
+                    key={it.testId || `extra-${i}`}
+                    testId={it.testId}
+                    icon={it.icon}
+                    label={it.label}
+                    accent={it.accent}
+                    onClick={() => { setOpen(false); it.onClick && it.onClick(); }}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -90,15 +111,15 @@ export const UniversalMenu = ({
   );
 };
 
-const MenuItem = ({ testId, icon, label, onClick }) => (
+const MenuItem = ({ testId, icon, label, onClick, accent }) => (
   <button
     data-testid={testId}
     onClick={onClick}
     style={{
       width: '100%', padding: '10px 12px', borderRadius: 8,
-      background: 'rgba(255,215,0,0.08)',
-      border: '1px solid rgba(255,215,0,0.3)',
-      color: '#fff', cursor: 'pointer',
+      background: accent ? `${accent}22` : 'rgba(255,215,0,0.08)',
+      border: `1px solid ${accent ? accent : 'rgba(255,215,0,0.3)'}`,
+      color: accent ? accent : '#fff', cursor: 'pointer',
       display: 'flex', alignItems: 'center', gap: 10,
       fontSize: 13, fontWeight: 700, textAlign: 'left',
     }}
