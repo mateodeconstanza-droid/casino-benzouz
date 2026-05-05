@@ -2832,12 +2832,21 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       return false;
     };
 
+    // Si la cinématique d'arrivée est en cours et que le joueur tente de
+    // bouger, on l'interrompt immédiatement pour rendre le contrôle.
+    const skipArrivalIfNeeded = () => {
+      if (arrivingRef.current) {
+        arrivingRef.current = false;
+        setArriving(false);
+      }
+    };
+
     const onKeyDown = (e) => {
       switch (e.code) {
-        case 'ArrowUp': case 'KeyW': case 'KeyZ': keysRef.current.forward = true; break;
-        case 'ArrowDown': case 'KeyS': keysRef.current.backward = true; break;
-        case 'ArrowLeft': case 'KeyA': case 'KeyQ': keysRef.current.left = true; break;
-        case 'ArrowRight': case 'KeyD': keysRef.current.right = true; break;
+        case 'ArrowUp': case 'KeyW': case 'KeyZ': keysRef.current.forward = true; skipArrivalIfNeeded(); break;
+        case 'ArrowDown': case 'KeyS': keysRef.current.backward = true; skipArrivalIfNeeded(); break;
+        case 'ArrowLeft': case 'KeyA': case 'KeyQ': keysRef.current.left = true; skipArrivalIfNeeded(); break;
+        case 'ArrowRight': case 'KeyD': keysRef.current.right = true; skipArrivalIfNeeded(); break;
         case 'KeyE': case 'Space':
           if (nearZoneRef.current && zoneCallbacksRef.current[nearZoneRef.current]) {
             zoneCallbacksRef.current[nearZoneRef.current]();
@@ -3362,6 +3371,12 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   // Gestion tactile des flèches (hold-to-move)
   const setKey = (key, value) => {
     keysRef.current[key] = value;
+    // Si la cinématique d'arrivée est en cours, on l'interrompt dès le 1er
+    // input mobile pour rendre le contrôle au joueur immédiatement.
+    if (value && arrivingRef.current) {
+      arrivingRef.current = false;
+      setArriving(false);
+    }
   };
 
   // Refs pour le tir

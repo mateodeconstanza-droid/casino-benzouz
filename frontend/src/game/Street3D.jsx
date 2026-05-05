@@ -1252,9 +1252,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const bgBuildings = new THREE.Group();
     const bgColors = [0x4a5a6a, 0x6a5a4a, 0x5a4a6a, 0x3a4a5a, 0x6a4a3a, 0x4a6a5a, 0x5a5a5a, 0x7a6a5a, 0x8a7a6a, 0x4a3a5a];
     // On génère ~350 bâtiments répartis sur toute la ville (hors zone centrale jouable)
-    // Zone jouable centrale étendue : x ∈ [-360, 360], z ∈ [-360, 360] (×~7.5 par axe)
-    // Mais on protège le PARK CENTRAL [-55, 55] × [-45, 20] pour les maisons interactives
-    const isInCentralProtected = (x, z) => (x > -58 && x < 58 && z > -46 && z < 22);
+    // Zone protégée AGRANDIE : couvre le casino, le shop (28,30), le garage (-22,30),
+    // les rangées de maisons frontales (z=44 et z=54) et arrière (z=-30..-36),
+    // pour que les bgBuildings ne viennent plus se planter dans le shop/garage/maisons.
+    const isInCentralProtected = (x, z) => (x > -90 && x < 90 && z > -60 && z < 65);
+    // Quartier de luxe (côté ouest) — protégé séparément
+    const isInLuxuryDistrict = (x, z) => (x > -200 && x < -45 && z > -60 && z < 30);
     // Zone plage/mer protégée (G2) : pas de bâtiments à partir de x>75
     const isInBeachSeaArea = (x) => x > 75;
     // Semence déterministe pour éviter des variations
@@ -1268,6 +1271,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const bx = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
       const bz = Math.round((rand() * 720 - 360) / 16) * 16 + 8;
       if (isInCentralProtected(bx, bz)) return null;
+      if (isInLuxuryDistrict(bx, bz)) return null;
       if (isInBeachSeaArea(bx)) return null;
       // Évite les routes (bande de ±7m autour des multiples de 80)
       const onRoadX = Math.abs(((bx + 400) % 80) - 40) < 9;
@@ -1717,14 +1721,16 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
 
     // Mer : grand plan animé (x > 120 → 500, z: -300..300)
+    // Opaque + légèrement surélevée pour ne plus laisser transparaître
+    // l'asphalte gris du sol qui couvre toute la map.
     const seaGeo = new THREE.PlaneGeometry(380, 600, 60, 80);
     const seaMat = new THREE.MeshStandardMaterial({
       color: 0x1c6ea4, roughness: 0.25, metalness: 0.2,
-      transparent: true, opacity: 0.92, side: THREE.DoubleSide,
+      side: THREE.DoubleSide,
     });
     const sea = new THREE.Mesh(seaGeo, seaMat);
     sea.rotation.x = -Math.PI / 2;
-    sea.position.set(310, 0, 0);
+    sea.position.set(310, 0.06, 0);
     scene.add(sea);
 
     // Sauvegarde des Y initiaux des vertices pour animer les vagues sans drift
@@ -2560,6 +2566,150 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       bush.position.set(px, 0.95, pz);
       scene.add(bush);
     }
+
+    // ─── 5b) BARRIÈRE DE ZONE DE JEU (clôture haute, fer forgé noir) ──────────
+    // Délimite la zone qui contient toutes les maisons achetables, le casino,
+    // le shop, le garage et le quartier de luxe. Sépare nettement de la plage.
+    // Portails (gates) :
+    //  - Est (vers la plage) : passage à z=0, large 8 m
+    //  - Sud (vers le reste de la ville) : passage à x=0, large 8 m
+    const PZ_MIN_X = -210, PZ_MAX_X = 65;
+    const PZ_MIN_Z = -65,  PZ_MAX_Z = 65;
+    const FENCE_H = 3.2;       // hauteur de la clôture
+    const POST_GAP = 4;        // distance entre 2 piliers
+    const GATE_HALF = 4;       // demi-largeur d'un portail (4 m → 8 m d'ouverture)
+
+    const playZoneFence = new THREE.Group();
+    const pzPostMat = new THREE.MeshStandardMaterial({
+      color: 0x141416, metalness: 0.75, roughness: 0.32,
+    });
+    const pzRailMat = new THREE.MeshStandardMaterial({
+      color: 0x1f1f23, metalness: 0.6, roughness: 0.4,
+    });
+    const pzCapMat = new THREE.MeshStandardMaterial({
+      color: 0xd4af37, metalness: 0.95, roughness: 0.18, emissive: 0x2a1a00, emissiveIntensity: 0.18,
+    });
+
+    // Helper : pose un poteau 3.2 m + son chapeau doré
+    const placeFencePost = (x, z) => {
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, FENCE_H, 0.18),
+        pzPostMat,
+      );
+      post.position.set(x, FENCE_H / 2, z);
+      playZoneFence.add(post);
+      const cap = new THREE.Mesh(
+        new THREE.ConeGeometry(0.13, 0.32, 4),
+        pzCapMat,
+      );
+      cap.position.set(x, FENCE_H + 0.16, z);
+      cap.rotation.y = Math.PI / 4;
+      playZoneFence.add(cap);
+    };
+
+    // Helper : longue barre horizontale entre 2 points (rail haut/bas)
+    const placeRail = (x1, z1, x2, z2, y) => {
+      const dx = x2 - x1, dz = z2 - z1;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.1) return;
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(len, 0.08, 0.08),
+        pzRailMat,
+      );
+      rail.position.set((x1 + x2) / 2, y, (z1 + z2) / 2);
+      rail.rotation.y = Math.atan2(dz, dx);
+      playZoneFence.add(rail);
+    };
+
+    // Helper : barreaux verticaux fins entre 2 points (style fer forgé)
+    const placeBars = (x1, z1, x2, z2, spacing = 0.45) => {
+      const dx = x2 - x1, dz = z2 - z1;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.5) return;
+      const n = Math.max(1, Math.floor(len / spacing));
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const bar = new THREE.Mesh(
+          new THREE.BoxGeometry(0.05, FENCE_H - 0.2, 0.05),
+          pzRailMat,
+        );
+        bar.position.set(x1 + dx * t, (FENCE_H - 0.2) / 2 + 0.1, z1 + dz * t);
+        playZoneFence.add(bar);
+      }
+    };
+
+    // Construit un côté de la clôture, avec portail au milieu si gateAxis valide
+    // axis = 'x' → côté horizontal (constant z), iter sur x ; axis = 'z' inversé.
+    const buildSide = ({ axis, fixed, from, to, hasGate }) => {
+      const gateMin = hasGate ? -GATE_HALF : Infinity;
+      const gateMax = hasGate ? GATE_HALF : -Infinity;
+      // Poteaux + obstacles + barres
+      let prev = from;
+      const inGate = (v) => v >= gateMin && v <= gateMax;
+      const stops = [];
+      for (let v = from; v <= to + 0.01; v += POST_GAP) {
+        const vc = Math.min(v, to);
+        if (!inGate(vc)) {
+          stops.push(vc);
+        }
+      }
+      // Ajouter les bornes du gate si gate présent
+      if (hasGate) {
+        stops.push(gateMin, gateMax);
+        stops.sort((a, b) => a - b);
+      }
+      // Poteaux à chaque stop
+      for (const s of stops) {
+        if (axis === 'x') placeFencePost(s, fixed);
+        else placeFencePost(fixed, s);
+      }
+      // Pour chaque segment entre 2 poteaux consécutifs, si pas dans le gate,
+      // pose 2 rails (haut/bas) + barreaux verticaux
+      for (let i = 0; i < stops.length - 1; i++) {
+        const a = stops[i], b = stops[i + 1];
+        const mid = (a + b) / 2;
+        if (inGate(mid)) continue; // saut du portail
+        if (axis === 'x') {
+          placeRail(a, fixed, b, fixed, FENCE_H - 0.1); // rail haut
+          placeRail(a, fixed, b, fixed, 0.1);            // rail bas
+          placeBars(a, fixed, b, fixed);
+          // Collider (bloque le joueur sur ce segment)
+          obstacles.push({
+            minX: Math.min(a, b) - 0.15, maxX: Math.max(a, b) + 0.15,
+            minZ: fixed - 0.2, maxZ: fixed + 0.2,
+          });
+        } else {
+          placeRail(fixed, a, fixed, b, FENCE_H - 0.1);
+          placeRail(fixed, a, fixed, b, 0.1);
+          placeBars(fixed, a, fixed, b);
+          obstacles.push({
+            minX: fixed - 0.2, maxX: fixed + 0.2,
+            minZ: Math.min(a, b) - 0.15, maxZ: Math.max(a, b) + 0.15,
+          });
+        }
+      }
+    };
+
+    // Côté Nord (z = PZ_MAX_Z), pas de portail (face aux maisons frontales)
+    buildSide({ axis: 'x', fixed: PZ_MAX_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: false });
+    // Côté Sud (z = PZ_MIN_Z), portail principal (vers le reste de la ville)
+    buildSide({ axis: 'x', fixed: PZ_MIN_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: true });
+    // Côté Ouest (x = PZ_MIN_X), pas de portail
+    buildSide({ axis: 'z', fixed: PZ_MIN_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: false });
+    // Côté Est (x = PZ_MAX_X), portail vers la plage
+    buildSide({ axis: 'z', fixed: PZ_MAX_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: true });
+
+    // Petit panneau "PROPRIÉTÉ PRIVÉE" lumineux au portail sud
+    const fenceSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 0.9),
+      new THREE.MeshStandardMaterial({
+        color: 0x111111, emissive: 0xd4af37, emissiveIntensity: 0.35,
+      }),
+    );
+    fenceSign.position.set(0, FENCE_H + 0.7, PZ_MIN_Z);
+    playZoneFence.add(fenceSign);
+
+    scene.add(playZoneFence);
 
     // ─── 6) Refs sauvegardés pour animation dans le loop ──────────────────────
     const decoRefs = { sea, seaPos, seaBaseZ, foam, fountainJet, clouds: cloudsGroup };
