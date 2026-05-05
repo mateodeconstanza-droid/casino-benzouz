@@ -2961,13 +2961,20 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         const startX = camera.position.x;
         const startZ = camera.position.z;
 
+        // Anti-stuck : si le joueur est DÉJÀ à l'intérieur d'un collider (spawn
+        // mal placé, prop ajouté autour de lui, etc.), on l'autorise à bouger
+        // librement jusqu'à ce qu'il en sorte. Sans ça, il serait piégé pour
+        // toujours car n'importe quelle nouvelle position est aussi dans le
+        // même collider.
+        const stuckInside = pointInAnyCollider(startX, startZ);
+
         // Try X movement
         const newX = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, startX + movement.x));
-        if (!pointInAnyCollider(newX, startZ)) camera.position.x = newX;
+        if (stuckInside || !pointInAnyCollider(newX, startZ)) camera.position.x = newX;
 
         // Try Z movement
         const newZ = Math.max(-ROOM_HALF, Math.min(ROOM_HALF, startZ + movement.z));
-        if (!pointInAnyCollider(camera.position.x, newZ)) camera.position.z = newZ;
+        if (stuckInside || !pointInAnyCollider(camera.position.x, newZ)) camera.position.z = newZ;
       }
 
       // ===== Animation s'asseoir près des tables de jeu =====

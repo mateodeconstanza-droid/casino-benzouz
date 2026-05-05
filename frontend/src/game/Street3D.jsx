@@ -2885,8 +2885,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         dz = (dz / len) * SPEED;
         const nx = p.x + dx;
         const nz = p.z + dz;
-        if (!st.collidesAt(nx, p.z)) p.x = nx;
-        if (!st.collidesAt(p.x, nz)) p.z = nz;
+        // Anti-stuck : si le joueur est déjà coincé dans un obstacle (mauvaise
+        // position de spawn ou collider ajouté autour de lui), on autorise
+        // toujours à se déplacer pour qu'il puisse en sortir.
+        const stuckInside = st.collidesAt(p.x, p.z);
+        if (stuckInside || !st.collidesAt(nx, p.z)) p.x = nx;
+        if (stuckInside || !st.collidesAt(p.x, nz)) p.z = nz;
       }
       // Death zone check (hors jeu prolongé = mort)
       if (p.alive && st.isInDeathZone && st.isInDeathZone(p.x, p.z)) {
