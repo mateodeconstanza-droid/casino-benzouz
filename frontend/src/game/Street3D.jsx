@@ -26,10 +26,12 @@ const _sidePositions = (() => {
   // Rangée 4 (z=-36) — 6 maisons
   for (let i = 0; i < 6; i++) arr.push({ x: -30 + i * 12, z: -36 });
   // === DEVANT le casino, derrière le spawn (z positif) ===
-  // Rangée 5 (z=22) — 5 maisons devant le spawn
-  for (let i = 0; i < 5; i++) arr.push({ x: -32 + i * 16, z: 22 });
-  // Rangée 6 (z=28) — 5 maisons plus loin
-  for (let i = 0; i < 5; i++) arr.push({ x: -36 + i * 18, z: 28 });
+  // Décalées au-delà du shop (28, 30) et du garage (-22, 30) qui sont à z=30,
+  // pour éviter que les maisons transpercent le shop/garage.
+  // Rangée 5 (z=44) — 5 maisons, loin des bâtiments commerciaux
+  for (let i = 0; i < 5; i++) arr.push({ x: -40 + i * 20, z: 44 });
+  // Rangée 6 (z=54) — 5 maisons en arrière-plan
+  for (let i = 0; i < 5; i++) arr.push({ x: -44 + i * 22, z: 54 });
   return arr;
 })();
 
@@ -244,18 +246,25 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     centralPark.receiveShadow = true;
     scene.add(centralPark);
 
-    // Route principale devant les bâtiments (agrandie)
+    // Mer côté est à partir de x=120 → toutes les routes s'arrêtent à
+    // ROAD_X_MAX (= 110) côté est pour ne pas plonger dans l'eau.
+    const ROAD_X_MAX = 110;
+    const ROAD_X_MIN = -380;
+    const roadLen = ROAD_X_MAX - ROAD_X_MIN; // 490 m
+    const roadCenterX = (ROAD_X_MAX + ROAD_X_MIN) / 2; // -135
+
+    // Route principale devant les bâtiments — s'arrête à la plage
     const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(800, 10),
+      new THREE.PlaneGeometry(roadLen, 10),
       new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85 })
     );
     road.rotation.x = -Math.PI / 2;
-    road.position.set(0, 0.01, -4);
+    road.position.set(roadCenterX, 0.01, -4);
     road.receiveShadow = true;
     scene.add(road);
 
-    // Lignes blanches discontinues (sur toute la longueur)
-    for (let i = -380; i <= 380; i += 4) {
+    // Lignes blanches discontinues (limitées à la route)
+    for (let i = ROAD_X_MIN + 2; i <= ROAD_X_MAX - 2; i += 4) {
       const line = new THREE.Mesh(
         new THREE.PlaneGeometry(2.2, 0.25),
         new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
@@ -265,8 +274,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       scene.add(line);
     }
 
-    // Rues perpendiculaires (grille urbaine — tous les 80 m)
-    for (let rx = -360; rx <= 360; rx += 80) {
+    // Rues perpendiculaires (grille urbaine — tous les 80 m, uniquement côté ville)
+    for (let rx = -360; rx <= ROAD_X_MAX - 10; rx += 80) {
       // Route Nord-Sud
       const r = new THREE.Mesh(
         new THREE.PlaneGeometry(10, 800),
@@ -286,17 +295,17 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         scene.add(l);
       }
     }
-    // Routes Est-Ouest supplémentaires
+    // Routes Est-Ouest supplémentaires (longueur tronquée pour ne pas entrer dans la mer)
     for (let rz = -380; rz <= 380; rz += 80) {
       if (rz === -4) continue; // déjà la route principale
       const r = new THREE.Mesh(
-        new THREE.PlaneGeometry(800, 10),
+        new THREE.PlaneGeometry(roadLen, 10),
         new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85 })
       );
       r.rotation.x = -Math.PI / 2;
-      r.position.set(0, 0.012, rz);
+      r.position.set(roadCenterX, 0.012, rz);
       scene.add(r);
-      for (let ix = -390; ix <= 390; ix += 5) {
+      for (let ix = ROAD_X_MIN + 2; ix <= ROAD_X_MAX - 2; ix += 5) {
         const l = new THREE.Mesh(
           new THREE.PlaneGeometry(2.2, 0.25),
           new THREE.MeshStandardMaterial({ color: 0xfff6b8 })
@@ -2048,6 +2057,370 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     }
     scene.add(shopFr);
     interactables.push({ type: 'shopfront', id: 'shopfront', pos: new THREE.Vector3(28, 0, 30), radius: 8 });
+
+    // ─── 4b) QUARTIER DE LUXE — VILLAS MÉDITERRANÉENNES (à gauche du spawn) ────
+    // Quartier visible immédiatement à gauche en arrivant : villas modernes
+    // 2 étages style Méditerranée / Saint-Tropez (façades crème, toits plats à
+    // corniche, fenêtres XL, balcons vitrés), palmiers royaux, bougainvilliers
+    // roses et roses rouges, lavande, allée pierre claire, piscine.
+    // Zone : x ∈ [-180, -50], z ∈ [-55, +25] — entre les routes perpendiculaires
+    // à x=-200 et x=-40, donc 2 blocs urbains.
+
+    const luxDistrict = new THREE.Group();
+
+    // Helper : villa moderne 2 étages
+    const makeLuxuryVilla = ({ wallColor = 0xf5ecdb, accentColor = 0x3a2e22, roofColor = 0xb8956a } = {}) => {
+      const v = new THREE.Group();
+      // Rez-de-chaussée (12 × 4 × 10 m)
+      const base = new THREE.Mesh(
+        new THREE.BoxGeometry(12, 4, 10),
+        new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.92 })
+      );
+      base.position.y = 2;
+      base.castShadow = true; base.receiveShadow = true;
+      v.add(base);
+      // Étage (10 × 3.5 × 8, légèrement reculé)
+      const upper = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 3.5, 8),
+        new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.92 })
+      );
+      upper.position.set(0, 5.75, -1);
+      upper.castShadow = true; upper.receiveShadow = true;
+      v.add(upper);
+      // Corniche / toit plat
+      const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(13, 0.4, 10.6),
+        new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.7 })
+      );
+      roof.position.set(0, 7.7, -1);
+      v.add(roof);
+      // 3 grandes baies vitrées RDC
+      for (let i = -1; i <= 1; i++) {
+        const w = new THREE.Mesh(
+          new THREE.PlaneGeometry(3, 2.6),
+          new THREE.MeshStandardMaterial({
+            color: 0x6ba8c8, transparent: true, opacity: 0.55,
+            metalness: 0.6, roughness: 0.1, emissive: 0xffd9a0, emissiveIntensity: 0.06,
+          })
+        );
+        w.position.set(i * 3.5, 2.3, 5.01);
+        v.add(w);
+        const f = new THREE.Mesh(
+          new THREE.BoxGeometry(3.1, 2.7, 0.08),
+          new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.7 })
+        );
+        f.position.set(i * 3.5, 2.3, 5.0);
+        v.add(f);
+      }
+      // 3 fenêtres étage
+      for (let i = -1; i <= 1; i++) {
+        const w = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.4, 2),
+          new THREE.MeshStandardMaterial({
+            color: 0x6ba8c8, transparent: true, opacity: 0.55,
+            metalness: 0.6, roughness: 0.1,
+          })
+        );
+        w.position.set(i * 3, 5.8, 3.01);
+        v.add(w);
+        const ff = new THREE.Mesh(
+          new THREE.BoxGeometry(2.5, 2.1, 0.06),
+          new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.7 })
+        );
+        ff.position.set(i * 3, 5.8, 3.0);
+        v.add(ff);
+      }
+      // Balcon : sol + garde-corps en verre
+      const balconyFloor = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 0.2, 1.2),
+        new THREE.MeshStandardMaterial({ color: 0xb5a890, roughness: 0.9 })
+      );
+      balconyFloor.position.set(0, 3.95, 3.6);
+      v.add(balconyFloor);
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 1.0, 0.08),
+        new THREE.MeshStandardMaterial({
+          color: 0x9ec0d0, transparent: true, opacity: 0.45,
+          metalness: 0.5, roughness: 0.1,
+        })
+      );
+      rail.position.set(0, 4.55, 4.2);
+      v.add(rail);
+      // Porte d'entrée
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 2.8, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x2a1f15, roughness: 0.7 })
+      );
+      door.position.set(0, 1.4, 5.05);
+      v.add(door);
+      // Petit perron
+      const stoop = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 0.2, 1),
+        new THREE.MeshStandardMaterial({ color: 0xc9bfa8, roughness: 0.9 })
+      );
+      stoop.position.set(0, 0.1, 5.5);
+      v.add(stoop);
+      return v;
+    };
+
+    // Helper : palmier royal (~7 m)
+    const makePalmTree = (height = 7) => {
+      const p = new THREE.Group();
+      const trunkSegs = 8;
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4f30, roughness: 0.95 });
+      for (let i = 0; i < trunkSegs; i++) {
+        const seg = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.18 - i * 0.012, 0.24 - i * 0.012, height / trunkSegs, 8),
+          trunkMat
+        );
+        seg.position.set(
+          Math.sin(i * 0.6) * 0.08,
+          (height / trunkSegs) * (i + 0.5),
+          Math.cos(i * 0.6) * 0.05
+        );
+        seg.castShadow = true;
+        p.add(seg);
+      }
+      // Feuillage : 9 palmes en cône
+      const fronds = 9;
+      const frondMat = new THREE.MeshStandardMaterial({ color: 0x2c8a3a, roughness: 0.85 });
+      for (let i = 0; i < fronds; i++) {
+        const angle = (i / fronds) * Math.PI * 2;
+        const tilt = 0.45 + Math.random() * 0.25;
+        const frond = new THREE.Mesh(new THREE.ConeGeometry(0.32, 3.6, 4), frondMat);
+        frond.position.set(
+          Math.cos(angle) * 1.6,
+          height + 0.4,
+          Math.sin(angle) * 1.6
+        );
+        frond.rotation.z = Math.cos(angle) * tilt;
+        frond.rotation.x = -Math.sin(angle) * tilt;
+        frond.castShadow = true;
+        p.add(frond);
+      }
+      // Petites noix de coco
+      for (let k = 0; k < 3; k++) {
+        const c = new THREE.Mesh(
+          new THREE.SphereGeometry(0.16, 6, 6),
+          new THREE.MeshStandardMaterial({ color: 0x3a2c1a, roughness: 0.85 })
+        );
+        c.position.set(Math.cos(k * 2.1) * 0.35, height - 0.15, Math.sin(k * 2.1) * 0.35);
+        p.add(c);
+      }
+      return p;
+    };
+
+    // Helper : massif fleuri (bougainvilliers / roses)
+    const makeFlowerBush = (color, scale = 1) => {
+      const b = new THREE.Group();
+      const foliage = new THREE.Mesh(
+        new THREE.SphereGeometry(0.7 * scale, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x2a6c30, roughness: 0.9 })
+      );
+      foliage.scale.set(1, 0.7, 1);
+      foliage.position.y = 0.5 * scale;
+      b.add(foliage);
+      const floMat = new THREE.MeshStandardMaterial({
+        color, emissive: color, emissiveIntensity: 0.2, roughness: 0.85,
+      });
+      const count = 22;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = (0.35 + Math.random() * 0.5) * scale;
+        const flo = new THREE.Mesh(new THREE.SphereGeometry(0.13 * scale, 5, 4), floMat);
+        flo.position.set(
+          Math.cos(angle) * r,
+          (0.4 + Math.random() * 0.55) * scale,
+          Math.sin(angle) * r
+        );
+        b.add(flo);
+      }
+      return b;
+    };
+
+    // Helper : massif de lavande (rectangle violet)
+    const makeLavenderBed = (w = 4, d = 2) => {
+      const bed = new THREE.Group();
+      const dirt = new THREE.Mesh(
+        new THREE.BoxGeometry(w, 0.06, d),
+        new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 0.95 })
+      );
+      dirt.position.y = 0.05;
+      bed.add(dirt);
+      const stemMat = new THREE.MeshStandardMaterial({
+        color: 0x9a78c4, emissive: 0x6a4a94, emissiveIntensity: 0.15,
+      });
+      const cnt = Math.max(20, Math.floor(w * d * 5));
+      for (let i = 0; i < cnt; i++) {
+        const stem = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.04, 0.04, 0.45 + Math.random() * 0.15, 4),
+          stemMat
+        );
+        stem.position.set(
+          (Math.random() - 0.5) * (w - 0.4),
+          0.3,
+          (Math.random() - 0.5) * (d - 0.4)
+        );
+        bed.add(stem);
+      }
+      return bed;
+    };
+
+    // Sol crème du quartier (différencie du bitume gris de la ville)
+    const districtGround = new THREE.Mesh(
+      new THREE.PlaneGeometry(150, 110),
+      new THREE.MeshStandardMaterial({ color: 0xd6c8a8, roughness: 0.95 })
+    );
+    districtGround.rotation.x = -Math.PI / 2;
+    districtGround.position.set(-110, 0.003, -15);
+    districtGround.receiveShadow = true;
+    luxDistrict.add(districtGround);
+
+    // Allée pierre claire qui traverse le quartier
+    const lane = new THREE.Mesh(
+      new THREE.PlaneGeometry(140, 4),
+      new THREE.MeshStandardMaterial({ color: 0xede0c4, roughness: 0.9 })
+    );
+    lane.rotation.x = -Math.PI / 2;
+    lane.position.set(-110, 0.012, -2);
+    luxDistrict.add(lane);
+
+    // 6 villas placées (toutes face à l'allée centrale)
+    // wallColor varié pour donner vie au quartier
+    const villaSpecs = [
+      { x: -68,  z: -18, rotY: 0,         wallColor: 0xf5ecdb, roofColor: 0xb8956a },
+      { x: -100, z: -22, rotY: 0,         wallColor: 0xefe3cc, roofColor: 0xa67d52 },
+      { x: -135, z: -18, rotY: 0,         wallColor: 0xfaf3e3, roofColor: 0xc8a070 },
+      { x: -170, z: -22, rotY: 0.15,      wallColor: 0xf2e6d0, roofColor: 0xb8956a },
+      { x: -85,  z: 14,  rotY: Math.PI,   wallColor: 0xfff5e5, roofColor: 0xa67d52 },
+      { x: -150, z: 14,  rotY: Math.PI,   wallColor: 0xeae0c8, roofColor: 0xc8a070 },
+    ];
+    for (const vs of villaSpecs) {
+      const villa = makeLuxuryVilla({ wallColor: vs.wallColor, roofColor: vs.roofColor });
+      villa.position.set(vs.x, 0, vs.z);
+      villa.rotation.y = vs.rotY;
+      luxDistrict.add(villa);
+      // Collision (AABB) — bloque le joueur dans les murs des villas
+      obstacles.push({
+        minX: vs.x - 6.2, maxX: vs.x + 6.2,
+        minZ: vs.z - 5.2, maxZ: vs.z + 5.2,
+      });
+    }
+
+    // ~14 palmiers répartis (de chaque côté de l'allée + entre villas)
+    const palmSpots = [
+      [-58, -8],  [-58, 6],   [-78, -8],   [-92, -8],   [-92, 6],
+      [-115, -8], [-115, 6],  [-128, -8],  [-145, -8],  [-160, 6],
+      [-175, -10],[-180, 8],  [-65, 25],   [-145, 25],
+    ];
+    for (const [x, z] of palmSpots) {
+      const pt = makePalmTree(6 + Math.random() * 2);
+      pt.position.set(x, 0, z);
+      pt.rotation.y = Math.random() * Math.PI * 2;
+      luxDistrict.add(pt);
+    }
+
+    // Bougainvilliers (rose vif) + roses rouges devant chaque villa
+    const flowerSpots = [
+      // Bougainvilliers roses (devant villas)
+      { x: -62, z: -8,  c: 0xff2a8a, s: 1.3 },
+      { x: -74, z: -8,  c: 0xff2a8a, s: 1.1 },
+      { x: -94, z: -10, c: 0xff2a8a, s: 1.4 },
+      { x: -106,z: -10, c: 0xff2a8a, s: 1.2 },
+      { x: -130,z: -8,  c: 0xff2a8a, s: 1.3 },
+      { x: -141,z: -8,  c: 0xff2a8a, s: 1.0 },
+      { x: -164,z: -10, c: 0xff2a8a, s: 1.3 },
+      { x: -176,z: -10, c: 0xff2a8a, s: 1.1 },
+      { x: -80, z: 6,   c: 0xff2a8a, s: 1.2 },
+      { x: -90, z: 6,   c: 0xff2a8a, s: 1.0 },
+      { x: -145,z: 6,   c: 0xff2a8a, s: 1.3 },
+      { x: -156,z: 6,   c: 0xff2a8a, s: 1.0 },
+      // Roses rouges
+      { x: -68, z: -25, c: 0xd91a3a, s: 0.9 },
+      { x: -99, z: -28, c: 0xd91a3a, s: 0.9 },
+      { x: -135,z: -25, c: 0xd91a3a, s: 0.9 },
+      { x: -170,z: -28, c: 0xd91a3a, s: 0.9 },
+      { x: -85, z: 22,  c: 0xd91a3a, s: 0.9 },
+      { x: -151,z: 22,  c: 0xd91a3a, s: 0.9 },
+      // Quelques bougainvillers blancs / orangés en variation
+      { x: -110,z: -2,  c: 0xff9a3a, s: 1.0 },
+      { x: -110,z: 2,   c: 0xffffff, s: 0.8 },
+    ];
+    for (const f of flowerSpots) {
+      const fb = makeFlowerBush(f.c, f.s);
+      fb.position.set(f.x, 0, f.z);
+      luxDistrict.add(fb);
+    }
+
+    // Massifs de lavande devant les villas
+    const lavSpots = [
+      [-68, -12, 5, 1.3], [-100, -14, 5, 1.3], [-135, -12, 5, 1.3], [-170, -14, 5, 1.3],
+      [-85, 10, 5, 1.3],  [-150, 10, 5, 1.3],
+    ];
+    for (const [x, z, w, d] of lavSpots) {
+      const lb = makeLavenderBed(w, d);
+      lb.position.set(x, 0, z);
+      luxDistrict.add(lb);
+    }
+
+    // Petite piscine bleue (entre les villas, côté avenue)
+    const poolGroup = new THREE.Group();
+    const poolWater = new THREE.Mesh(
+      new THREE.BoxGeometry(7, 0.4, 3.5),
+      new THREE.MeshStandardMaterial({
+        color: 0x4ec5e8, transparent: true, opacity: 0.85,
+        metalness: 0.6, roughness: 0.05, emissive: 0x6cd5ff, emissiveIntensity: 0.12,
+      })
+    );
+    poolWater.position.y = 0.05;
+    poolGroup.add(poolWater);
+    const poolDeck = new THREE.Mesh(
+      new THREE.BoxGeometry(9, 0.1, 5.5),
+      new THREE.MeshStandardMaterial({ color: 0xede0c4, roughness: 0.85 })
+    );
+    poolDeck.position.y = 0.005;
+    poolGroup.add(poolDeck);
+    poolGroup.position.set(-117, 0, -38);
+    luxDistrict.add(poolGroup);
+
+    // Lampadaires élégants noirs (jalonnent l'allée)
+    for (const lx of [-60, -90, -120, -150, -180]) {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.1, 4.5, 6),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.6, roughness: 0.4 })
+      );
+      post.position.set(lx, 2.25, 1.5);
+      luxDistrict.add(post);
+      const lamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 10, 8),
+        new THREE.MeshStandardMaterial({
+          color: 0xfff2c4, emissive: 0xfff2c4, emissiveIntensity: 0.7,
+        })
+      );
+      lamp.position.set(lx, 4.6, 1.5);
+      luxDistrict.add(lamp);
+    }
+
+    // Petite enseigne discrète à l'entrée du quartier (côté est, vers le spawn)
+    const signGroup = new THREE.Group();
+    signGroup.position.set(-50, 0, 0);
+    const signPost = new THREE.Mesh(
+      new THREE.BoxGeometry(0.15, 3, 0.15),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.5 })
+    );
+    signPost.position.y = 1.5;
+    signGroup.add(signPost);
+    const signPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 0.7, 0.05),
+      new THREE.MeshStandardMaterial({
+        color: 0xf5ecdb, emissive: 0xd4af37, emissiveIntensity: 0.18,
+      })
+    );
+    signPlate.position.set(0, 2.5, 0);
+    signGroup.add(signPlate);
+    luxDistrict.add(signGroup);
+
+    scene.add(luxDistrict);
 
     // ─── 5) DÉCORATIONS VILLE : plantes, bancs, fontaine, place piétonne ──────
     // Place piétonne pavée entre garage et boutique (x=0, z=30)
