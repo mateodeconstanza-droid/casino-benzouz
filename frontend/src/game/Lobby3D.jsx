@@ -9,6 +9,7 @@ import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
 import { buildPlayerCharacter } from '@/game/playerCharacter';
+import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
@@ -259,48 +260,71 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       scene.add(mold);
     }
 
-    // ========== MURS ==========
-    const wallMat = new THREE.MeshStandardMaterial({ color: colors.wall, roughness: 0.8 });
-    const wallHi = new THREE.MeshStandardMaterial({ color: primaryHex, roughness: 0.7, metalness: 0.3 });
-    
-    // Mur arrière (30)
-    const wallBack = new THREE.Mesh(new THREE.PlaneGeometry(40, 6), wallMat);
-    wallBack.position.set(0, 3, -20);
-    wallBack.receiveShadow = true;
-    scene.add(wallBack);
-    // Bande décorative
-    const wallBackBand = new THREE.Mesh(new THREE.PlaneGeometry(40, 0.5), wallHi);
-    wallBackBand.position.set(0, 4, -19.95);
+    // ========== MURS — refaits style guide unifié ==========
+    // Chaque mur a : (1) une grosse plaque crème dans la palette,
+    // (2) un soubassement bois sombre sur les 1.5 premiers mètres,
+    // (3) une corniche or en haut. Cohérent avec la façade extérieure.
+    const wallMat = matMatte(PALETTE.cream, { roughness: 0.85 });
+    const wainsMat = matMatte(PALETTE.woodDark, { roughness: 0.85 });
+    const goldTrimMat = matMetal(PALETTE.gold, { roughness: 0.25 });
+    const wallHi = matMatte(primaryHex, { roughness: 0.7, metalness: 0.3 });
+
+    const buildWallSegment = (w, h, x, y, z, rotY = 0) => {
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+      wall.position.set(x, y, z);
+      wall.rotation.y = rotY;
+      wall.receiveShadow = true;
+      scene.add(wall);
+      // Soubassement bois (boiserie basse)
+      const wains = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.4), wainsMat);
+      wains.position.set(x, 0.7, z);
+      wains.rotation.y = rotY;
+      // Légèrement décollé pour éviter z-fighting
+      const off = 0.005;
+      const dx = Math.sin(rotY) * off, dz = Math.cos(rotY) * off;
+      wains.position.x += dx; wains.position.z += dz;
+      scene.add(wains);
+      // Corniche or fine en haut
+      const trim = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.18), goldTrimMat);
+      trim.position.set(x + dx, h - 0.2, z + dz);
+      trim.rotation.y = rotY;
+      scene.add(trim);
+      // Liseré or au-dessus du soubassement
+      const lineGold = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.06), goldTrimMat);
+      lineGold.position.set(x + dx, 1.45, z + dz);
+      lineGold.rotation.y = rotY;
+      scene.add(lineGold);
+    };
+
+    // Mur arrière (rotY=0, normale vers +Z)
+    buildWallSegment(40, 6, 0, 3, -20, 0);
+    // Bande décorative casino sur le mur arrière
+    const wallBackBand = new THREE.Mesh(new THREE.PlaneGeometry(40, 0.4), wallHi);
+    wallBackBand.position.set(0, 4.6, -19.94);
     scene.add(wallBackBand);
-    
-    // Mur avant (30) avec porte ouverte
-    const wallFrontL = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
-    wallFrontL.position.set(-12, 3, 20);
-    wallFrontL.rotation.y = Math.PI;
-    scene.add(wallFrontL);
-    const wallFrontR = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
-    wallFrontR.position.set(12, 3, 20);
-    wallFrontR.rotation.y = Math.PI;
-    scene.add(wallFrontR);
+
+    // Mur avant gauche / droit / haut (rotY=π)
+    buildWallSegment(16, 6, -12, 3, 20, Math.PI);
+    buildWallSegment(16, 6, 12, 3, 20, Math.PI);
     const wallFrontTop = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.5), wallMat);
     wallFrontTop.position.set(0, 5.25, 20);
     wallFrontTop.rotation.y = Math.PI;
     scene.add(wallFrontTop);
-    
-    // Murs latéraux
-    const wallL = new THREE.Mesh(new THREE.PlaneGeometry(40, 6), wallMat);
-    wallL.position.set(-20, 3, 0);
-    wallL.rotation.y = Math.PI / 2;
-    scene.add(wallL);
-    const wallR = new THREE.Mesh(new THREE.PlaneGeometry(40, 6), wallMat);
-    wallR.position.set(20, 3, 0);
-    wallR.rotation.y = -Math.PI / 2;
-    scene.add(wallR);
 
-    // ========== LUMIÈRES ==========
-    scene.add(new THREE.AmbientLight(0xfff4dc, 1.0));
-    const hemi = new THREE.HemisphereLight(0xfff4dc, 0xffd700, 0.6);
+    // Murs latéraux
+    buildWallSegment(40, 6, -20, 3, 0, Math.PI / 2);
+    buildWallSegment(40, 6, 20, 3, 0, -Math.PI / 2);
+
+    // ========== LUMIÈRES — atmosphère casino chaude ==========
+    // Ambient plus tamisé pour faire ressortir lustres + néons
+    scene.add(new THREE.AmbientLight(0xfff4dc, 0.55));
+    // Hemisphere : ciel doux + sol chaud-or → halo cosy
+    const hemi = new THREE.HemisphereLight(0xfff0c8, 0xb87a2a, 0.55);
     scene.add(hemi);
+    // Petite lumière directionnelle pour un sens "soleil rasant via vitres"
+    const wallSun = new THREE.DirectionalLight(0xffd9a0, 0.35);
+    wallSun.position.set(0, 6, 18);
+    scene.add(wallSun);
     
     // LUSTRES grandiose (6 pièces)
     const chandelierPositions = [[0, 0], [0, -8]];
