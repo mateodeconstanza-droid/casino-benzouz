@@ -10,6 +10,7 @@ import { FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
 import { useAmbientAudio } from '@/game/useAmbientAudio';
 import sfx from '@/game/sfx';
+import { PALETTE, createSkyDome, setupFog } from '@/game/style';
 
 // =============================================================
 // HOUSE CATALOG — 32 propriétés (5 appart + 3 maisons + 2 villas + 22 maisons étendues)
@@ -164,9 +165,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
     // ----- Scene / Camera / Renderer -----
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x9fd7ff); // bleu ciel clair
-    // Fog plus lointain pour ville étendue x10
-    scene.fog = new THREE.Fog(0x9fd7ff, 150, 550);
+    // Ciel : grand dôme dégradé (warm horizon Vice City) à la place
+    // d'un simple background uni → profondeur visuelle.
+    const skyDome = createSkyDome();
+    scene.add(skyDome);
+    // Brouillard atmosphérique (rapproché pour donner "weight" au sol)
+    setupFog(scene, 'light');
 
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 900);
     // Position FPS du joueur : milieu de la rue, face au casino
@@ -187,17 +191,25 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     };
     window.addEventListener('resize', handleResize);
 
-    // ----- Lights -----
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const sunLight = new THREE.DirectionalLight(0xfff1c7, 1.2);
-    sunLight.position.set(20, 28, 15);
+    // ----- Lights (style guide : hemisphere + sun warm + cool fill + ambient) -----
+    const hemi = new THREE.HemisphereLight(PALETTE.skyTop, PALETTE.sand, 0.55);
+    scene.add(hemi);
+    const sunLight = new THREE.DirectionalLight(PALETTE.sunWarm, 1.2);
+    sunLight.position.set(60, 80, 30);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(2048, 2048);
-    sunLight.shadow.camera.left = -40;
-    sunLight.shadow.camera.right = 40;
-    sunLight.shadow.camera.top = 40;
-    sunLight.shadow.camera.bottom = -40;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 200;
+    sunLight.shadow.camera.left = -100;
+    sunLight.shadow.camera.right = 100;
+    sunLight.shadow.camera.top = 100;
+    sunLight.shadow.camera.bottom = -100;
+    sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
+    const skyFill = new THREE.DirectionalLight(PALETTE.sunCool, 0.4);
+    skyFill.position.set(-50, 30, -30);
+    scene.add(skyFill);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
     // Soleil visuel
     const sun = new THREE.Mesh(

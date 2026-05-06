@@ -27,8 +27,8 @@ export const Avatar3D = ({
 
     // ===== Camera (cadrée sur le perso, légèrement plongeante) =====
     const camera = new THREE.PerspectiveCamera(28, W / H, 0.1, 50);
-    camera.position.set(0, 1.55, 4.6);
-    camera.lookAt(0, 1.45, 0);
+    camera.position.set(0, 1.65, 5.0);
+    camera.lookAt(0, 1.5, 0);
 
     // ===== Renderer transparent =====
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
