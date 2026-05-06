@@ -10,7 +10,7 @@ import { FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
 import { useAmbientAudio } from '@/game/useAmbientAudio';
 import sfx from '@/game/sfx';
-import { PALETTE, createSkyDome, setupFog } from '@/game/style';
+import { PALETTE, createSkyDome, setupFog, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 
 // =============================================================
 // HOUSE CATALOG — 32 propriétés (5 appart + 3 maisons + 2 villas + 22 maisons étendues)
@@ -436,24 +436,38 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const casinoGroup = new THREE.Group();
     casinoGroup.position.set(0, 0, -10);
 
-    // Corps principal casino
+    // Corps principal casino (rounded crème)
     const casinoBody = new THREE.Mesh(
-      new THREE.BoxGeometry(14, 8, 10),
-      new THREE.MeshStandardMaterial({ color: 0xe8d9a6, roughness: 0.7 })
+      roundedBox(14, 8, 10, 0.35, 4),
+      matMatte(PALETTE.cream, { roughness: 0.78 }),
     );
     casinoBody.position.y = 4;
     casinoBody.castShadow = true;
     casinoBody.receiveShadow = true;
     casinoGroup.add(casinoBody);
 
-    // Toit rouge
+    // Bandeau or épais à mi-hauteur
+    const beltGold = new THREE.Mesh(
+      roundedBox(14.2, 0.4, 10.2, 0.1, 3),
+      matMetal(PALETTE.gold, { roughness: 0.25 }),
+    );
+    beltGold.position.y = 2.7;
+    casinoGroup.add(beltGold);
+
+    // Toit (burgundy arrondi + corniche or)
     const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(15, 1.5, 11),
-      new THREE.MeshStandardMaterial({ color: 0x8b2020, roughness: 0.6 })
+      roundedBox(15, 1.5, 11, 0.25, 4),
+      matMatte(PALETTE.burgundy, { roughness: 0.65 }),
     );
     roof.position.y = 8.75;
     roof.castShadow = true;
     casinoGroup.add(roof);
+    const roofTrim = new THREE.Mesh(
+      roundedBox(15.4, 0.25, 11.4, 0.1, 3),
+      matMetal(PALETTE.gold),
+    );
+    roofTrim.position.y = 8.05;
+    casinoGroup.add(roofTrim);
 
     // Enseigne néon "CASINO"
     const signCanvas = document.createElement('canvas');
@@ -474,26 +488,26 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     signMesh.position.set(0, 10, 5.05);
     casinoGroup.add(signMesh);
 
-    // Entrée (grande porte en arcade)
+    // Entrée (porte arrondie chaude)
     const entrance = new THREE.Mesh(
-      new THREE.BoxGeometry(4, 5, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x2a1a0a, emissive: 0x4a2a0a, emissiveIntensity: 0.35 })
+      roundedBox(4, 5, 0.25, 0.2, 3),
+      matGlow(PALETTE.woodDark, 0.28),
     );
     entrance.position.set(0, 2.5, 5.05);
     casinoGroup.add(entrance);
-    // Encadrement doré
+    // Encadrement doré (arche carrée)
     const entFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(4.4, 5.4, 0.12),
-      new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 })
+      roundedBox(4.4, 5.4, 0.15, 0.18, 3),
+      matMetal(PALETTE.gold),
     );
     entFrame.position.set(0, 2.7, 5.02);
     casinoGroup.add(entFrame);
 
-    // Fenêtres
+    // Fenêtres lumineuses (rounded)
     for (let f = 0; f < 6; f++) {
       const win = new THREE.Mesh(
-        new THREE.BoxGeometry(1.2, 1.6, 0.15),
-        new THREE.MeshStandardMaterial({ color: 0xffd88a, emissive: 0xffbe2a, emissiveIntensity: 0.4 })
+        roundedBox(1.2, 1.6, 0.15, 0.08, 3),
+        matGlow(PALETTE.goldBright, 0.42),
       );
       const side = f % 2 === 0 ? -1 : 1;
       const slot = Math.floor(f / 2);
@@ -541,20 +555,26 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const buildingGroup = new THREE.Group();
     buildingGroup.position.set(-22, 0, -14);
     const building = new THREE.Mesh(
-      new THREE.BoxGeometry(8, 14, 7),
-      new THREE.MeshStandardMaterial({ color: 0xc8b394, roughness: 0.85 })
+      roundedBox(8, 14, 7, 0.3, 4),
+      matMatte(PALETTE.marble, { roughness: 0.85 }),
     );
     building.position.y = 7;
     building.castShadow = true;
     building.receiveShadow = true;
     buildingGroup.add(building);
-    // Toit plat
+    // Toit plat (corniche or)
     const bRoof = new THREE.Mesh(
-      new THREE.BoxGeometry(8.6, 0.4, 7.6),
-      new THREE.MeshStandardMaterial({ color: 0x5a3a2a })
+      roundedBox(8.6, 0.4, 7.6, 0.12, 3),
+      matMatte(PALETTE.woodDark),
     );
     bRoof.position.y = 14.2;
     buildingGroup.add(bRoof);
+    const bRoofTrim = new THREE.Mesh(
+      roundedBox(8.8, 0.15, 7.8, 0.08, 3),
+      matMetal(PALETTE.gold),
+    );
+    bRoofTrim.position.y = 14.0;
+    buildingGroup.add(bRoofTrim);
     // Fenêtres par étage (5 étages × 3 fenêtres)
     for (let fl = 0; fl < 5; fl++) {
       for (let wc = 0; wc < 3; wc++) {
@@ -1888,20 +1908,26 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     garage.rotation.y = Math.PI; // G4 — face au casino (-Z)
     // Bâtiment principal — large façade
     const garBld = new THREE.Mesh(
-      new THREE.BoxGeometry(16, 6, 9),
-      new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.7 })
+      roundedBox(16, 6, 9, 0.3, 4),
+      matMatte(0x3a3a44, { roughness: 0.78 }),
     );
     garBld.position.y = 3;
     garBld.castShadow = true;
     garBld.receiveShadow = true;
     garage.add(garBld);
-    // Toit légèrement plus grand
+    // Toit + corniche or
     const garRoof = new THREE.Mesh(
-      new THREE.BoxGeometry(16.6, 0.4, 9.6),
-      new THREE.MeshStandardMaterial({ color: 0x222228 })
+      roundedBox(16.6, 0.4, 9.6, 0.12, 3),
+      matMatte(0x1a1a20),
     );
     garRoof.position.y = 6.2;
     garage.add(garRoof);
+    const garRoofTrim = new THREE.Mesh(
+      roundedBox(16.8, 0.18, 9.8, 0.08, 3),
+      matMetal(PALETTE.gold),
+    );
+    garRoofTrim.position.y = 6.0;
+    garage.add(garRoofTrim);
     // 3 portes de garage (rouleau métal) bien visibles
     for (let g = -1; g <= 1; g++) {
       const door = new THREE.Mesh(
@@ -1979,25 +2005,25 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const shopFr = new THREE.Group();
     shopFr.position.set(28, 0, 30);
     shopFr.rotation.y = Math.PI; // face au casino
-    // Bâtiment principal — 18×8×11 m (plus grand qu'avant)
+    // Bâtiment principal — rounded burgundy + cream contrast
     const shopBld = new THREE.Mesh(
-      new THREE.BoxGeometry(18, 8, 11),
-      new THREE.MeshStandardMaterial({ color: 0x18101e, roughness: 0.6, metalness: 0.2 })
+      roundedBox(18, 8, 11, 0.4, 4),
+      matMatte(PALETTE.burgundy, { roughness: 0.7 }),
     );
     shopBld.position.y = 4;
     shopBld.castShadow = true;
     shopBld.receiveShadow = true;
     shopFr.add(shopBld);
-    // Toit avec corniche dorée
+    // Toit + corniche or
     const shopRoof = new THREE.Mesh(
-      new THREE.BoxGeometry(18.6, 0.6, 11.6),
-      new THREE.MeshStandardMaterial({ color: 0x0a0610 })
+      roundedBox(18.6, 0.6, 11.6, 0.18, 3),
+      matMatte(0x1a0608),
     );
     shopRoof.position.y = 8.3;
     shopFr.add(shopRoof);
     const shopRoofGold = new THREE.Mesh(
-      new THREE.BoxGeometry(18.4, 0.2, 11.4),
-      new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 })
+      roundedBox(18.4, 0.22, 11.4, 0.1, 3),
+      matMetal(PALETTE.gold),
     );
     shopRoofGold.position.y = 7.9;
     shopFr.add(shopRoofGold);
