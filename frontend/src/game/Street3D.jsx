@@ -996,36 +996,34 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const bodyW = 4.5 + (idx % 3);
       const bodyH = 3.5 + (idx % 2);
       const body = new THREE.Mesh(
-        new THREE.BoxGeometry(bodyW, bodyH, 4),
-        new THREE.MeshStandardMaterial({ color: c.wall, roughness: 0.85 })
+        roundedBox(bodyW, bodyH, 4, 0.18, 4),
+        matMatte(c.wall, { roughness: 0.85 }),
       );
       body.position.y = bodyH / 2 + ((idx % 2) * 0.25);
       body.castShadow = true; body.receiveShadow = true;
       g.add(body);
+      // Toit cône (matMatte pour aspect "tuile" matte)
       const roof = new THREE.Mesh(
         new THREE.ConeGeometry(3.5, 1.5, 4),
-        new THREE.MeshStandardMaterial({ color: c.roof })
+        matMatte(c.roof, { roughness: 0.78 }),
       );
       roof.rotation.y = Math.PI / 4;
       roof.position.y = bodyH + 0.7 + ((idx % 2) * 0.25);
       g.add(roof);
       // Porte (doré si possédée)
       const door = new THREE.Mesh(
-        new THREE.BoxGeometry(0.9, 1.8, 0.12),
-        new THREE.MeshStandardMaterial({
-          color: ownedSh ? 0xd4af37 : 0x2a1a0a,
-          metalness: ownedSh ? 0.9 : 0, roughness: ownedSh ? 0.2 : 0.7,
-        })
+        roundedBox(0.9, 1.8, 0.12, 0.05, 3),
+        ownedSh
+          ? matMetal(PALETTE.gold)
+          : matMatte(PALETTE.woodDark, { roughness: 0.7 }),
       );
       door.position.set(0, 0.9, 2.05);
       g.add(door);
-      const winMat = new THREE.MeshStandardMaterial({
-        color: ownedSh ? 0xffd88a : 0x8faabc,
-        emissive: ownedSh ? 0xffbe2a : 0,
-        emissiveIntensity: ownedSh ? 0.4 : 0.1,
-      });
+      const winMat = ownedSh
+        ? matGlow(PALETTE.goldBright, 0.4)
+        : matMatte(0x8faabc, { roughness: 0.5, emissive: 0x8faabc, emissiveIntensity: 0.1 });
       for (let w = 0; w < 2; w++) {
-        const win = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.12), winMat);
+        const win = new THREE.Mesh(roundedBox(0.8, 1, 0.12, 0.05, 3), winMat);
         win.position.set(-1.4 + w * 2.8, 2.1, 2.05);
         g.add(win);
       }
