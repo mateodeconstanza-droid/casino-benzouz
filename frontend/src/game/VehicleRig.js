@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 
 // =============================================================
 // buildVehicleRig(vehicleId)
@@ -61,22 +62,22 @@ export const buildVehicleRig = (vehicleId) => {
     const board = new THREE.Group();
     rig.add(board);
 
-    // Deck en érable (warm brown), légèrement courbé via 3 segments
-    const deckMat = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.75, metalness: 0.05 });
-    const main = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.045, 0.46), deckMat);
+    // Deck en érable (warm brown), rounded box
+    const deckMat = matMatte(PALETTE.wood, { roughness: 0.78 });
+    const main = new THREE.Mesh(roundedBox(1.6, 0.045, 0.46, 0.04, 3), deckMat);
     main.position.set(0, 0.13, 0);
     board.add(main);
     // Kick tail / kick nose (extrémités relevées)
     for (let s = -1; s <= 1; s += 2) {
-      const kick = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.045, 0.46), deckMat);
+      const kick = new THREE.Mesh(roundedBox(0.32, 0.045, 0.46, 0.04, 3), deckMat);
       kick.position.set(s * 0.86, 0.18, 0);
       kick.rotation.z = -s * 0.22;
       board.add(kick);
     }
 
     // Grip tape noir mat sur tout le dessus
-    const gripMat = new THREE.MeshStandardMaterial({ color: 0x111114, roughness: 0.97, metalness: 0 });
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.005, 0.43), gripMat);
+    const gripMat = matMatte(PALETTE.darkInk, { roughness: 0.97 });
+    const grip = new THREE.Mesh(roundedBox(2.2, 0.005, 0.43, 0.02, 2), gripMat);
     grip.position.set(0, 0.155, 0);
     board.add(grip);
 
@@ -272,37 +273,28 @@ export const buildVehicleRig = (vehicleId) => {
   // =============================================================
   if (vehicleId === 'quad' || vehicleId === 'quad-pro') {
     const isPro = vehicleId === 'quad-pro';
-    const bodyColor = isPro ? 0x2a2a2e : 0xc62828;   // pro = noir, base = rouge
-    const accentColor = isPro ? 0xd4af37 : 0xf4d35e; // pro = or, base = jaune
-    const tireMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.95, metalness: 0.05 });
-    const rimMat = new THREE.MeshStandardMaterial({ color: 0x999da3, metalness: 0.9, roughness: 0.25 });
-    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, metalness: 0.4, roughness: 0.4 });
-    const accentMat = new THREE.MeshStandardMaterial({ color: accentColor, metalness: 0.6, roughness: 0.3 });
-    const blackMat = new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.7, roughness: 0.4 });
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd0d3d8, metalness: 0.95, roughness: 0.2 });
+    const bodyColor = isPro ? 0x2a2a2e : PALETTE.burgundy;
+    const accentColor = isPro ? PALETTE.gold : 0xf4d35e;
+    const tireMat = matMatte(PALETTE.darkInk, { roughness: 0.95 });
+    const rimMat = matMetal(0x999da3, { roughness: 0.25 });
+    const bodyMat = matMatte(bodyColor, { roughness: 0.45, metalness: 0.3 });
+    const accentMat = matMetal(accentColor, { roughness: 0.3, metalness: 0.7 });
+    const blackMat = matMatte(PALETTE.darkInk, { roughness: 0.5, metalness: 0.4 });
+    const chromeMat = matMetal(0xd0d3d8, { roughness: 0.2 });
 
-    // ── Châssis principal (carénage avant + central + arrière) ──
-    const mainBody = new THREE.Mesh(
-      new THREE.BoxGeometry(1.7, 0.42, 0.95),
-      bodyMat,
-    );
+    // ── Châssis principal (rounded) ──
+    const mainBody = new THREE.Mesh(roundedBox(1.7, 0.42, 0.95, 0.1, 4), bodyMat);
     mainBody.position.set(0, 0.55, 0);
     rig.add(mainBody);
 
     // Carénage avant relevé
-    const frontFairing = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.45, 0.95),
-      bodyMat,
-    );
+    const frontFairing = new THREE.Mesh(roundedBox(0.5, 0.45, 0.95, 0.08, 4), bodyMat);
     frontFairing.position.set(0.7, 0.65, 0);
     frontFairing.rotation.z = -0.18;
     rig.add(frontFairing);
 
-    // Bande accent (rayure colorée le long du châssis)
-    const stripe = new THREE.Mesh(
-      new THREE.BoxGeometry(1.7, 0.06, 0.97),
-      accentMat,
-    );
+    // Bande accent or
+    const stripe = new THREE.Mesh(roundedBox(1.7, 0.06, 0.97, 0.03, 3), accentMat);
     stripe.position.set(0, 0.78, 0);
     rig.add(stripe);
 
