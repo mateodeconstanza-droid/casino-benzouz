@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
+import { Avatar3D } from '@/game/Avatar3D';
 
 // =============================================================
 // MiniAvatar — preview stylisé du personnage (SVG compact)
@@ -205,7 +206,7 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
               padding: 8, borderRadius: 16,
               background: `radial-gradient(ellipse at center top, rgba(212,175,55,0.15), transparent 60%)`,
             }}>
-              <MiniAvatar hair={hair} outfit={outfit} shoes={shoes} size={130} />
+              <Avatar3D hair={hair} outfit={outfit} shoes={shoes} size={150} />
             </div>
           </div>
 

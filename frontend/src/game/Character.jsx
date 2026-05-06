@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, SHORT_CATALOG } from '@/game/constants';
+import { Avatar3D } from '@/game/Avatar3D';
 // ============== ÉCRAN PERSONNALISATION PERSONNAGE ==============
 const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile, onDone, casino }) => {
   const [tab, setTab] = useState('hair');
@@ -81,7 +82,7 @@ const CharacterScreen = ({ profile, balance, setBalance, saveProfile, setProfile
           borderRadius: 12, padding: 20, minWidth: 240, textAlign: 'center',
         }}>
           <div style={{ color: '#cca366', fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>APERÇU</div>
-          <AvatarPreview hair={curHair} outfit={curOutfit} shoes={curShoes} short={curShort} skin={curSkin} size={180} />
+          <Avatar3D hair={curHair} outfit={curOutfit} shoes={curShoes} short={curShort} skin={curSkin} size={200} />
           <div style={{ fontSize: 14, marginTop: 10, color: casino.secondary, fontWeight: 'bold' }}>
             {profile.name}
           </div>
