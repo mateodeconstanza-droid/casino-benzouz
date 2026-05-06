@@ -1138,76 +1138,44 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     renderer.domElement.addEventListener('mousedown', onMouseDownGame);
 
     // ----- NPCs piétons (8) qui marchent sur le trottoir -----
+    // Réutilise le builder de personnage unifié (playerCharacter.js) → les
+    // NPCs ont la même qualité visuelle que le joueur (visage, vêtements,
+    // chaussures arrondies, jawline, iris, etc.).
     const npcs = new THREE.Group();
-    const npcColors = [
-      { skin: 0xe0b48a, shirt: 0xc93a3a, pants: 0x1a2a3a },
-      { skin: 0xb88866, shirt: 0x3a8aa0, pants: 0x2a1a1a },
-      { skin: 0xd0a080, shirt: 0xe8c058, pants: 0x1a1a1a },
-      { skin: 0xc89b78, shirt: 0x6a2a8a, pants: 0x1a1a2a },
-      { skin: 0xd8b99a, shirt: 0x1aa34a, pants: 0x2a2a1a },
-      { skin: 0xa87a5a, shirt: 0xd4af37, pants: 0x1a1a1a },
-      { skin: 0xe0b48a, shirt: 0x0a6aa8, pants: 0x3a1a1a },
-      { skin: 0xcca080, shirt: 0xcc4a1a, pants: 0x1a2a3a },
-    ];
-    npcColors.forEach((c, i) => {
-      const npc = new THREE.Group();
-      // Corps
-      const body = new THREE.Mesh(
-        new THREE.BoxGeometry(0.45, 0.7, 0.3),
-        new THREE.MeshStandardMaterial({ color: c.shirt, roughness: 0.9 })
-      );
-      body.position.y = 1.15;
-      body.castShadow = true;
-      npc.add(body);
-      // Jambes
-      const legL = new THREE.Mesh(
-        new THREE.BoxGeometry(0.16, 0.8, 0.18),
-        new THREE.MeshStandardMaterial({ color: c.pants })
-      );
-      legL.position.set(-0.1, 0.4, 0);
-      npc.add(legL);
-      const legR = legL.clone();
-      legR.position.x = 0.1;
-      npc.add(legR);
-      // Bras
-      const armL = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.55, 0.14),
-        new THREE.MeshStandardMaterial({ color: c.shirt })
-      );
-      armL.position.set(-0.3, 1.2, 0);
-      npc.add(armL);
-      const armR = armL.clone();
-      armR.position.x = 0.3;
-      npc.add(armR);
-      // Tête
-      const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.22, 12, 10),
-        new THREE.MeshStandardMaterial({ color: c.skin })
-      );
-      head.position.y = 1.72;
-      head.castShadow = true;
-      npc.add(head);
-      // Cheveux simples (disque)
-      const hair = new THREE.Mesh(
-        new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-        new THREE.MeshStandardMaterial({ color: 0x2a1a10 })
-      );
-      hair.position.y = 1.78;
-      npc.add(hair);
-
+    const npcSkinTones = ['#f2d3b0', '#e0b48a', '#b98259', '#8a5a35', '#c89b78', '#d8b99a', '#a87a5a', '#cca080'];
+    // Outfits "ville" : on évite les costumes/cravates/maillots (peu réalistes
+    // pour un piéton random) et on prend du quotidien : jean, blouson, etc.
+    const npcOutfitPool = [0, 1, 2, 3, 7, 8]; // T-shirt, survêt, jean, blouson, kimono, militaire
+    const npcHairPool   = [0, 1, 2, 3, 4, 5, 6]; // pas le rose néon ni l'or
+    const npcShoesPool  = [0, 1, 3, 4]; // baskets / mocassins / bottes
+    const seedRand = (() => { let s = 42; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; })();
+    for (let i = 0; i < 8; i++) {
+      const npc = buildPlayerCharacter({
+        hair: npcHairPool[Math.floor(seedRand() * npcHairPool.length)],
+        outfit: npcOutfitPool[Math.floor(seedRand() * npcOutfitPool.length)],
+        shoes: npcShoesPool[Math.floor(seedRand() * npcShoesPool.length)],
+        short: null,
+        skin: npcSkinTones[i % npcSkinTones.length],
+      });
       // Trajectoire : va et vient le long du trottoir, positions variées
       npc.position.set(-38 + i * 10, 0, -8 + (i % 2 === 0 ? 0 : 16));
       // Bounty : 40 % des NPCs sont "wanted" avec une prime affichée
-      const isWanted = i % 5 === 0 || i % 5 === 2; // 4 sur 8 (0, 2, 5, 7)
+      const isWanted = i % 5 === 0 || i % 5 === 2;
       const bountyAmount = isWanted ? [25000, 50000, 100000, 250000, 500000][i % 5] : 0;
+      // Re-mappe les refs pour que la boucle d'animation existante continue
+      // de marcher (legL/legR/armL/armR sont les pivots).
+      const ud0 = npc.userData;
       npc.userData = {
-        parts: { legL, legR, armL, armR },
+        parts: {
+          legL: ud0.leftLeg, legR: ud0.rightLeg,
+          armL: ud0.leftArm, armR: ud0.rightArm,
+        },
         speed: 0.035 + Math.random() * 0.025,
         direction: i % 2 === 0 ? 1 : -1,
         phase: Math.random() * Math.PI * 2,
         alive: true,
         health: 100,
-        bodyMesh: body,
+        bodyMesh: ud0.torso,
         isWanted,
         bounty: bountyAmount,
       };
@@ -1244,7 +1212,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         npc.userData.sign = wsign;
       }
       npcs.add(npc);
-    });
+    }
     scene.add(npcs);
 
     // ----- Voiture qui passe sur la route -----
