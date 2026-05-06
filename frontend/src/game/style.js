@@ -84,21 +84,32 @@ export const softCylinder = (rTop, rBottom, height, radial = 16) => {
 // Évite :
 //   - les valeurs metalness > 0.4 sauf pour or/chrome
 //   - les couleurs cyber-noires pures sans nuance
-export const matMatte = (color, opts = {}) => new THREE.MeshStandardMaterial({
-  color: new THREE.Color(color),
-  roughness: opts.roughness ?? 0.78,
-  metalness: opts.metalness ?? 0.05,
-  emissive: opts.emissive ? new THREE.Color(opts.emissive) : undefined,
-  emissiveIntensity: opts.emissiveIntensity ?? 0,
-});
+// On omet `emissive`/`emissiveIntensity` quand non demandés sinon
+// MeshStandardMaterial déclenche un warning "parameter 'emissive' has
+// value of undefined" pour chaque material créé.
+const buildStdParams = (color, opts) => {
+  const params = {
+    color: new THREE.Color(color),
+    roughness: opts.roughness ?? 0.78,
+    metalness: opts.metalness ?? 0.05,
+  };
+  if (opts.emissive !== undefined && opts.emissive !== null) {
+    params.emissive = new THREE.Color(opts.emissive);
+    params.emissiveIntensity = opts.emissiveIntensity ?? 0.5;
+  }
+  return params;
+};
 
-export const matMetal = (color, opts = {}) => new THREE.MeshStandardMaterial({
-  color: new THREE.Color(color),
-  roughness: opts.roughness ?? 0.25,
-  metalness: opts.metalness ?? 0.85,
-  emissive: opts.emissive ? new THREE.Color(opts.emissive) : undefined,
-  emissiveIntensity: opts.emissiveIntensity ?? 0,
-});
+export const matMatte = (color, opts = {}) =>
+  new THREE.MeshStandardMaterial(buildStdParams(color, opts));
+
+export const matMetal = (color, opts = {}) =>
+  new THREE.MeshStandardMaterial(buildStdParams(color, {
+    roughness: opts.roughness ?? 0.25,
+    metalness: opts.metalness ?? 0.85,
+    emissive: opts.emissive,
+    emissiveIntensity: opts.emissiveIntensity,
+  }));
 
 // "Soft glow" : material légèrement émissif (pour néons, écrans, mer)
 export const matGlow = (color, intensity = 0.35) => {

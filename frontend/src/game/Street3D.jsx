@@ -11,6 +11,7 @@ import { useHookah } from '@/game/useHookah';
 import { useAmbientAudio } from '@/game/useAmbientAudio';
 import sfx from '@/game/sfx';
 import { PALETTE, createSkyDome, setupFog, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
+import { buildPlayerCharacter } from '@/game/playerCharacter';
 
 // =============================================================
 // HOUSE CATALOG — 32 propriétés (5 appart + 3 maisons + 2 villas + 22 maisons étendues)
