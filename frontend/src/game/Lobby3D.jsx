@@ -8,6 +8,7 @@ import { useAmbientAudio } from '@/game/useAmbientAudio';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
+import { buildPlayerCharacter } from '@/game/playerCharacter';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
@@ -124,69 +125,18 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     // Simple personnage stylisé construit avec des primitives Three.js.
     // Couleurs tirées du profil (cheveux, tenue, chaussures, teint).
     const buildPlayerAvatar = () => {
-      const av = new THREE.Group();
-      const skin = new THREE.Color(profile?.skin || '#e0b48a');
-      const hairColor = new THREE.Color(HAIR_CATALOG[profile?.hair ?? 0]?.color || '#3a2817');
-      const shirtColor = new THREE.Color(OUTFIT_CATALOG[profile?.outfit ?? 0]?.color || '#1a1a1a');
-      const pantColor = shirtColor.clone().multiplyScalar(0.75);
-      const shoeColor = new THREE.Color(SHOES_CATALOG[profile?.shoes ?? 0]?.color || '#0a0a0a');
-
-      // Torso
-      const torsoMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.6 });
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.65, 0.28), torsoMat);
-      torso.position.y = 1.1;
-      av.add(torso);
-
-      // Head
-      const headMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.75 });
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), headMat);
-      head.position.y = 1.58;
-      av.add(head);
-
-      // Hair cap
-      const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.9 });
-      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), hairMat);
-      hair.position.y = 1.63;
-      av.add(hair);
-
-      // Arms
-      const armMat = torsoMat.clone();
-      const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.55, 8), armMat);
-      leftArm.position.set(-0.32, 1.1, 0);
-      av.add(leftArm);
-      const rightArm = leftArm.clone();
-      rightArm.position.x = 0.32;
-      av.add(rightArm);
-
-      // Hands
-      const handMat = headMat.clone();
-      const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), handMat);
-      leftHand.position.set(-0.32, 0.8, 0);
-      av.add(leftHand);
-      const rightHand = leftHand.clone();
-      rightHand.position.x = 0.32;
-      av.add(rightHand);
-
-      // Legs
-      const legMat = new THREE.MeshStandardMaterial({ color: pantColor, roughness: 0.8 });
-      const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 8), legMat);
-      leftLeg.position.set(-0.12, 0.38, 0);
-      av.add(leftLeg);
-      const rightLeg = leftLeg.clone();
-      rightLeg.position.x = 0.12;
-      av.add(rightLeg);
-
-      // Shoes
-      const shoeMat = new THREE.MeshStandardMaterial({ color: shoeColor, roughness: 0.5 });
-      const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.26), shoeMat);
-      leftShoe.position.set(-0.12, 0.02, 0.03);
-      av.add(leftShoe);
-      const rightShoe = leftShoe.clone();
-      rightShoe.position.x = 0.12;
-      av.add(rightShoe);
-
-      // Store refs for walk animation
-      av.userData = { leftArm, rightArm, leftLeg, rightLeg, leftShoe, rightShoe };
+      // Utilise le module partagé pour que le perso de création ===
+      // celui dans le lobby et en jeu. Les refs (leftArm, rightArm,
+      // leftLeg, rightLeg, leftShoe, rightShoe) sont posées par
+      // playerCharacter.js dans userData, et exploitées par
+      // l'animation de marche TPS plus bas.
+      const av = buildPlayerCharacter({
+        hair: profile?.hair ?? 0,
+        outfit: profile?.outfit ?? 0,
+        shoes: profile?.shoes ?? 0,
+        short: profile?.short ?? null,
+        skin: profile?.skin || '#e0b48a',
+      });
       av.visible = false; // shown only in 3rd person
       return av;
     };
@@ -4845,6 +4795,13 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
               fontFamily: 'inherit', cursor: 'pointer', fontWeight: 'bold',
               fontSize: 14,
             }}>{nearZone === 'exit' ? 'SORTIR' : 'ENTRER'}</button>
+          {/* Hint clavier PC : touche E (et espace) */}
+          <div style={{
+            marginTop: 6, fontSize: 10, color: casino.secondary,
+            letterSpacing: 1, opacity: 0.85,
+          }}>
+            Appuie sur <b style={{ color: '#ffd700' }}>E</b> ou <b style={{ color: '#ffd700' }}>ESPACE</b>
+          </div>
         </div>
       )}
 

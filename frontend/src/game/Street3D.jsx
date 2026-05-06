@@ -135,6 +135,26 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     return () => clearInterval(t);
   }, []);
 
+  // Bridge entre l'état React (aimingWeapon, profile.weapons) et les listeners
+  // souris attachés sur le canvas Three.js (à l'intérieur du gros useEffect).
+  useEffect(() => {
+    stateRef.current.mouseAim = {
+      aimingWeapon,
+      weapons: profile?.weapons || [],
+      toggleAim: () => {
+        const ws = profile?.weapons || [];
+        if (ws.length === 0) return;
+        // Si on vise déjà → on range. Sinon on sort la 1re arme du sac.
+        setAimingWeapon((prev) => prev ? null : ws[0]);
+      },
+      fire: () => {
+        if (aimingWeapon && stateRef.current.spawnBulletFromCamera) {
+          stateRef.current.spawnBulletFromCamera(aimingWeapon);
+        }
+      },
+    };
+  }, [aimingWeapon, profile?.weapons]);
+
   const ownedKeys = profile?.keys || [];
   const ownedHouses = profile?.ownedHouses || [];
 
@@ -1065,6 +1085,25 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       }
     };
     renderer.domElement.addEventListener('click', handleClick);
+
+    // ===== Souris PC : clic droit = sortir l'arme/viser, clic gauche = tirer =====
+    // Mobile : les boutons HUD continuent à fonctionner.
+    const onContextMenuPrevent = (e) => { e.preventDefault(); };
+    const onMouseDownGame = (e) => {
+      const ma = stateRef.current.mouseAim;
+      if (!ma) return;
+      if (e.button === 2) {
+        e.preventDefault();
+        ma.toggleAim && ma.toggleAim();
+      } else if (e.button === 0) {
+        if (ma.aimingWeapon) {
+          e.preventDefault();
+          ma.fire && ma.fire();
+        }
+      }
+    };
+    renderer.domElement.addEventListener('contextmenu', onContextMenuPrevent);
+    renderer.domElement.addEventListener('mousedown', onMouseDownGame);
 
     // ----- NPCs piétons (8) qui marchent sur le trottoir -----
     const npcs = new THREE.Group();
@@ -3148,6 +3187,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       window.removeEventListener('keydown', kd);
       window.removeEventListener('keyup', ku);
       renderer.domElement.removeEventListener('click', handleClick);
+      renderer.domElement.removeEventListener('contextmenu', onContextMenuPrevent);
+      renderer.domElement.removeEventListener('mousedown', onMouseDownGame);
       try { mount.removeChild(renderer.domElement); } catch (_e) { /* noop */ }
       renderer.dispose();
       scene.traverse((o) => {
