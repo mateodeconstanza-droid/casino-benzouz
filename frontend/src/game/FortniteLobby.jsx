@@ -10,7 +10,7 @@ import { RankBadge } from '@/game/RankBadge';
 // - Carrousel cosmétiques (changer coiffure/tenue/chaussures sur place)
 // - 4 CTAs : VILLE / CASINO / BOUTIQUE / PROFIL
 // ============================================================
-const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoProfile, onLogout, setProfile, deviceType, onChangeDevice }) => {
+const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoProfile, onLogout, setProfile, deviceType, onChangeDevice, onOpenControls }) => {
   const [tick, setTick] = useState(0);
   const [selHair, setSelHair] = useState(profile?.hair ?? 0);
   const [selOutfit, setSelOutfit] = useState(profile?.outfit ?? 0);
@@ -198,6 +198,9 @@ const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoP
         onOpenShop={onGoShop}
         onChangeDevice={onChangeDevice}
         position="top-right"
+        extraItems={[
+          { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
+        ]}
       />
 
       {/* ===== BOUTON DÉCONNEXION (bas-gauche) ===== */}

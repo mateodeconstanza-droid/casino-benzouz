@@ -86,7 +86,7 @@ export const HOUSES = [
 // Composant Street3D — Scène extérieure
 // Props : profile, balance, setBalance, onEnterCasino(), onBuyHouse(houseId), onExitGame()
 // =============================================================
-const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, onOpenShop, onOpenTrophies, onOpenQuests, deviceType, setProfile, spawnHint, onSpawnConsumed }) => {
+const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, onOpenShop, onOpenTrophies, onOpenQuests, deviceType, setProfile, spawnHint, onSpawnConsumed, onOpenControls }) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
   const stateRef = useRef({});
@@ -1165,11 +1165,27 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const npcSkinTones = ['#f2d3b0', '#e0b48a', '#b98259', '#8a5a35', '#c89b78', '#d8b99a', '#a87a5a', '#cca080'];
     // Outfits "ville" : on évite les costumes/cravates/maillots (peu réalistes
     // pour un piéton random) et on prend du quotidien : jean, blouson, etc.
-    const npcOutfitPool = [0, 1, 2, 3, 7, 8]; // T-shirt, survêt, jean, blouson, kimono, militaire
-    const npcHairPool   = [0, 1, 2, 3, 4, 5, 6]; // pas le rose néon ni l'or
-    const npcShoesPool  = [0, 1, 3, 4]; // baskets / mocassins / bottes
+    const npcOutfitPool = [0, 1, 2, 3, 7, 8, 12, 13, 14]; // T-shirt, survêt, jean, blouson, kimono, militaire, maillots
+    const npcHairPool   = [0, 1, 2, 3, 4, 5, 6, 7]; // toutes les coupes "humaines"
+    const npcShoesPool  = [0, 1, 3, 4, 5]; // baskets / mocassins / bottes / lumineux
     const seedRand = (() => { let s = 42; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; })();
-    for (let i = 0; i < 8; i++) {
+    // 22 NPCs répartis sur toute la zone jouable (-90..70 × -55..50)
+    // au lieu d'un seul ruban devant le casino.
+    const npcSpawnPoints = [
+      // Devant casino + plaza
+      { x: -25, z: 4 }, { x: 18, z: 6 }, { x: -8, z: 10 }, { x: 12, z: 12 },
+      // Côté garage / shop (commercial strip)
+      { x: -28, z: 22 }, { x: 22, z: 18 }, { x: -10, z: 26 }, { x: 8, z: 22 },
+      // Quartier de luxe
+      { x: -85, z: -5 }, { x: -110, z: 8 }, { x: -135, z: -2 }, { x: -158, z: 5 },
+      // Arrière (back rows)
+      { x: -30, z: -22 }, { x: 12, z: -24 }, { x: -10, z: -28 }, { x: 28, z: -18 },
+      // Front rows / autour des nouvelles maisons frontales
+      { x: -38, z: 38 }, { x: 16, z: 42 }, { x: 38, z: 38 }, { x: -6, z: 48 },
+      // Plage
+      { x: 80, z: 0 }, { x: 95, z: -20 },
+    ];
+    for (let i = 0; i < npcSpawnPoints.length; i++) {
       const npc = buildPlayerCharacter({
         hair: npcHairPool[Math.floor(seedRand() * npcHairPool.length)],
         outfit: npcOutfitPool[Math.floor(seedRand() * npcOutfitPool.length)],
@@ -1177,8 +1193,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         short: null,
         skin: npcSkinTones[i % npcSkinTones.length],
       });
-      // Trajectoire : va et vient le long du trottoir, positions variées
-      npc.position.set(-38 + i * 10, 0, -8 + (i % 2 === 0 ? 0 : 16));
+      const sp = npcSpawnPoints[i];
+      npc.position.set(sp.x, 0, sp.z);
       // Bounty : 40 % des NPCs sont "wanted" avec une prime affichée
       const isWanted = i % 5 === 0 || i % 5 === 2;
       const bountyAmount = isWanted ? [25000, 50000, 100000, 250000, 500000][i % 5] : 0;
@@ -2897,6 +2913,19 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         else if (nb?.type === 'garage') stateRef.current.onGarageClick?.();
         else if (nb?.type === 'shopfront') stateRef.current.onShopfrontClick?.();
       }
+      // Touches de combat (PC) :
+      // R / Tab → sortir/ranger l'arme (toggle aim)
+      // F / Espace → tirer
+      else if ((k === 'r' || k === 'tab') && down) {
+        e.preventDefault();
+        const ma = stateRef.current.mouseAim;
+        if (ma?.toggleAim) ma.toggleAim();
+      }
+      else if ((k === 'f' || k === ' ' || k === 'spacebar') && down) {
+        e.preventDefault();
+        const ma = stateRef.current.mouseAim;
+        if (ma?.aimingWeapon && ma.fire) ma.fire();
+      }
     };
     const kd = keyHandler(true);
     const ku = keyHandler(false);
@@ -3424,6 +3453,9 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         onOpenQuests={onOpenQuests}
         onOpenShop={onOpenShop}
         position="top-right"
+        extraItems={[
+          { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
+        ]}
       />
 
       {/* HUD top */}

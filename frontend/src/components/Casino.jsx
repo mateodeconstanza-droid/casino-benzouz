@@ -13,6 +13,7 @@ import RouletteGame from '@/game/Roulette';
 import HighCardGame from '@/game/HighCard';
 import ServerSelect from '@/game/ServerSelect';
 import DeviceSelect from '@/game/DeviceSelect';
+import ControlsHelp from '@/game/ControlsHelp';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -34,6 +35,7 @@ export default function Casino() {
     try { return localStorage.getItem('gamblelife_device') || null; } catch (_e) { return null; }
   });
   const [minBet, setMinBet] = useState(20);
+  const [showControls, setShowControls] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -744,6 +746,7 @@ export default function Casino() {
           onGoShop={() => setShowShop(true)}
           onGoProfile={() => setShowShop(true) /* TODO : page profil dédiée */}
           onLogout={handleLogout}
+          onOpenControls={() => setShowControls(true)}
         />
       )}
 
@@ -778,6 +781,7 @@ export default function Casino() {
             onExitGame={handleLogout}
             onOpenHome={handleEnterHome}
             onOpenShop={() => setShowShop(true)}
+            onOpenControls={() => setShowControls(true)}
           />
           <Onboarding
             active={!profile.onboardedAt}
@@ -849,6 +853,7 @@ export default function Casino() {
           onOpenCharacter={openCharacterFromMenu}
           onToggleVehicle={handleEquipVehicle}
           onExitCasino={handleExitToStreet}
+          onOpenControls={() => setShowControls(true)}
         />
       )}
 
@@ -890,6 +895,8 @@ export default function Casino() {
       {screen === 'roulette' && <RouletteGame {...gameProps} />}
       {screen === 'highcard' && <HighCardGame {...gameProps} />}
       {screen === 'poker' && <PokerGame {...gameProps} />}
+
+      {showControls && <ControlsHelp onClose={() => setShowControls(false)} />}
 
       {showWheel && (
         <FortuneWheel3D 

@@ -13,7 +13,7 @@ import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId }) => {
+const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -143,6 +143,115 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     };
     const playerAvatar = buildPlayerAvatar();
     scene.add(playerAvatar);
+
+    // ===== Weapon mesh attaché au bras droit (visible en TPS) =====
+    // Quand selectedWeaponRef.current change, on remplace le mesh.
+    let attachedWeaponId = null;
+    let attachedWeapon = null;
+    const buildWeaponMesh = (id) => {
+      if (!id) return null;
+      const g = new THREE.Group();
+      // Position : dans la main droite (qui est à -0.85 du bras)
+      g.position.set(0.04, -0.85, 0.05);
+      const blackMat = new THREE.MeshStandardMaterial({ color: 0x14141a, metalness: 0.6, roughness: 0.45 });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.25 });
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2d18, roughness: 0.85 });
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0xa8acb0, metalness: 0.9, roughness: 0.3 });
+      if (id === 'gun' || id === 'shotgun' || id === 'uzi') {
+        // Pistolet/UZI : corps + canon + crosse
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.10, 0.22), blackMat);
+        body.position.set(0, 0, 0.04);
+        g.add(body);
+        const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.18), blackMat);
+        barrel.position.set(0, 0.04, 0.18);
+        g.add(barrel);
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.13, 0.07), blackMat);
+        grip.position.set(0, -0.07, 0);
+        g.add(grip);
+        if (id === 'shotgun') {
+          // Canon plus long
+          barrel.scale.z = 1.6;
+          barrel.position.z = 0.22;
+        }
+        if (id === 'uzi') {
+          // Chargeur sortant + accent or
+          const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.18, 0.05), blackMat);
+          mag.position.set(0, -0.13, 0.04);
+          g.add(mag);
+          const acc = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.022, 0.22), goldMat);
+          acc.position.set(0, 0.05, 0.04);
+          g.add(acc);
+        }
+      } else if (id === 'knife' || id === 'machete' || id === 'throwknife') {
+        // Lame + manche
+        const len = id === 'machete' ? 0.36 : 0.22;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.012, len), steelMat);
+        blade.position.set(0, 0, len / 2 + 0.05);
+        g.add(blade);
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.12), woodMat);
+        handle.position.set(0, 0, -0.01);
+        g.add(handle);
+      } else if (id === 'crossbow') {
+        const stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.32), woodMat);
+        stock.position.set(0, 0, 0.1);
+        g.add(stock);
+        const bow = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.04, 0.04), blackMat);
+        bow.position.set(0, 0.04, 0.18);
+        g.add(bow);
+      } else if (id === 'bazooka') {
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.6, 12), blackMat);
+        tube.rotation.x = Math.PI / 2;
+        tube.position.set(0, 0.03, 0.18);
+        g.add(tube);
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.07), blackMat);
+        grip.position.set(0, -0.07, 0);
+        g.add(grip);
+      } else if (id === 'flamethrower') {
+        const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.25, 12), goldMat);
+        tank.rotation.x = Math.PI / 2;
+        tank.position.set(0, 0, -0.05);
+        g.add(tank);
+        const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 0.22, 10), blackMat);
+        nozzle.rotation.x = Math.PI / 2;
+        nozzle.position.set(0, 0.03, 0.18);
+        g.add(nozzle);
+      } else if (id === 'grenade') {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), new THREE.MeshStandardMaterial({ color: 0x3a4a2a, roughness: 0.85 }));
+        ball.position.set(0, 0, 0.05);
+        g.add(ball);
+      } else if (id === 'laserrifle') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.32), blackMat);
+        body.position.set(0, 0, 0.12);
+        g.add(body);
+        const emitter = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.025, 0.025, 0.08, 12),
+          new THREE.MeshStandardMaterial({ color: 0x3fe6ff, emissive: 0x3fe6ff, emissiveIntensity: 1.2, roughness: 0.4 }),
+        );
+        emitter.rotation.x = Math.PI / 2;
+        emitter.position.set(0, 0, 0.32);
+        g.add(emitter);
+      }
+      return g;
+    };
+    const refreshAttachedWeapon = () => {
+      const id = selectedWeaponRef.current;
+      if (id === attachedWeaponId) return;
+      // Remove ancien
+      if (attachedWeapon) {
+        playerAvatar.userData.rightArm?.remove(attachedWeapon);
+        attachedWeapon.traverse(o => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+        });
+        attachedWeapon = null;
+      }
+      const ng = buildWeaponMesh(id);
+      if (ng && playerAvatar.userData.rightArm) {
+        playerAvatar.userData.rightArm.add(ng);
+        attachedWeapon = ng;
+      }
+      attachedWeaponId = id;
+    };
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
@@ -3241,12 +3350,22 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         // Orientation : regarde dans la même direction que la caméra
         playerAvatar.rotation.y = Math.atan2(camDir.x, camDir.z);
 
+        // Met à jour l'arme tenue (visible en TPS) selon selectedWeapon
+        refreshAttachedWeapon();
+
         // Léger balancement des bras/jambes si le joueur bouge
         const isMoving = keysRef.current.forward || keysRef.current.backward || keysRef.current.left || keysRef.current.right;
         const t = performance.now() * 0.008;
         const swing = isMoving ? Math.sin(t) * 0.3 : 0;
         if (playerAvatar.userData.leftArm)  playerAvatar.userData.leftArm.rotation.x = swing;
-        if (playerAvatar.userData.rightArm) playerAvatar.userData.rightArm.rotation.x = -swing;
+        // Bras droit : si arme équipée, on le tend vers l'avant (visée TPS)
+        if (playerAvatar.userData.rightArm) {
+          if (selectedWeaponRef.current) {
+            playerAvatar.userData.rightArm.rotation.x = -1.1; // bras quasi tendu
+          } else {
+            playerAvatar.userData.rightArm.rotation.x = -swing;
+          }
+        }
         if (playerAvatar.userData.leftLeg)  playerAvatar.userData.leftLeg.rotation.x = -swing;
         if (playerAvatar.userData.rightLeg) playerAvatar.userData.rightLeg.rotation.x = swing;
         // Avatar toujours au sol (plus de baisse auto près des tables)
@@ -4386,6 +4505,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         position="top-right"
         extraItems={[
           { testId: 'menu-character', icon: '👤', label: 'Personnaliser le personnage', onClick: () => onOpenCharacter && onOpenCharacter() },
+          { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
           { testId: 'menu-change-casino', icon: '🌍', label: 'Changer de casino', onClick: () => onChangeCasino && onChangeCasino() },
           { testId: 'menu-replay-tutorial', icon: '❔', label: 'Revoir le tutoriel', onClick: () => onReplayTutorial && onReplayTutorial(), accent: '#3fe6ff' },
           { testId: 'menu-exit-casino', icon: '🚪', label: 'Sortir du casino', onClick: () => onExitCasino && onExitCasino(), accent: '#ffd700' },
