@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
 import { UniversalMenu } from '@/game/UniversalMenu';
 import { RankBadge } from '@/game/RankBadge';
+import { LobbyBackdrop3D } from '@/game/LobbyBackdrop3D';
 
 // ============================================================
 // FortniteLobby — écran d'accueil pré-jeu (style Fortnite/AAA)
@@ -44,18 +45,16 @@ const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoP
     <div data-testid="fortnite-lobby" style={{
       position: 'fixed', inset: 0, overflow: 'hidden',
       color: '#fff', fontFamily: 'Georgia, serif',
-      background: `
-        linear-gradient(180deg,
-          #08081a 0%,
-          #1a0a2a 28%,
-          #4a1648 45%,
-          #a02860 62%,
-          #ff6a3a 80%,
-          #ffd28a 100%)
-      `,
+      // Fallback sombre si la WebGL plante (sera caché par le canvas 3D)
+      background: 'linear-gradient(180deg, #1a0a2a 0%, #4a1648 50%, #ff6a3a 100%)',
     }}>
-      {/* ===== SKYLINE BÂTIMENTS DERRIÈRE — 3 couches parallax ===== */}
-      <CitySkyline tick={tick} />
+      {/* ===== FOND 3D ANIMÉ — mini map du jeu (casino + skyline + palmiers) ===== */}
+      <LobbyBackdrop3D />
+      {/* Voile sombre devant la 3D pour que l'UI reste lisible */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
+        background: 'linear-gradient(180deg, rgba(8,8,26,0.55) 0%, rgba(26,10,42,0.35) 40%, rgba(160,40,96,0.28) 100%)',
+      }} />
 
       {/* Particules ambiantes */}
       <div style={{

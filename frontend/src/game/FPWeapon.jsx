@@ -188,27 +188,52 @@ const FPHookahView = ({ hookahId, isUsing }) => {
           <circle cx="44" cy="-33" r="2.5" fill="#ff6a30" />
         </g>
       </svg>
-      {/* Particules de fumée en bouche pendant l'utilisation (4s après les 3s d'inhalation) */}
+      {/* Fumée massive — 28 nuages successifs, sortant en vagues de la bouche
+          du joueur. Démarrage après 3 s (inhalation), durée totale ~5 s. */}
       {isUsing && (
         <div style={{
-          position: 'absolute', top: -20, left: '50%',
-          transform: 'translateX(-50%)',
-          width: 200, height: 200,
-          animation: 'hookah-smoke-puff 7s ease-out forwards',
+          position: 'fixed', // plein écran pour que la fumée monte vraiment haut
+          top: 0, left: 0, right: 0, bottom: 0,
+          pointerEvents: 'none',
+          animation: 'hookah-smoke-puff 8s ease-out forwards',
           opacity: 0,
         }}>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
-            <div key={i} style={{
-              position: 'absolute',
-              left: `${30 + i * 6}%`, top: `${50 - i * 4}%`,
-              width: 60 + i * 8, height: 60 + i * 8,
-              borderRadius: '50%',
-              background: `radial-gradient(circle, ${smokeColor}, transparent 70%)`,
-              filter: 'blur(8px)',
-              animation: `hookah-puff-${i % 3} 4s ${3 + i * 0.15}s ease-out forwards`,
-              opacity: 0,
-            }} />
-          ))}
+          {Array.from({ length: 28 }).map((_, i) => {
+            const sx = 50 + (Math.cos(i * 1.7) * 6); // près du centre (bouche écran)
+            const sy = 78 + (Math.sin(i * 0.9) * 3);
+            const size = 90 + (i % 5) * 26;
+            const delay = 3 + (i * 0.12);
+            const variant = i % 4;
+            const hShift = (i % 9) * 30 - 130; // dérive horizontale aléatoire
+            const opacityMax = 0.55 + (i % 3) * 0.15;
+            return (
+              <div key={i} style={{
+                position: 'absolute',
+                left: `${sx}%`, top: `${sy}%`,
+                width: size, height: size,
+                marginLeft: -size / 2, marginTop: -size / 2,
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${smokeColor}, transparent 72%)`,
+                filter: `blur(${10 + (i % 4) * 3}px)`,
+                animation: `hookah-puff-v${variant} 5s ${delay}s ease-out forwards`,
+                opacity: 0,
+                ['--start-opacity']: opacityMax,
+                ['--h-shift']: `${hShift}px`,
+              }} />
+            );
+          })}
+          {/* Halo central plus dense près de la bouche pour donner l'impression
+              d'un souffle continu */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '76%',
+            transform: 'translateX(-50%)',
+            width: 200, height: 200,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${smokeColor}, transparent 65%)`,
+            filter: 'blur(20px)',
+            animation: 'hookah-puff-mouth 5s 3s ease-out forwards',
+            opacity: 0,
+          }} />
         </div>
       )}
       <style>{`
@@ -220,22 +245,38 @@ const FPHookahView = ({ hookahId, isUsing }) => {
         }
         @keyframes hookah-smoke-puff {
           0%   { opacity: 0; }
-          43%  { opacity: 0; }
-          50%  { opacity: 1; }
-          95%  { opacity: 1; }
+          37%  { opacity: 0; }
+          45%  { opacity: 1; }
+          92%  { opacity: 1; }
           100% { opacity: 0; }
         }
-        @keyframes hookah-puff-0 {
-          0%   { transform: scale(0.4) translate(0, 0); opacity: 0.85; }
-          100% { transform: scale(2.4) translate(-30px, -180px); opacity: 0; }
+        /* 4 variantes pour rendre la fumée moins répétitive : monte à différentes
+           vitesses, tailles et trajectoires latérales */
+        @keyframes hookah-puff-v0 {
+          0%   { transform: scale(0.35) translate(0, 40px); opacity: 0; }
+          15%  { opacity: var(--start-opacity, 0.7); }
+          100% { transform: scale(3.2) translate(var(--h-shift, -30px), -540px); opacity: 0; }
         }
-        @keyframes hookah-puff-1 {
-          0%   { transform: scale(0.5) translate(0, 0); opacity: 0.85; }
-          100% { transform: scale(2.6) translate(20px, -200px); opacity: 0; }
+        @keyframes hookah-puff-v1 {
+          0%   { transform: scale(0.4) translate(0, 30px); opacity: 0; }
+          18%  { opacity: var(--start-opacity, 0.65); }
+          100% { transform: scale(3.6) translate(calc(var(--h-shift, 20px) * 1.2), -600px); opacity: 0; }
         }
-        @keyframes hookah-puff-2 {
-          0%   { transform: scale(0.45) translate(0, 0); opacity: 0.85; }
-          100% { transform: scale(2.5) translate(-10px, -190px); opacity: 0; }
+        @keyframes hookah-puff-v2 {
+          0%   { transform: scale(0.3) translate(0, 50px); opacity: 0; }
+          12%  { opacity: var(--start-opacity, 0.75); }
+          100% { transform: scale(3.0) translate(calc(var(--h-shift, -10px) * 0.9), -480px); opacity: 0; }
+        }
+        @keyframes hookah-puff-v3 {
+          0%   { transform: scale(0.5) translate(0, 60px); opacity: 0; }
+          20%  { opacity: var(--start-opacity, 0.8); }
+          100% { transform: scale(4.0) translate(calc(var(--h-shift, 0px) * 1.4), -660px); opacity: 0; }
+        }
+        @keyframes hookah-puff-mouth {
+          0%   { transform: translateX(-50%) scale(0.6); opacity: 0; }
+          12%  { opacity: 0.75; }
+          70%  { opacity: 0.55; }
+          100% { transform: translateX(-50%) scale(2.2); opacity: 0; }
         }
       `}</style>
     </div>
