@@ -47,45 +47,58 @@ export const useLookControls = (mountRef, stateRef, opts = {}) => {
     const onMouseMove = (e) => {
       if (document.pointerLockElement !== el) return;
       const dx = e.movementX || 0;
-      if (stateRef.current?.player) {
-        // Rotation horizontale uniquement (yaw)
-        stateRef.current.player.rotY -= dx * sensitivity.mouse;
+      const dy = e.movementY || 0;
+      const p = stateRef.current?.player;
+      if (p) {
+        // Yaw (gauche/droite)
+        p.rotY -= dx * sensitivity.mouse;
+        // Pitch (haut/bas) — clamp à ±85° pour éviter le gimbal
+        p.rotX = (p.rotX || 0) - dy * sensitivity.mouse;
+        const maxPitch = Math.PI / 2 - 0.05;
+        if (p.rotX > maxPitch) p.rotX = maxPitch;
+        if (p.rotX < -maxPitch) p.rotX = -maxPitch;
       }
     };
 
-    // === TOUCH DRAG MOBILE ===
+    // === TOUCH DRAG MOBILE (rotation yaw + pitch) ===
     let lastTouchX = null;
+    let lastTouchY = null;
     let touchId = null;
     const onTouchStart = (e) => {
       if (isExcluded(e.target)) return;
-      // Premier doigt qui touche dans la zone de la caméra
       const t = e.touches[0];
       if (!t) return;
       touchId = t.identifier;
       lastTouchX = t.clientX;
+      lastTouchY = t.clientY;
     };
     const onTouchMove = (e) => {
       if (touchId === null) return;
-      // Cherche le doigt suivi
       let touch = null;
       for (const t of e.touches) {
         if (t.identifier === touchId) { touch = t; break; }
       }
       if (!touch) return;
       const dx = touch.clientX - lastTouchX;
+      const dy = touch.clientY - lastTouchY;
       lastTouchX = touch.clientX;
-      if (stateRef.current?.player) {
-        stateRef.current.player.rotY -= dx * sensitivity.touch;
+      lastTouchY = touch.clientY;
+      const p = stateRef.current?.player;
+      if (p) {
+        p.rotY -= dx * sensitivity.touch;
+        p.rotX = (p.rotX || 0) - dy * sensitivity.touch;
+        const maxPitch = Math.PI / 2 - 0.05;
+        if (p.rotX > maxPitch) p.rotX = maxPitch;
+        if (p.rotX < -maxPitch) p.rotX = -maxPitch;
       }
     };
     const onTouchEnd = (e) => {
-      // Si le doigt suivi se lève, on reset
       let stillThere = false;
       for (const t of e.touches) {
         if (t.identifier === touchId) { stillThere = true; break; }
       }
       if (!stillThere) {
-        touchId = null; lastTouchX = null;
+        touchId = null; lastTouchX = null; lastTouchY = null;
       }
     };
 

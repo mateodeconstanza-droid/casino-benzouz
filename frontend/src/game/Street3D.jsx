@@ -269,13 +269,40 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     groundGrass.receiveShadow = true;
     scene.add(groundGrass);
 
-    // Quartier central — herbe/parc verte uniquement autour du casino (zone centrale)
+    // Quartier central — pavés crème devant le casino (au lieu de l'herbe).
+    // Texture procédurale "pierres" via canvas pour donner du grain.
+    const cobbleCanvas = document.createElement('canvas');
+    cobbleCanvas.width = 256; cobbleCanvas.height = 256;
+    const cctx = cobbleCanvas.getContext('2d');
+    cctx.fillStyle = '#b8a98a';
+    cctx.fillRect(0, 0, 256, 256);
+    // Joints sombres entre les pavés (grille décalée)
+    cctx.strokeStyle = '#7a6e58';
+    cctx.lineWidth = 2;
+    for (let r = 0; r < 8; r++) {
+      const y = r * 32;
+      const offset = (r % 2) * 16;
+      for (let c = -1; c <= 8; c++) {
+        const x = c * 32 + offset;
+        cctx.strokeRect(x, y, 32, 32);
+      }
+    }
+    // Tâches plus claires/foncées sur certains pavés pour aspect organique
+    for (let i = 0; i < 40; i++) {
+      const x = Math.floor(Math.random() * 8) * 32 + ((Math.floor(Math.random() * 8) % 2) * 16);
+      const y = Math.floor(Math.random() * 8) * 32;
+      cctx.fillStyle = `rgba(${Math.random() < 0.5 ? '255,240,210' : '110,95,75'},0.18)`;
+      cctx.fillRect(x + 1, y + 1, 30, 30);
+    }
+    const cobbleTex = new THREE.CanvasTexture(cobbleCanvas);
+    cobbleTex.wrapS = cobbleTex.wrapT = THREE.RepeatWrapping;
+    cobbleTex.repeat.set(11, 7); // tile sur le plan 110×65
     const centralPark = new THREE.Mesh(
       new THREE.PlaneGeometry(110, 65),
-      new THREE.MeshStandardMaterial({ color: 0x4a8f3a, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({ color: 0xc7b89a, roughness: 0.92, map: cobbleTex }),
     );
     centralPark.rotation.x = -Math.PI / 2;
-    centralPark.position.set(0, 0.005, -12);
+    centralPark.position.set(0, 0.006, -12);
     centralPark.receiveShadow = true;
     scene.add(centralPark);
 
@@ -813,16 +840,32 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
     // === OBSTACLES (AABB simples pour collision) — déclaré tôt pour autres pushes ===
     const obstacles = [
-      { minX: -7,   maxX: 7,    minZ: -15, maxZ: -5  },   // Casino
-      { minX: -26,  maxX: -18,  minZ: -17, maxZ: -10 },   // Immeuble
-      { minX: -17,  maxX: -13,  minZ: -24, maxZ: -20 },   // Maison bleue
-      { minX: -10,  maxX: -6,   minZ: -28, maxZ: -24 },   // Maison beige
-      { minX: 10,   maxX: 14,   minZ: -24, maxZ: -20 },   // Maison rouge
-      { minX: 18,   maxX: 26,   minZ: -21, maxZ: -14 },   // Villa Marina
-      { minX: 30,   maxX: 38,   minZ: -17, maxZ: -10 },   // Villa Palmier
+      // Casino : bbox réel 14 m × 10 m (positionné x=0, z=-10)
+      { minX: -7.2, maxX: 7.2,   minZ: -15.5, maxZ: -4.5 },
+      // Immeuble : 8 × 7 (à -22, -14)
+      { minX: -26.5, maxX: -17.5, minZ: -17.8, maxZ: -10.2 },
+      // 3 maisons standalone (h-1, h-2, h-3)
+      { minX: -17,  maxX: -13,  minZ: -24, maxZ: -20 },
+      { minX: -10,  maxX: -6,   minZ: -28, maxZ: -24 },
+      { minX: 10,   maxX: 14,   minZ: -24, maxZ: -20 },
+      // 2 villas (v-1, v-2)
+      { minX: 18,   maxX: 26,   minZ: -21, maxZ: -14 },
+      { minX: 30,   maxX: 38,   minZ: -17, maxZ: -10 },
+      // Garage (-22, 30), 16 × 9
+      { minX: -30.5, maxX: -13.5, minZ: 25.0, maxZ: 35.0 },
+      // GambleLife shop (28, 30), 18 × 11
+      { minX: 18.5,  maxX: 37.5,  minZ: 24.0, maxZ: 36.0 },
+      // ByJaze houses : apt -22,-14 (déjà via immeuble), maison 0,-26, villa 42,-6
+      { minX: -3.0, maxX: 3.0, minZ: -29.0, maxZ: -23.0 }, // bj-house
+      { minX: 38.0, maxX: 46.0, minZ: -10.0, maxZ: -2.0 },  // bj-villa
+      // Mer / clôture est (x=120 fence) — empêche de passer dans l'eau même
+      // si la barrière physique est traversée par bug : doublé en obstacle.
+      { minX: 119.5, maxX: 130, minZ: -65, maxZ: 65 },
     ];
     const collidesAt = (x, z) => {
-      const r = 0.45;
+      // Rayon joueur étendu (0.6 au lieu de 0.45) pour qu'on s'arrête
+      // proprement contre les murs sans frôler / s'enfoncer.
+      const r = 0.6;
       return obstacles.some(o => x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
     };
 
@@ -932,30 +975,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       });
     });
 
-    // ----- Barricades périmètre (bornes rouges & blanches) -----
-    const barrier = new THREE.Group();
-    const addPost = (x, z) => {
-      const post = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.18, 1.4, 8),
-        new THREE.MeshStandardMaterial({ color: 0xdd2222, metalness: 0.3, roughness: 0.4 })
-      );
-      post.position.set(x, 0.7, z);
-      barrier.add(post);
-      // Bande blanche haut
-      const band = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.2, 0.25, 8),
-        new THREE.MeshStandardMaterial({ color: 0xffffff })
-      );
-      band.position.set(x, 1.25, z);
-      barrier.add(band);
-    };
-    // Ligne arrière (z=-38, après les nouvelles maisons)
-    for (let x = -48; x <= 48; x += 4) addPost(x, -38);
-    // Lignes latérales (étendues jusqu'à z=-38)
-    for (let z = -38; z <= 8; z += 4) { addPost(-48, z); addPost(48, z); }
-    // Ligne front route (z=8 devant joueur)
-    for (let x = -48; x <= 48; x += 4) addPost(x, 8);
-    scene.add(barrier);
+    // (Anciens plots rouges & blancs supprimés — la clôture en fer forgé
+    // de la zone jouable joue déjà ce rôle. Aucun ajout ici.)
 
     // ----- Arbres aléatoires espacés entre les maisons -----
     for (let i = 0; i < 6; i++) {
@@ -2927,9 +2948,11 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         p.alive = false;
         st.onPlayerDeath && st.onPlayerDeath();
       }
-      // Applique à la caméra
+      // Applique à la caméra (yaw + pitch via Euler YXZ pour éviter le gimbal)
       camera.position.set(p.x, 2.6, p.z);
+      camera.rotation.order = 'YXZ';
       camera.rotation.y = p.rotY;
+      camera.rotation.x = p.rotX || 0;
 
       // ===== Animation MER : vagues sinusoïdales sur les vertices =====
       if (decoRefs.sea && decoRefs.seaPos) {
