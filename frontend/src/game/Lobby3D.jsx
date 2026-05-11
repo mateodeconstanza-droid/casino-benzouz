@@ -5345,19 +5345,54 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             </div>
           )}
 
-          {/* Chat fenêtre (bas gauche) */}
+          {/* Chat fenêtre (bas gauche) — design enrichi avec timestamps et
+              différenciation message propre / autre joueur / système */}
           <div style={{
             position: 'absolute', bottom: 120, left: 10, zIndex: 50,
-            width: 330, maxHeight: 200, overflowY: 'auto',
-            background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: 8,
+            width: 360, maxHeight: 220, overflowY: 'auto',
+            background: 'linear-gradient(135deg, rgba(0,0,0,0.7), rgba(15,5,25,0.65))',
+            border: '1px solid rgba(212,175,55,0.35)',
+            borderRadius: 10, padding: 10,
             pointerEvents: 'none', fontSize: 12, color: '#fff',
+            backdropFilter: 'blur(6px)',
           }} data-testid="mp-chat-log">
-            {chatMessages.slice(-8).map((m, i) => (
-              <div key={`${m.ts}-${i}`} style={{ marginBottom: 2 }}>
-                <b style={{ color: m.from === 'SYSTÈME' ? '#ffd700' : '#7fceff' }}>{m.from}:</b>{' '}
-                <span>{m.text}</span>
+            {chatMessages.length === 0 ? (
+              <div style={{ color: '#9a8a6a', fontStyle: 'italic', fontSize: 11 }}>
+                💬 Aucun message — appuie sur T pour discuter
               </div>
-            ))}
+            ) : (
+              chatMessages.slice(-10).map((m, i) => {
+                const isSystem = m.from === 'SYSTÈME';
+                const isMine = !isSystem && myIdRef.current && m.from === myIdRef.current;
+                const fromColor = isSystem ? '#ffd700' : isMine ? '#a8e88a' : '#7fceff';
+                const bg = isMine ? 'rgba(72,180,72,0.10)' : 'transparent';
+                // Heure HH:MM
+                const d = new Date((m.ts || Date.now() / 1000) * 1000);
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                return (
+                  <div key={`${m.ts}-${i}`} style={{
+                    marginBottom: 3, padding: '3px 6px', borderRadius: 4,
+                    background: bg,
+                    borderLeft: isSystem ? '2px solid #ffd700' : (isMine ? '2px solid #48a848' : '2px solid transparent'),
+                  }}>
+                    <span style={{ color: '#777', fontSize: 9, marginRight: 5 }}>
+                      [{hh}:{mm}]
+                    </span>
+                    <b style={{ color: fromColor }}>
+                      {isMine ? 'toi' : m.from}
+                    </b>
+                    <span style={{ color: '#888' }}>:</span>{' '}
+                    <span style={{
+                      color: isSystem ? '#ffd896' : '#e8e8ea',
+                      fontStyle: isSystem ? 'italic' : 'normal',
+                    }}>
+                      {m.text}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Champ chat (activé par T) */}

@@ -9,23 +9,32 @@ const ServerSelect = ({ onChoose, casino }) => {
   ]);
   const [loading, setLoading] = useState(MULTIPLAYER_AVAILABLE);
   const [error, setError] = useState(MULTIPLAYER_AVAILABLE ? null : "Multijoueur indisponible sur cette plateforme (pas de backend). Joue en Solo.");
+  const [retrying, setRetrying] = useState(false);
+  const [retryAttempts, setRetryAttempts] = useState(0);
 
-  const load = async () => {
+  const load = async (isRetry = false) => {
     if (!MULTIPLAYER_AVAILABLE) { setLoading(false); return; }
+    if (isRetry) setRetrying(true);
     const res = await fetchServers();
     if (res?.servers) {
       setServers(res.servers);
       setError(null);
+      setRetryAttempts(0);
     } else {
-      setError("Impossible de joindre le serveur. Le mode solo reste disponible.");
+      // Cold-start Render = ~50 s avant la 1re réponse ; on rallonge le
+      // message pour rassurer l'utilisateur.
+      setError("Serveur en sommeil — il met ~50 s à se réveiller (free tier). Réessaye dans une minute.");
+      setRetryAttempts((n) => n + 1);
     }
     setLoading(false);
+    if (isRetry) setRetrying(false);
   };
 
   useEffect(() => {
     load();
     if (!MULTIPLAYER_AVAILABLE) return;
-    const iv = setInterval(load, 5000); // refresh online count
+    // Refresh fréquence : 5 s normalement, 10 s si on est en erreur (économie)
+    const iv = setInterval(() => load(), 5000);
     return () => clearInterval(iv);
   }, []);
 
@@ -64,8 +73,27 @@ const ServerSelect = ({ onChoose, casino }) => {
         {error && (
           <div style={{
             background: 'rgba(220,60,60,0.15)', border: '1px solid #a33',
-            color: '#faa', padding: 10, borderRadius: 8, marginBottom: 16, textAlign: 'center', fontSize: 13,
-          }}>{error}</div>
+            color: '#faa', padding: 12, borderRadius: 8,
+            marginBottom: 16, textAlign: 'center', fontSize: 13,
+          }}>
+            <div>{error}</div>
+            {MULTIPLAYER_AVAILABLE && (
+              <button
+                data-testid="server-retry-btn"
+                onClick={() => load(true)}
+                disabled={retrying}
+                style={{
+                  marginTop: 10, padding: '8px 18px', borderRadius: 6,
+                  background: retrying ? '#444' : 'linear-gradient(135deg, #b08000, #ffd700)',
+                  border: 'none', color: retrying ? '#888' : '#111',
+                  cursor: retrying ? 'wait' : 'pointer',
+                  fontWeight: 800, fontSize: 12, letterSpacing: 1,
+                  fontFamily: 'inherit',
+                }}>
+                {retrying ? '⟳ TENTATIVE…' : `🔄 RÉESSAYER ${retryAttempts > 0 ? `(${retryAttempts})` : ''}`}
+              </button>
+            )}
+          </div>
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>

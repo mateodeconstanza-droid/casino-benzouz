@@ -54,11 +54,30 @@ export const HOUSES = [
   { id: 'bj-house', label: '★ Maison ByJaze',  type: 'house',     price: 1,            x:   0, z: -26, creator: true },
   { id: 'bj-villa', label: '★ Villa ByJaze',   type: 'villa',     price: 1,            x:  42, z:  -6, creator: true },
   // Immeuble avec 5 appartements (mêmes coords, étages différents)
-  { id: 'apt-1', label: 'Appartement 1',  type: 'apartment', price:   5000000, floor: 0, x:  -22, z: -14 },
-  { id: 'apt-2', label: 'Appartement 2',  type: 'apartment', price:   5000000, floor: 1, x:  -22, z: -14 },
-  { id: 'apt-3', label: 'Appartement 3',  type: 'apartment', price:   5000000, floor: 2, x:  -22, z: -14 },
-  { id: 'apt-4', label: 'Appartement 4',  type: 'apartment', price:   5000000, floor: 3, x:  -22, z: -14 },
-  { id: 'apt-5', label: 'Appartement 5',  type: 'apartment', price:   5000000, floor: 4, x:  -22, z: -14 },
+  // Tour 1 - Les Résidences (-22, -14)
+  { id: 'apt-1', label: 'Résidences A1',  type: 'apartment', price:   5000000, floor: 0, x:  -22, z: -14 },
+  { id: 'apt-2', label: 'Résidences A2',  type: 'apartment', price:   5000000, floor: 1, x:  -22, z: -14 },
+  { id: 'apt-3', label: 'Résidences A3',  type: 'apartment', price:   5000000, floor: 2, x:  -22, z: -14 },
+  { id: 'apt-4', label: 'Résidences A4',  type: 'apartment', price:   5000000, floor: 3, x:  -22, z: -14 },
+  { id: 'apt-5', label: 'Résidences A5',  type: 'apartment', price:   5000000, floor: 4, x:  -22, z: -14 },
+  // Tour 2 - Horizon (42, -30)
+  { id: 'apt2-1', label: 'Horizon B1', type: 'apartment', price: 7000000, floor: 0, x:  42, z: -30 },
+  { id: 'apt2-2', label: 'Horizon B2', type: 'apartment', price: 7000000, floor: 1, x:  42, z: -30 },
+  { id: 'apt2-3', label: 'Horizon B3', type: 'apartment', price: 7000000, floor: 2, x:  42, z: -30 },
+  { id: 'apt2-4', label: 'Horizon B4', type: 'apartment', price: 7000000, floor: 3, x:  42, z: -30 },
+  { id: 'apt2-5', label: 'Horizon B5', type: 'apartment', price: 7000000, floor: 4, x:  42, z: -30 },
+  // Tour 3 - Azur (-55, 6)
+  { id: 'apt3-1', label: 'Azur C1', type: 'apartment', price: 6000000, floor: 0, x: -55, z: 6 },
+  { id: 'apt3-2', label: 'Azur C2', type: 'apartment', price: 6000000, floor: 1, x: -55, z: 6 },
+  { id: 'apt3-3', label: 'Azur C3', type: 'apartment', price: 6000000, floor: 2, x: -55, z: 6 },
+  { id: 'apt3-4', label: 'Azur C4', type: 'apartment', price: 6000000, floor: 3, x: -55, z: 6 },
+  { id: 'apt3-5', label: 'Azur C5', type: 'apartment', price: 6000000, floor: 4, x: -55, z: 6 },
+  // Tour 4 - Palace (55, 22)
+  { id: 'apt4-1', label: 'Palace D1', type: 'apartment', price: 8000000, floor: 0, x: 55, z: 22 },
+  { id: 'apt4-2', label: 'Palace D2', type: 'apartment', price: 8000000, floor: 1, x: 55, z: 22 },
+  { id: 'apt4-3', label: 'Palace D3', type: 'apartment', price: 8000000, floor: 2, x: 55, z: 22 },
+  { id: 'apt4-4', label: 'Palace D4', type: 'apartment', price: 8000000, floor: 3, x: 55, z: 22 },
+  { id: 'apt4-5', label: 'Palace D5', type: 'apartment', price: 8000000, floor: 4, x: 55, z: 22 },
   // 3 maisons standalone
   { id: 'h-1',   label: 'Maison Bleue',   type: 'house',     price:  10000000, x:  -10, z: -18 },
   { id: 'h-2',   label: 'Maison Beige',   type: 'house',     price:  10000000, x:   -2, z: -18 },
@@ -97,6 +116,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [nearbyPrompt, setNearbyPrompt] = useState(null);
   const [aptPickerOpen, setAptPickerOpen] = useState(false);
   const [garageOpen, setGarageOpen] = useState(false);
+  const [rooftopView, setRooftopView] = useState(null); // { id, towerX, towerZ }
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
@@ -578,79 +598,237 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     // Casino : point d'interaction sur le tapis rouge devant la barrière
     interactables.push({ type: 'casino', pos: new THREE.Vector3(0, 0, 0), radius: 12 });
 
-    // ----- Immeuble 5 appartements (gauche de la rue) -----
-    const buildingGroup = new THREE.Group();
-    buildingGroup.position.set(-22, 0, -14);
-    const building = new THREE.Mesh(
-      roundedBox(8, 14, 7, 0.3, 4),
-      matMatte(PALETTE.marble, { roughness: 0.85 }),
-    );
-    building.position.y = 7;
-    building.castShadow = true;
-    building.receiveShadow = true;
-    buildingGroup.add(building);
-    // Toit plat (corniche or)
-    const bRoof = new THREE.Mesh(
-      roundedBox(8.6, 0.4, 7.6, 0.12, 3),
-      matMatte(PALETTE.woodDark),
-    );
-    bRoof.position.y = 14.2;
-    buildingGroup.add(bRoof);
-    const bRoofTrim = new THREE.Mesh(
-      roundedBox(8.8, 0.15, 7.8, 0.08, 3),
-      matMetal(PALETTE.gold),
-    );
-    bRoofTrim.position.y = 14.0;
-    buildingGroup.add(bRoofTrim);
-    // Fenêtres par étage (5 étages × 3 fenêtres)
-    for (let fl = 0; fl < 5; fl++) {
-      for (let wc = 0; wc < 3; wc++) {
-        const owned = ownedKeys.includes(`apt-${fl + 1}`);
-        const win = new THREE.Mesh(
-          new THREE.BoxGeometry(1.2, 1.4, 0.15),
-          new THREE.MeshStandardMaterial({
-            color: owned ? 0xffd88a : 0x6a7a8a,
-            emissive: owned ? 0xffbe2a : 0x000,
-            emissiveIntensity: owned ? 0.35 : 0,
-            roughness: 0.4,
-          })
-        );
-        win.position.set(-2.4 + wc * 2.4, 2 + fl * 2.5, 3.55);
-        buildingGroup.add(win);
+    // ===== Helper : crée un immeuble avec 5 appartements + rooftop =====
+    const createApartmentBuilding = (opts) => {
+      const {
+        x, z, wallColor, label, priceLabel, aptIdPrefix,
+        rooftopId, // ex: 'rooftop-1'
+      } = opts;
+      const g = new THREE.Group();
+      g.position.set(x, 0, z);
+      // Corps de l'immeuble
+      const body = new THREE.Mesh(
+        roundedBox(8, 14, 7, 0.3, 4),
+        matMatte(wallColor, { roughness: 0.85 }),
+      );
+      body.position.y = 7;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      g.add(body);
+      // Toit + corniche or
+      const roof = new THREE.Mesh(
+        roundedBox(8.6, 0.4, 7.6, 0.12, 3),
+        matMatte(PALETTE.woodDark),
+      );
+      roof.position.y = 14.2;
+      g.add(roof);
+      const trim = new THREE.Mesh(
+        roundedBox(8.8, 0.15, 7.8, 0.08, 3),
+        matMetal(PALETTE.gold),
+      );
+      trim.position.y = 14.0;
+      g.add(trim);
+
+      // ─── Rooftop accessible : terrasse + garde-corps + plantes ───
+      // 4 garde-corps en barres dorées autour
+      const railMat = matMetal(PALETTE.gold);
+      for (let s = -1; s <= 1; s += 2) {
+        // côté front/back
+        const railF = new THREE.Mesh(roundedBox(8.6, 0.06, 0.06, 0.02, 2), railMat);
+        railF.position.set(0, 15.0, s * 3.7);
+        g.add(railF);
+        const railFTop = new THREE.Mesh(roundedBox(8.6, 0.06, 0.06, 0.02, 2), railMat);
+        railFTop.position.set(0, 15.6, s * 3.7);
+        g.add(railFTop);
+        // côté gauche/droite
+        const railS = new THREE.Mesh(roundedBox(0.06, 0.06, 7.6, 0.02, 2), railMat);
+        railS.position.set(s * 4.2, 15.0, 0);
+        g.add(railS);
+        const railSTop = new THREE.Mesh(roundedBox(0.06, 0.06, 7.6, 0.02, 2), railMat);
+        railSTop.position.set(s * 4.2, 15.6, 0);
+        g.add(railSTop);
       }
-      // Balcon étage ≥ 1
-      if (fl > 0) {
-        const bal = new THREE.Mesh(
-          new THREE.BoxGeometry(7, 0.15, 0.8),
-          new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3 })
-        );
-        bal.position.set(0, 1.5 + fl * 2.5, 3.9);
-        buildingGroup.add(bal);
+      // Petits poteaux verticaux
+      for (let s = -1; s <= 1; s += 2) {
+        for (let xi = -3.5; xi <= 3.5; xi += 1.4) {
+          const post = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6),
+            railMat,
+          );
+          post.position.set(xi, 15.3, s * 3.7);
+          g.add(post);
+        }
+        for (let zi = -3; zi <= 3; zi += 1.4) {
+          const post = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6),
+            railMat,
+          );
+          post.position.set(s * 4.2, 15.3, zi);
+          g.add(post);
+        }
       }
-    }
-    // Porte immeuble
-    const bDoor = new THREE.Mesh(
-      new THREE.BoxGeometry(1.5, 2.5, 0.18),
-      new THREE.MeshStandardMaterial({ color: 0x2a1a0a })
-    );
-    bDoor.position.set(0, 1.25, 3.55);
-    buildingGroup.add(bDoor);
-    // Étiquette "IMMEUBLE - 5 APPARTS" au-dessus
-    const bLabelCvs = document.createElement('canvas');
-    bLabelCvs.width = 512; bLabelCvs.height = 128;
-    const blctx = bLabelCvs.getContext('2d');
-    blctx.fillStyle = '#0a0a0f'; blctx.fillRect(0, 0, 512, 128);
-    blctx.fillStyle = '#ffd700'; blctx.font = 'bold 36px Georgia'; blctx.textAlign = 'center';
-    blctx.fillText('LES RÉSIDENCES', 256, 50);
-    blctx.fillStyle = '#fff'; blctx.font = '22px Georgia';
-    blctx.fillText('5 APPARTEMENTS · 5M $', 256, 90);
-    const bLabelTex = new THREE.CanvasTexture(bLabelCvs);
-    const bLabel = new THREE.Mesh(
-      new THREE.PlaneGeometry(4, 1), new THREE.MeshBasicMaterial({ map: bLabelTex, transparent: true })
-    );
-    bLabel.position.set(0, 4, 3.6);
-    buildingGroup.add(bLabel);
+      // Plantes décoratives sur le toit
+      for (const [px, pz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) {
+        const pot = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.25, 0.5, 8),
+          matMatte(0x5a3a20, { roughness: 0.9 }),
+        );
+        pot.position.set(px, 14.65, pz);
+        g.add(pot);
+        const foliage = new THREE.Mesh(
+          new THREE.SphereGeometry(0.5, 10, 8),
+          matMatte(0x2c8a3a, { roughness: 0.85 }),
+        );
+        foliage.position.set(px, 15.3, pz);
+        g.add(foliage);
+      }
+      // Table + 2 chaises de terrasse (style café)
+      const table = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16),
+        matMatte(PALETTE.cream),
+      );
+      table.position.set(0, 15.0, 0);
+      g.add(table);
+      const tableLeg = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 0.65, 8),
+        matMetal(0x6a6a72),
+      );
+      tableLeg.position.set(0, 14.65, 0);
+      g.add(tableLeg);
+      // Néon "ROOFTOP" qui pulse
+      const neonGeo = new THREE.PlaneGeometry(3.5, 0.45);
+      const neonMat = new THREE.MeshBasicMaterial({
+        color: 0x3fe6ff, transparent: true, opacity: 0.85,
+      });
+      const neon = new THREE.Mesh(neonGeo, neonMat);
+      neon.position.set(0, 15.9, -3.7);
+      g.add(neon);
+
+      // ─── Fenêtres + balcons (5 étages × 3 fenêtres) ───
+      for (let fl = 0; fl < 5; fl++) {
+        for (let wc = 0; wc < 3; wc++) {
+          const owned = ownedKeys.includes(`${aptIdPrefix}-${fl + 1}`);
+          const win = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 1.4, 0.15),
+            new THREE.MeshStandardMaterial({
+              color: owned ? 0xffd88a : 0x6a7a8a,
+              emissive: owned ? 0xffbe2a : 0x000,
+              emissiveIntensity: owned ? 0.35 : 0,
+              roughness: 0.4,
+            }),
+          );
+          win.position.set(-2.4 + wc * 2.4, 2 + fl * 2.5, 3.55);
+          g.add(win);
+        }
+        if (fl > 0) {
+          const bal = new THREE.Mesh(
+            new THREE.BoxGeometry(7, 0.15, 0.8),
+            new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3 }),
+          );
+          bal.position.set(0, 1.5 + fl * 2.5, 3.9);
+          g.add(bal);
+        }
+      }
+      // Porte
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 2.5, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0x2a1a0a }),
+      );
+      door.position.set(0, 1.25, 3.55);
+      g.add(door);
+      // Étiquette sur la façade
+      const cvs = document.createElement('canvas');
+      cvs.width = 512; cvs.height = 128;
+      const cx = cvs.getContext('2d');
+      cx.fillStyle = '#0a0a0f'; cx.fillRect(0, 0, 512, 128);
+      cx.fillStyle = '#ffd700'; cx.font = 'bold 36px Georgia'; cx.textAlign = 'center';
+      cx.fillText(label, 256, 50);
+      cx.fillStyle = '#fff'; cx.font = '22px Georgia';
+      cx.fillText(priceLabel, 256, 90);
+      const labelTex = new THREE.CanvasTexture(cvs);
+      const labelMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 1),
+        new THREE.MeshBasicMaterial({ map: labelTex, transparent: true }),
+      );
+      labelMesh.position.set(0, 4, 3.6);
+      g.add(labelMesh);
+      // Échelle visible (élément vertical sur le côté droit du bâtiment)
+      for (let r = 0; r < 12; r++) {
+        const rung = new THREE.Mesh(
+          new THREE.BoxGeometry(0.4, 0.05, 0.05),
+          railMat,
+        );
+        rung.position.set(4.05, 1 + r * 1.1, 0);
+        g.add(rung);
+      }
+      // 2 rails verticaux de l'échelle
+      for (let s = -1; s <= 1; s += 2) {
+        const rail = new THREE.Mesh(
+          new THREE.BoxGeometry(0.05, 13.2, 0.05),
+          railMat,
+        );
+        rail.position.set(4.05, 7.6, s * 0.18);
+        g.add(rail);
+      }
+
+      return g;
+    };
+
+    // ===== Immeuble principal (existant) =====
+    const buildingGroup = createApartmentBuilding({
+      x: -22, z: -14,
+      wallColor: PALETTE.marble,
+      label: 'LES RÉSIDENCES',
+      priceLabel: '5 APPARTEMENTS · 5M $',
+      aptIdPrefix: 'apt',
+      rooftopId: 'rooftop-1',
+    });
     scene.add(buildingGroup);
+
+    // ===== 3 nouveaux immeubles =====
+    const tower2 = createApartmentBuilding({
+      x: 42, z: -30,
+      wallColor: 0xd6c0a0,
+      label: 'TOUR HORIZON',
+      priceLabel: '5 APPARTS · 7M $',
+      aptIdPrefix: 'apt2',
+      rooftopId: 'rooftop-2',
+    });
+    scene.add(tower2);
+
+    const tower3 = createApartmentBuilding({
+      x: -55, z: 6,
+      wallColor: 0xc8a48a,
+      label: 'TOUR AZUR',
+      priceLabel: '5 APPARTS · 6M $',
+      aptIdPrefix: 'apt3',
+      rooftopId: 'rooftop-3',
+    });
+    scene.add(tower3);
+
+    const tower4 = createApartmentBuilding({
+      x: 55, z: 22,
+      wallColor: 0xb8a890,
+      label: 'TOUR PALACE',
+      priceLabel: '5 APPARTS · 8M $',
+      aptIdPrefix: 'apt4',
+      rooftopId: 'rooftop-4',
+    });
+    scene.add(tower4);
+
+    // Colliders + interactables (rooftop = type 'rooftop' qui ouvre la vue)
+    [{ x: -22, z: -14, id: 'apt-1', rid: 'rooftop-1' },
+     { x:  42, z: -30, id: 'apt2-1', rid: 'rooftop-2' },
+     { x: -55, z:   6, id: 'apt3-1', rid: 'rooftop-3' },
+     { x:  55, z:  22, id: 'apt4-1', rid: 'rooftop-4' }].forEach(t => {
+      obstacles.push({
+        minX: t.x - 4.3, maxX: t.x + 4.3,
+        minZ: t.z - 3.8, maxZ: t.z + 3.8,
+      });
+      interactables.push({ type: 'building', id: t.id, pos: new THREE.Vector3(t.x, 0, t.z), radius: 8 });
+      // Échelle = interactable séparé situé sur le côté droit (x + 4.5)
+      interactables.push({ type: 'rooftop', id: t.rid, towerX: t.x, towerZ: t.z, pos: new THREE.Vector3(t.x + 4.5, 0, t.z), radius: 3 });
+    });
 
     // 3 maisons standalone (positions ajustées pour ne pas être cachées par le casino)
     const houseColors = [
@@ -834,8 +1012,8 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       scene.add(vg);
       interactables.push({ type: 'house', id: v.id, pos: new THREE.Vector3(v.x, 0, v.z), radius: 8 });
     });
-    // Immeuble 5 apparts — clickable pour choix d'étage
-    interactables.push({ type: 'building', id: 'apt-1', pos: new THREE.Vector3(-22, 0, -14), radius: 8 });
+    // Les 4 immeubles sont enregistrés plus tard (interactables + obstacles)
+    // via createApartmentBuilding, donc rien à push ici.
 
     // === OBSTACLES (AABB simples pour collision) — déclaré tôt pour autres pushes ===
     const obstacles = [
@@ -2909,6 +3087,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         else if (nb?.type === 'building') stateRef.current.onBuildingClick?.(nb.id);
         else if (nb?.type === 'garage') stateRef.current.onGarageClick?.();
         else if (nb?.type === 'shopfront') stateRef.current.onShopfrontClick?.();
+        else if (nb?.type === 'rooftop') stateRef.current.onRooftopClick?.(nb);
       }
       // Touches de combat (PC) :
       // R / Tab → sortir/ranger l'arme (toggle aim)
@@ -3289,6 +3468,9 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     stateRef.current.onShopfrontClick = () => {
       onOpenShop ? onOpenShop() : setGarageOpen(true);
     };
+    stateRef.current.onRooftopClick = (nb) => {
+      setRooftopView({ id: nb.id, towerX: nb.towerX, towerZ: nb.towerZ });
+    };
     // Hooks de test (dev) — permettent de téléporter / ouvrir directement
     if (typeof window !== 'undefined') {
       window.__streetTeleport = (x, z) => {
@@ -3385,6 +3567,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     else if (nb.type === 'building') stateRef.current.onBuildingClick?.(nb.id);
     else if (nb.type === 'garage') stateRef.current.onGarageClick?.();
     else if (nb.type === 'shopfront') stateRef.current.onShopfrontClick?.();
+    else if (nb.type === 'rooftop') stateRef.current.onRooftopClick?.(nb);
   };
 
   const house = HOUSES.find(h => h.id === selectedHouse);
@@ -3528,9 +3711,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         >
           <div style={{ fontSize: 13, color: STAKE.goldLight, marginBottom: 6 }}>
             {nearbyPrompt.type === 'casino' ? '🎰 Entrée du casino' :
-             nearbyPrompt.type === 'building' ? '🏢 Les Résidences — Choisir un appart' :
+             nearbyPrompt.type === 'building' ? '🏢 Immeuble — Choisir un appart' :
              nearbyPrompt.type === 'garage' ? '🚗 Garage — Acheter un véhicule' :
              nearbyPrompt.type === 'shopfront' ? '🛒 Boutique — Armes & cosmétiques' :
+             nearbyPrompt.type === 'rooftop' ? '🏗️ Échelle — Monter sur le toit' :
              (ownedKeys.includes(nearbyPrompt.id) ? '🔑 Ta propriété' : '🏠 Acheter cette propriété')}
           </div>
           <button
@@ -3984,6 +4168,67 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         }}>{toast}</div>
       )}
 
+      {/* === ROOFTOP VIEW — Vue panoramique depuis le toit === */}
+      {rooftopView && (
+        <div
+          data-testid="rooftop-modal"
+          onClick={() => setRooftopView(null)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 250, padding: 20, backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(160deg, #08081a, #050511)',
+              border: '2px solid #d4af37', borderRadius: 16,
+              padding: 22, color: '#fff',
+              maxWidth: 760, width: '95%', maxHeight: '92vh', overflowY: 'auto',
+              fontFamily: 'Georgia, serif',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 0 40px rgba(212,175,55,0.18)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#cca366', letterSpacing: 2 }}>VUE PANORAMIQUE</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#ffd700', letterSpacing: 1.5 }}>
+                  🏗️ TOIT-TERRASSE
+                </div>
+              </div>
+              <button
+                onClick={() => setRooftopView(null)}
+                style={{
+                  padding: '8px 16px', borderRadius: 8,
+                  background: 'transparent', border: '1px solid #d4af37',
+                  color: '#d4af37', cursor: 'pointer', fontWeight: 800,
+                  fontFamily: 'inherit',
+                }}
+              >✕ DESCENDRE</button>
+            </div>
+            {/* Mini-carte de la ville depuis le rooftop */}
+            <div style={{
+              width: '100%', aspectRatio: '1', maxWidth: 600, margin: '0 auto',
+              background: 'radial-gradient(ellipse at 50% 50%, #1a2240, #050816 75%)',
+              border: '1px solid rgba(212,175,55,0.4)', borderRadius: 12,
+              position: 'relative', overflow: 'hidden',
+            }}>
+              {/* Vue radar zoomée centrée sur la tour */}
+              <RooftopMapView towerX={rooftopView.towerX} towerZ={rooftopView.towerZ} />
+            </div>
+            <div style={{
+              marginTop: 14, padding: 10,
+              background: 'rgba(212,175,55,0.1)',
+              border: '1px solid rgba(212,175,55,0.3)', borderRadius: 8,
+              fontSize: 12, color: '#e8e8ea', textAlign: 'center',
+            }}>
+              💡 Vue à vol d'oiseau depuis le toit. Repère le casino, ta propriété, les boutiques.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* GARAGE — Concession véhicules */}
       {garageOpen && (
         <div
@@ -4102,6 +4347,75 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 };
 
 export default Street3D;
+
+// =============================================================
+// <RooftopMapView> — mini-carte SVG de la ville depuis le toit
+// (top-down) centrée sur la tour. Affiche casino, immeubles, shop,
+// garage, plage. Marqueur "TOI ICI" sur la tour en question.
+// =============================================================
+const RooftopMapView = ({ towerX, towerZ }) => {
+  // Map world coords (-150..+80, -65..+65) → SVG (0..600)
+  // Centré sur (-35, 0)
+  const SVG = 600;
+  const W = 230, H = 130;
+  const cx = -35, cz = 0;
+  const toSvg = (x, z) => ({
+    x: ((x - (cx - W / 2)) / W) * SVG,
+    y: ((z - (cz - H / 2)) / H) * SVG,
+  });
+  const dot = (x, z, color, size = 6, label) => {
+    const p = toSvg(x, z);
+    return (
+      <g key={`${x}-${z}-${color}`}>
+        <circle cx={p.x} cy={p.y} r={size} fill={color} stroke="#fff" strokeWidth="1.5" />
+        {label && (
+          <text x={p.x} y={p.y - size - 3} fill="#fff" fontSize="10" textAnchor="middle"
+            style={{ paintOrder: 'stroke', stroke: '#000', strokeWidth: 2 }}>
+            {label}
+          </text>
+        )}
+      </g>
+    );
+  };
+  const youHere = toSvg(towerX, towerZ);
+  return (
+    <svg viewBox={`0 0 ${SVG} ${SVG}`} style={{ width: '100%', height: '100%' }}>
+      {/* Sol */}
+      <rect x="0" y="0" width={SVG} height={SVG} fill="#1a2230" />
+      {/* Mer (côté est, x > 70) */}
+      {(() => {
+        const sea = toSvg(70, -H / 2);
+        return <rect x={sea.x} y="0" width={SVG - sea.x} height={SVG} fill="#1c6ea4" opacity="0.55" />;
+      })()}
+      {/* Plaza casino */}
+      {(() => {
+        const tl = toSvg(-55, -29.5);
+        const br = toSvg(55, 5.5);
+        return <rect x={tl.x} y={tl.y} width={br.x - tl.x} height={br.y - tl.y} fill="#c7b89a" opacity="0.5" />;
+      })()}
+      {/* Repères */}
+      {dot(0, -10, '#ffd700', 9, '🎰 Casino')}
+      {dot(-22, -14, '#b48cff', 6, 'Résidences')}
+      {dot(42, -30, '#b48cff', 6, 'Horizon')}
+      {dot(-55, 6, '#b48cff', 6, 'Azur')}
+      {dot(55, 22, '#b48cff', 6, 'Palace')}
+      {dot(28, 30, '#ff5565', 5, '🛒 Shop')}
+      {dot(-22, 30, '#5af0ff', 5, '🚗 Garage')}
+      {/* Quartier luxe (cluster) */}
+      {[[-85, -5], [-110, 8], [-135, -2], [-158, 5]].map(([x, z]) => dot(x, z, '#ff99b0', 4))}
+      {/* TOI ICI : pulse animé */}
+      <circle cx={youHere.x} cy={youHere.y} r="16" fill="none" stroke="#ff4444" strokeWidth="2">
+        <animate attributeName="r" values="10;22;10" dur="1.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="1;0.2;1" dur="1.5s" repeatCount="indefinite" />
+      </circle>
+      <circle cx={youHere.x} cy={youHere.y} r="6" fill="#ff4444" stroke="#fff" strokeWidth="2" />
+      <text x={youHere.x} y={youHere.y - 22} fill="#ff4444" fontSize="13" fontWeight="800"
+        textAnchor="middle" style={{ paintOrder: 'stroke', stroke: '#000', strokeWidth: 3 }}>
+        TOI ICI
+      </text>
+    </svg>
+  );
+};
 
 // D-pad button — supporte touch + click ET reset fiable au quitter
 const DpadBtn = ({ label, onDown, onUp, testId }) => {
