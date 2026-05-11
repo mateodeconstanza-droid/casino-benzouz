@@ -21,18 +21,18 @@ import { buildPlayerCharacter } from '@/game/playerCharacter';
 const _sidePositions = (() => {
   const arr = [];
   // === DERRIÈRE le casino (z négatif) ===
-  // Rangée 2 (z=-30) — 7 maisons
-  for (let i = 0; i < 7; i++) arr.push({ x: -39 + i * 13, z: -30 });
-  // Rangée 3 (z=-33) — 7 maisons décalées
-  for (let i = 0; i < 7; i++) arr.push({ x: -32 + i * 11, z: -33 });
-  // Rangée 4 (z=-36) — 6 maisons
-  for (let i = 0; i < 6; i++) arr.push({ x: -30 + i * 12, z: -36 });
-  // === DEVANT le casino, derrière le spawn (z positif) ===
-  // Décalées au-delà du shop (28, 30) et du garage (-22, 30) qui sont à z=30,
-  // pour éviter que les maisons transpercent le shop/garage.
-  // Rangée 5 (z=44) — 5 maisons, loin des bâtiments commerciaux
+  // Avant : 3 rangées tassées à z=-30/-33/-36 (3 m d'écart, maisons collées).
+  // Maintenant : 3 rangées TRÈS espacées en z (10 m d'écart) + plus de
+  // marge entre maisons sur l'axe x (18 m au lieu de 11-13 m). Total
+  // maisons inchangé (20) mais quartier respirable.
+  // Rangée 2 (z=-32) — 7 maisons
+  for (let i = 0; i < 7; i++) arr.push({ x: -54 + i * 18, z: -32 });
+  // Rangée 3 (z=-44) — 7 maisons décalées d'un demi-pas
+  for (let i = 0; i < 7; i++) arr.push({ x: -45 + i * 18, z: -44 });
+  // Rangée 4 (z=-58) — 6 maisons (un peu plus serrées en x car proche du fond)
+  for (let i = 0; i < 6; i++) arr.push({ x: -45 + i * 18, z: -58 });
+  // === DEVANT le casino (z positif), derrière le shop/garage à z=30 ===
   for (let i = 0; i < 5; i++) arr.push({ x: -40 + i * 20, z: 44 });
-  // Rangée 6 (z=54) — 5 maisons en arrière-plan
   for (let i = 0; i < 5; i++) arr.push({ x: -44 + i * 22, z: 54 });
   return arr;
 })();
@@ -100,16 +100,15 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
-  // ====== AMBIANCE SONORE ville (vagues plage, mouettes, klaxons) ======
+  // ====== AMBIANCE SONORE ville — léger seul (klaxons rares) ======
+  // L'utilisateur a demandé : pas de bruits d'ambiance sauf léger bruit de
+  // voitures + tirs d'arme (gérés ailleurs). On désactive vagues + mouettes
+  // + chœur et on garde uniquement les klaxons occasionnels à très faible
+  // volume.
   useAmbientAudio({
     stateRef,
     layers: [
-      // Vagues : volume ramps up à mesure qu'on s'approche de la plage (x > 65)
-      { type: 'waves', target: (p) => Math.max(0, Math.min(0.32, (p.x - 65) / 50 * 0.32)) },
-      // Mouettes : oneshots aléatoires, volume basé sur proximité plage
-      { type: 'seagull', target: (p) => p.x > 60 ? 0.12 : 0, oneshot: true },
-      // Klaxons : oneshots aléatoires, volume basé sur centre de la ville (proche du casino)
-      { type: 'horn', target: (p) => (Math.abs(p.x) < 60 && Math.abs(p.z) < 100) ? 0.05 : 0, oneshot: true },
+      { type: 'horn', target: (p) => (Math.abs(p.x) < 60 && Math.abs(p.z) < 100) ? 0.04 : 0, oneshot: true },
     ],
   });
   const [ridingOn, setRidingOn] = useState(!!profile?.equippedVehicle);
@@ -1169,21 +1168,19 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const npcHairPool   = [0, 1, 2, 3, 4, 5, 6, 7]; // toutes les coupes "humaines"
     const npcShoesPool  = [0, 1, 3, 4, 5]; // baskets / mocassins / bottes / lumineux
     const seedRand = (() => { let s = 42; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; })();
-    // 22 NPCs répartis sur toute la zone jouable (-90..70 × -55..50)
-    // au lieu d'un seul ruban devant le casino.
+    // 14 NPCs répartis sur la zone jouable (réduit pour éviter le ralentissement
+    // — chaque NPC = ~40 meshes via buildPlayerCharacter).
     const npcSpawnPoints = [
       // Devant casino + plaza
-      { x: -25, z: 4 }, { x: 18, z: 6 }, { x: -8, z: 10 }, { x: 12, z: 12 },
-      // Côté garage / shop (commercial strip)
-      { x: -28, z: 22 }, { x: 22, z: 18 }, { x: -10, z: 26 }, { x: 8, z: 22 },
+      { x: -20, z: 4 }, { x: 16, z: 6 }, { x: -4, z: 12 },
+      // Commercial strip
+      { x: -28, z: 22 }, { x: 22, z: 18 }, { x: 0, z: 26 },
       // Quartier de luxe
-      { x: -85, z: -5 }, { x: -110, z: 8 }, { x: -135, z: -2 }, { x: -158, z: 5 },
-      // Arrière (back rows)
-      { x: -30, z: -22 }, { x: 12, z: -24 }, { x: -10, z: -28 }, { x: 28, z: -18 },
-      // Front rows / autour des nouvelles maisons frontales
-      { x: -38, z: 38 }, { x: 16, z: 42 }, { x: 38, z: 38 }, { x: -6, z: 48 },
-      // Plage
-      { x: 80, z: 0 }, { x: 95, z: -20 },
+      { x: -100, z: -5 }, { x: -135, z: 8 }, { x: -165, z: 0 },
+      // Arrière
+      { x: -22, z: -22 }, { x: 18, z: -22 },
+      // Frontale + plage
+      { x: -20, z: 42 }, { x: 22, z: 42 }, { x: 88, z: 0 },
     ];
     for (let i = 0; i < npcSpawnPoints.length; i++) {
       const npc = buildPlayerCharacter({
@@ -1353,7 +1350,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     };
     let placed = 0;
     let attempts = 0;
-    while (placed < 280 && attempts < 2000) {
+    while (placed < 140 && attempts < 2000) {
       attempts++;
       const pos = tryPlaceBuilding();
       if (!pos) continue;
@@ -1373,7 +1370,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       const cols = Math.floor(w / 1.6);
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (rand() < 0.4) continue;
+          if (rand() < 0.78) continue; // skip 78% (perf : moins de meshes window)
           const winColor = rand() < 0.15 ? 0x3fe6ff : 0xffd88a;
           const win = new THREE.Mesh(
             new THREE.PlaneGeometry(0.5, 1.2),

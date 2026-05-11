@@ -79,14 +79,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   // depuis la boucle de rendu Three.js — voir useEffect plus bas).
   const stateRef = useRef({ player: { x: 0, y: 0, z: 0 } });
 
-  // ====== AMBIANCE SONORE casino (foule + chuchotements) ======
-  useAmbientAudio({
-    stateRef,
-    layers: [
-      // Foule : toujours présente dans le lobby (volume constant 0.12)
-      { type: 'crowd', target: () => 0.12 },
-    ],
-  });
+  // ====== AMBIANCE SONORE casino — désactivée ======
+  // (Utilisateur a demandé silence sauf tirs d'arme.)
+  useAmbientAudio({ stateRef, layers: [] });
   useEffect(() => { arrivingRef.current = arriving; }, [arriving]);
   useEffect(() => {
     arrivalStartRef.current = performance.now();
@@ -233,6 +228,76 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       }
       return g;
     };
+    // ===== Hookah mesh : tenue à la main droite (visible en TPS) =====
+    // Quand le joueur a une chicha équipée mais NE l'utilise pas → tenue à
+    // côté du corps. Quand il l'utilise → bras qui se lève vers la bouche.
+    const buildHookahMesh = (id) => {
+      if (!id) return null;
+      const g = new THREE.Group();
+      g.position.set(0.04, -0.85, 0.05);
+      const baseCol = id === 'hookah-gold' ? 0xffd700
+                    : id === 'hookah-platinum' ? 0xe5e4e2 : 0xc8a85a;
+      const baseMat = new THREE.MeshStandardMaterial({ color: baseCol, metalness: 0.6, roughness: 0.3 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1410, roughness: 0.6 });
+      // Bowl (large hémisphère)
+      const bowl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+        baseMat,
+      );
+      bowl.position.y = 0.06;
+      bowl.rotation.x = Math.PI;
+      g.add(bowl);
+      // Tige verticale
+      const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.012, 0.012, 0.18, 8),
+        darkMat,
+      );
+      stem.position.y = 0.15;
+      g.add(stem);
+      // Foyer + braise
+      const foyer = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.025, 0.025, 10),
+        darkMat,
+      );
+      foyer.position.y = 0.25;
+      g.add(foyer);
+      const ember = new THREE.Mesh(
+        new THREE.SphereGeometry(0.018, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff4a00, transparent: true, opacity: 0.95 }),
+      );
+      ember.position.y = 0.265;
+      g.add(ember);
+      // Tuyau qui descend
+      const hose = new THREE.Mesh(
+        new THREE.TorusGeometry(0.08, 0.012, 6, 14, Math.PI),
+        darkMat,
+      );
+      hose.position.set(0.05, 0.05, 0);
+      hose.rotation.z = Math.PI / 2;
+      g.add(hose);
+      return g;
+    };
+    let attachedHookahId = null;
+    let attachedHookah = null;
+    const refreshAttachedHookah = () => {
+      const id = (hasHookah && !selectedWeaponRef.current) ? equippedHookah : null;
+      if (id === attachedHookahId) return;
+      if (attachedHookah) {
+        playerAvatar.userData.rightArm?.remove(attachedHookah);
+        attachedHookah.traverse(o => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+        });
+        attachedHookah = null;
+      }
+      const ng = buildHookahMesh(id);
+      if (ng && playerAvatar.userData.rightArm) {
+        playerAvatar.userData.rightArm.add(ng);
+        attachedHookah = ng;
+      }
+      attachedHookahId = id;
+    };
+
     const refreshAttachedWeapon = () => {
       const id = selectedWeaponRef.current;
       if (id === attachedWeaponId) return;
@@ -3350,20 +3415,28 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         // Orientation : regarde dans la même direction que la caméra
         playerAvatar.rotation.y = Math.atan2(camDir.x, camDir.z);
 
-        // Met à jour l'arme tenue (visible en TPS) selon selectedWeapon
+        // Met à jour l'arme + la chicha tenues (visibles en TPS)
         refreshAttachedWeapon();
+        refreshAttachedHookah();
 
         // Léger balancement des bras/jambes si le joueur bouge
         const isMoving = keysRef.current.forward || keysRef.current.backward || keysRef.current.left || keysRef.current.right;
         const t = performance.now() * 0.008;
         const swing = isMoving ? Math.sin(t) * 0.3 : 0;
         if (playerAvatar.userData.leftArm)  playerAvatar.userData.leftArm.rotation.x = swing;
-        // Bras droit : si arme équipée, on le tend vers l'avant (visée TPS)
+        // Bras droit : si arme équipée → tendu (visée). Si chicha en cours
+        // d'utilisation → levé vers la bouche pour porter la chicha aux
+        // lèvres. Sinon balancement de marche normal.
         if (playerAvatar.userData.rightArm) {
           if (selectedWeaponRef.current) {
-            playerAvatar.userData.rightArm.rotation.x = -1.1; // bras quasi tendu
+            playerAvatar.userData.rightArm.rotation.x = -1.1;
+          } else if (usingHookahRef.current) {
+            // Bras plié à 90° vers la bouche
+            playerAvatar.userData.rightArm.rotation.x = -2.4;
+            playerAvatar.userData.rightArm.rotation.z = 0.3;
           } else {
             playerAvatar.userData.rightArm.rotation.x = -swing;
+            playerAvatar.userData.rightArm.rotation.z = 0;
           }
         }
         if (playerAvatar.userData.leftLeg)  playerAvatar.userData.leftLeg.rotation.x = -swing;
@@ -3502,6 +3575,10 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const lastPosSentRef = useRef(0);
   const selectedWeaponRef = useRef(null);
   useEffect(() => { selectedWeaponRef.current = selectedWeapon; }, [selectedWeapon]);
+  // usingHookahRef pour que la boucle d'animation Three.js lise la valeur
+  // courante sans dépendre du re-render React.
+  const usingHookahRef = useRef(false);
+  useEffect(() => { usingHookahRef.current = usingHookah; }, [usingHookah]);
   const pendingRemoteUpdatesRef = useRef({}); // dernière snapshot reçue {id: playerData}
   const remoteShotsRef = useRef([]); // tirs distants à animer
 
