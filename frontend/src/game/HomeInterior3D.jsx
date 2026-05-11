@@ -1486,63 +1486,151 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
                   }}>{l}</button>
               ))}
             </div>
-            {/* Grille items */}
+            {/* Résumé : total dépensé + nombre de meubles possédés (style Sims) */}
+            {(() => {
+              const ownedFurn = ((profile.ownedHouses || [])
+                .find(h => h.id === houseId)?.customizations?.furniture) || [];
+              const totalSpent = ownedFurn.reduce((sum, id) => {
+                const def = FURNITURE_CATALOG.find(f => f.id === id);
+                return sum + (def?.price || 0);
+              }, 0);
+              return (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-around',
+                  padding: '10px 14px', marginBottom: 12,
+                  background: 'rgba(212,175,55,0.08)',
+                  border: '1px solid rgba(212,175,55,0.3)', borderRadius: 8,
+                  fontSize: 12,
+                }}>
+                  <div>
+                    <div style={{ color: STAKE.inkSoft, fontSize: 10 }}>MEUBLES POSSÉDÉS</div>
+                    <div style={{ color: STAKE.goldLight, fontWeight: 900, fontSize: 15 }}>
+                      {ownedFurn.length} 🪑
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: STAKE.inkSoft, fontSize: 10 }}>VALEUR TOTALE</div>
+                    <div style={{ color: '#00ff88', fontWeight: 900, fontSize: 15 }}>
+                      💰 {fmt(totalSpent)} $
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: STAKE.inkSoft, fontSize: 10 }}>SOLDE DISPO.</div>
+                    <div style={{ color: STAKE.gold, fontWeight: 900, fontSize: 15 }}>
+                      💵 {fmt(profile.balance || 0)} $
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Grille items — style Sims : multi-achat + revente 60% */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
               {FURNITURE_CATALOG.filter(f => f.category === furnTab).map(item => {
                 const ownedFurniture = ((profile.ownedHouses || [])
                   .find(h => h.id === houseId)?.customizations?.furniture) || [];
-                const hasIt = ownedFurniture.includes(item.id);
+                const ownedCount = ownedFurniture.filter(id => id === item.id).length;
                 const playerBal = profile.balance || 0;
                 const canAfford = playerBal >= item.price;
+                const sellPrice = Math.floor(item.price * 0.6); // remboursement 60%
+
+                const buy = () => {
+                  if (!canAfford) return;
+                  const newBal = playerBal - item.price;
+                  const next = {
+                    ...profile,
+                    balance: newBal,
+                    ownedHouses: (profile.ownedHouses || []).map(h =>
+                      h.id === houseId ? {
+                        ...h,
+                        customizations: {
+                          ...(h.customizations || {}),
+                          furniture: [...(h.customizations?.furniture || []), item.id],
+                        },
+                      } : h),
+                  };
+                  setProfile(next);
+                };
+                const sell = () => {
+                  if (ownedCount === 0) return;
+                  // Retire le 1er exemplaire de cet item dans la liste
+                  const idxToRemove = ownedFurniture.indexOf(item.id);
+                  const newFurn = ownedFurniture.slice();
+                  if (idxToRemove >= 0) newFurn.splice(idxToRemove, 1);
+                  const next = {
+                    ...profile,
+                    balance: playerBal + sellPrice,
+                    ownedHouses: (profile.ownedHouses || []).map(h =>
+                      h.id === houseId ? {
+                        ...h,
+                        customizations: {
+                          ...(h.customizations || {}),
+                          furniture: newFurn,
+                        },
+                      } : h),
+                  };
+                  setProfile(next);
+                };
+
                 return (
                   <div key={item.id} style={{
                     padding: 12, borderRadius: 10,
                     background: 'rgba(20,10,20,0.8)',
-                    border: `1px solid ${hasIt ? '#00aa44' : 'rgba(212,175,55,0.3)'}`,
-                    textAlign: 'center',
+                    border: `1px solid ${ownedCount > 0 ? '#00aa44' : 'rgba(212,175,55,0.3)'}`,
+                    textAlign: 'center', position: 'relative',
+                    transition: 'transform .12s ease, box-shadow .12s ease',
                   }} data-testid={`furn-${item.id}`}>
+                    {/* Badge compteur (style Sims : x2, x3, etc.) */}
+                    {ownedCount > 0 && (
+                      <div style={{
+                        position: 'absolute', top: 6, right: 6,
+                        padding: '2px 8px', borderRadius: 10,
+                        background: 'linear-gradient(135deg, #14c356, #086a31)',
+                        color: '#fff', fontWeight: 900, fontSize: 11,
+                        border: '1px solid #0d9344',
+                      }}>×{ownedCount}</div>
+                    )}
                     <div style={{ fontSize: 38, marginBottom: 6 }}>{item.icon}</div>
                     <div style={{
                       width: 40, height: 8, margin: '0 auto 8px',
                       background: `#${item.color.toString(16).padStart(6,'0')}`,
                       borderRadius: 4, border: '1px solid rgba(255,255,255,0.2)',
                     }} />
-                    <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>{item.name}</div>
-                    {hasIt ? (
-                      <div style={{ color: '#00ff88', fontWeight: 900, fontSize: 12 }}>✓ POSSÉDÉ</div>
-                    ) : (
+                    <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.name}</div>
+                    {/* Boutons ACHETER + REVENDRE (toujours visibles si possédé) */}
+                    <div style={{ display: 'flex', gap: 4 }}>
                       <button
                         data-testid={`furn-buy-${item.id}`}
                         disabled={!canAfford}
-                        onClick={() => {
-                          if (!canAfford) return;
-                          const newBal = playerBal - item.price;
-                          const next = {
-                            ...profile,
-                            balance: newBal,
-                            ownedHouses: (profile.ownedHouses || []).map(h =>
-                              h.id === houseId ? {
-                                ...h,
-                                customizations: {
-                                  ...(h.customizations || {}),
-                                  furniture: [...(h.customizations?.furniture || []), item.id],
-                                },
-                              } : h),
-                          };
-                          setProfile(next);
-                        }}
+                        onClick={buy}
                         style={{
-                          width: '100%', padding: '7px 10px',
+                          flex: 1, padding: '7px 6px',
                           background: canAfford
                             ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`
-                            : '#444',
-                          border: 'none', borderRadius: 6, color: canAfford ? '#111' : '#888',
-                          fontWeight: 900, fontSize: 11, letterSpacing: 0.5,
+                            : '#3a3a3a',
+                          border: 'none', borderRadius: 6,
+                          color: canAfford ? '#111' : '#888',
+                          fontWeight: 900, fontSize: 10, letterSpacing: 0.3,
                           cursor: canAfford ? 'pointer' : 'not-allowed',
                         }}>
-                        {canAfford ? `${fmt(item.price)} $` : 'TROP CHER'}
+                        {canAfford ? `+ ${fmt(item.price)}$` : 'TROP CHER'}
                       </button>
-                    )}
+                      {ownedCount > 0 && (
+                        <button
+                          data-testid={`furn-sell-${item.id}`}
+                          onClick={sell}
+                          title={`Revend pour ${fmt(sellPrice)} $ (60%)`}
+                          style={{
+                            flex: 1, padding: '7px 6px',
+                            background: 'linear-gradient(135deg, #8a2828, #4a1414)',
+                            border: '1px solid #c83838', borderRadius: 6,
+                            color: '#ffcaca', fontWeight: 900, fontSize: 10, letterSpacing: 0.3,
+                            cursor: 'pointer',
+                          }}>
+                          − {fmt(sellPrice)}$
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

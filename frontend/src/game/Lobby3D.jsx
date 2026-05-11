@@ -3836,64 +3836,181 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const createExplosion = (pos) => {
     const scene = sceneRef.current;
     if (!scene) return;
-    // Throttle : si une explosion est créée < 80 ms après la dernière, on skip pour éviter de saturer le GPU
+    // Throttle : si une explosion est créée < 80 ms après la dernière, on skip
     const now = Date.now();
     if (createExplosion._lastAt && (now - createExplosion._lastAt) < 80) return;
     createExplosion._lastAt = now;
     try { sfx.play('explosion'); } catch (_e) { /* noop */ }
+
     const group = new THREE.Group();
     group.position.copy(pos);
-    // Flash initial (géométries allégées)
-    const flashGeo = new THREE.SphereGeometry(0.3, 10, 8);
-    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffeeaa, transparent: true, opacity: 1 });
+
+    // ===== Flash initial (blanc-jaune, courte durée) =====
+    const flashGeo = new THREE.SphereGeometry(0.35, 12, 10);
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffd0, transparent: true, opacity: 1 });
     const flash = new THREE.Mesh(flashGeo, flashMat);
     group.add(flash);
-    // Boule de feu
-    const fireGeo = new THREE.SphereGeometry(0.5, 12, 10);
-    const fireMat = new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.9 });
+
+    // ===== Boule de feu principale =====
+    const fireGeo = new THREE.SphereGeometry(0.55, 14, 12);
+    const fireMat = new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.95 });
     const fire = new THREE.Mesh(fireGeo, fireMat);
     group.add(fire);
-    // Onde de choc
-    const shockGeo = new THREE.RingGeometry(0.5, 0.7, 20);
-    const shockMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+
+    // ===== Onde de choc au sol =====
+    const shockGeo = new THREE.RingGeometry(0.5, 0.85, 28);
+    const shockMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa00, transparent: true, opacity: 0.85,
+      side: THREE.DoubleSide,
+    });
     const shock = new THREE.Mesh(shockGeo, shockMat);
     shock.rotation.x = -Math.PI / 2;
-    shock.position.y = -1;
+    shock.position.y = -0.95;
     group.add(shock);
-    // Lumière ponctuelle (intensité réduite + distance courte pour éviter les recompilations shader sur AoE multiple)
-    const light = new THREE.PointLight(0xff8833, 2, 6);
+
+    // ===== 8 nuages de fumée gris qui montent =====
+    const smokeMeshes = [];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.4;
+      const r = 0.4 + Math.random() * 0.4;
+      const smoke = new THREE.Mesh(
+        new THREE.SphereGeometry(0.45 + Math.random() * 0.3, 10, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0x6a6a6c, transparent: true, opacity: 0,
+        }),
+      );
+      smoke.position.set(
+        Math.cos(angle) * r,
+        0.2 + Math.random() * 0.3,
+        Math.sin(angle) * r,
+      );
+      smoke.userData.driftX = Math.cos(angle) * (0.6 + Math.random() * 0.6);
+      smoke.userData.driftZ = Math.sin(angle) * (0.6 + Math.random() * 0.6);
+      smoke.userData.driftY = 0.8 + Math.random() * 0.8;
+      smoke.userData.delay = i * 0.04;
+      group.add(smoke);
+      smokeMeshes.push(smoke);
+    }
+
+    // ===== 16 fragments de debris (petits cubes/billes orangés) qui volent =====
+    const debrisMeshes = [];
+    for (let i = 0; i < 16; i++) {
+      const debris = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.06, 0.06),
+        new THREE.MeshBasicMaterial({
+          color: i % 3 === 0 ? 0xffd860 : (i % 3 === 1 ? 0xff7a2a : 0x9a5a30),
+        }),
+      );
+      const ang = (i / 16) * Math.PI * 2;
+      const elev = 0.3 + Math.random() * 1.0;
+      const speed = 2.5 + Math.random() * 3.5;
+      debris.userData.velX = Math.cos(ang) * speed;
+      debris.userData.velY = elev * 3.5;
+      debris.userData.velZ = Math.sin(ang) * speed;
+      debris.userData.rotSpeed = (Math.random() - 0.5) * 0.4;
+      group.add(debris);
+      debrisMeshes.push(debris);
+    }
+
+    // ===== Lumière ponctuelle intense =====
+    const light = new THREE.PointLight(0xff8833, 3, 10);
     group.add(light);
 
     scene.add(group);
+
+    // ===== Camera shake si la caméra est proche (≤ 8 m) =====
+    const cam = cameraRef.current;
+    if (cam) {
+      const distToCam = cam.position.distanceTo(pos);
+      if (distToCam <= 8) {
+        const intensity = (1 - distToCam / 8) * 0.18;
+        const shakeStart = Date.now();
+        const shakeDuration = 350;
+        const camOrigQuat = cam.quaternion.clone();
+        const doShake = () => {
+          const el = Date.now() - shakeStart;
+          const t = Math.min(el / shakeDuration, 1);
+          if (t < 1) {
+            const decay = 1 - t;
+            cam.quaternion.copy(camOrigQuat);
+            cam.rotateZ((Math.random() - 0.5) * intensity * decay);
+            cam.rotateX((Math.random() - 0.5) * intensity * decay * 0.5);
+            requestAnimationFrame(doShake);
+          } else {
+            cam.quaternion.copy(camOrigQuat);
+          }
+        };
+        doShake();
+      }
+    }
+
     const start = Date.now();
-    const duration = 700;
+    const duration = 1200; // 700 → 1200 ms pour laisser la fumée vivre
     let cancelled = false;
     const cleanup = () => {
       if (cancelled) return;
       cancelled = true;
       scene.remove(group);
-      // Dispose pour éviter la fuite GPU
-      flashGeo.dispose(); flashMat.dispose();
-      fireGeo.dispose();  fireMat.dispose();
-      shockGeo.dispose(); shockMat.dispose();
+      group.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+          (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+        }
+      });
     };
     const anim = () => {
       if (cancelled) return;
       const el = Date.now() - start;
       const t = Math.min(el / duration, 1);
-      const scale = 1 + t * 6;
-      fire.scale.setScalar(scale);
-      flash.scale.setScalar(1 + t * 3);
-      flashMat.opacity = Math.max(0, 1 - t * 2);
-      fireMat.opacity = Math.max(0, 0.9 - t);
-      shock.scale.setScalar(1 + t * 5);
-      shockMat.opacity = Math.max(0, 0.8 - t);
-      light.intensity = Math.max(0, 4 * (1 - t));
+      const dt = 0.016;
+
+      // Flash : courte vie (~0.25 s)
+      const flashT = Math.min(t * 4, 1);
+      flash.scale.setScalar(1 + flashT * 5);
+      flashMat.opacity = Math.max(0, 1 - flashT * 1.8);
+
+      // Boule de feu : grandit + fade
+      const fireT = Math.min(t * 1.8, 1);
+      fire.scale.setScalar(1 + fireT * 7);
+      fireMat.opacity = Math.max(0, 0.95 - fireT * 1.2);
+
+      // Onde de choc : s'étend rapidement
+      shock.scale.setScalar(1 + t * 7);
+      shockMat.opacity = Math.max(0, 0.85 - t * 1.0);
+
+      // Fumée : monte et grossit
+      for (let i = 0; i < smokeMeshes.length; i++) {
+        const s = smokeMeshes[i];
+        const ud = s.userData;
+        const localT = Math.max(0, t - ud.delay);
+        s.position.x += ud.driftX * dt;
+        s.position.z += ud.driftZ * dt;
+        s.position.y += ud.driftY * dt;
+        s.scale.setScalar(1 + localT * 3);
+        s.material.opacity = Math.max(0, localT < 0.2 ? localT * 3 : 0.7 - (localT - 0.2) * 0.85);
+      }
+
+      // Debris : trajectoire balistique
+      for (const d of debrisMeshes) {
+        const ud = d.userData;
+        d.position.x += ud.velX * dt;
+        d.position.y += ud.velY * dt;
+        d.position.z += ud.velZ * dt;
+        ud.velY -= 9.8 * dt;
+        d.rotation.x += ud.rotSpeed;
+        d.rotation.z += ud.rotSpeed * 0.7;
+        if (d.position.y < -1) d.position.y = -1;
+        d.material.opacity = Math.max(0, 1 - t * 1.5);
+        d.material.transparent = true;
+      }
+
+      // Lumière : décroissance
+      light.intensity = Math.max(0, 5 * (1 - t * 1.2));
+
       if (t < 1) requestAnimationFrame(anim);
       else cleanup();
     };
     anim();
-    // Garde-fou : s'assure du nettoyage même si l'anim est bloquée
     setTimeout(cleanup, duration + 500);
   };
 
