@@ -13,7 +13,7 @@ import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard }) => {
+const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard, onOpenBattlePass }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -4750,6 +4750,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         extraItems={[
           { testId: 'menu-profile', icon: '🪪', label: 'Mon profil & bannière', onClick: () => onOpenProfile && onOpenProfile() },
           { testId: 'menu-leaderboard', icon: '🏆', label: 'Classement mondial', onClick: () => onOpenLeaderboard && onOpenLeaderboard() },
+          { testId: 'menu-battlepass', icon: '⚔️', label: 'Battle Pass — Saison 1', onClick: () => onOpenBattlePass && onOpenBattlePass(), accent: '#ffd700' },
           { testId: 'menu-character', icon: '👤', label: 'Personnaliser le personnage', onClick: () => onOpenCharacter && onOpenCharacter() },
           { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
           { testId: 'menu-change-casino', icon: '🌍', label: 'Changer de casino', onClick: () => onChangeCasino && onChangeCasino() },
