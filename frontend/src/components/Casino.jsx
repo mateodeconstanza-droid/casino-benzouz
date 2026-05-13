@@ -18,6 +18,7 @@ import PlayerProfile from '@/game/PlayerProfile';
 import Leaderboard from '@/game/Leaderboard';
 import { submitLeaderboard } from '@/game/multiplayer';
 import { BattlePass, applyPassReward } from '@/game/BattlePass';
+import CrashGame from '@/game/Crash';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -43,6 +44,7 @@ export default function Casino() {
   const [showProfile, setShowProfile] = useState(null); // null | 'mine' | { otherProfile }
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBattlePass, setShowBattlePass] = useState(false);
+  const [showCrash, setShowCrash] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -885,6 +887,7 @@ export default function Casino() {
           onOpenProfile={() => setShowProfile('mine')}
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBattlePass={() => setShowBattlePass(true)}
+          onOpenCrash={() => setShowCrash(true)}
         />
       )}
 
@@ -929,6 +932,21 @@ export default function Casino() {
 
       {showControls && <ControlsHelp onClose={() => setShowControls(false)} />}
       {showLeaderboard && <Leaderboard profile={profile} onClose={() => setShowLeaderboard(false)} />}
+      {showCrash && (
+        <CrashGame
+          profile={profile}
+          balance={balance}
+          setBalance={setBalance}
+          onWin={(delta) => {
+            if (delta > 0) {
+              const next = { ...profile, totalWinnings: (profile.totalWinnings || 0) + delta };
+              setProfile(next);
+              saveProfile({ ...next, balance });
+            }
+          }}
+          onClose={() => setShowCrash(false)}
+        />
+      )}
       {showBattlePass && (
         <BattlePass
           profile={profile}

@@ -13,7 +13,7 @@ import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard, onOpenBattlePass }) => {
+const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard, onOpenBattlePass, onOpenCrash }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -58,6 +58,10 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const chatInputRef = useRef(null);
   const [killFeed, setKillFeed] = useState([]); // [{killer, victim, weapon, ts}]
   const [myHp, setMyHp] = useState(100);
+  // Système de vies — 3 vies par session MP. Une vie perdue à chaque mort.
+  // À 0 → mode spectateur jusqu'à reconnexion / session suivante.
+  const [sessionLives, setSessionLives] = useState(3);
+  const [spectating, setSpectating] = useState(false);
   const [onlinePlayersCount, setOnlinePlayersCount] = useState(0);
 
   // ====== ANIMATION D'ARRIVÉE — cinématique d'entrée 3 s ======
@@ -3796,6 +3800,14 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           setKillFeed((prev) => [...prev, { ...msg, ts: Date.now() }].slice(-5));
           setTimeout(() => setKillFeed((prev) => prev.filter(k => Date.now() - k.ts < 5000)), 5500);
           try { sfx.play('explosion'); } catch (_e) { /* noop */ }
+          // Système de vies — si c'est MOI qui meurs, décrémenter
+          if (msg.victim === myIdRef.current) {
+            setSessionLives((lives) => {
+              const next = Math.max(0, lives - 1);
+              if (next === 0) setSpectating(true);
+              return next;
+            });
+          }
         } else if (msg.type === 'damage') {
           if (msg.target === myIdRef.current) {
             setMyHp(msg.hp);
@@ -4751,6 +4763,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           { testId: 'menu-profile', icon: '🪪', label: 'Mon profil & bannière', onClick: () => onOpenProfile && onOpenProfile() },
           { testId: 'menu-leaderboard', icon: '🏆', label: 'Classement mondial', onClick: () => onOpenLeaderboard && onOpenLeaderboard() },
           { testId: 'menu-battlepass', icon: '⚔️', label: 'Battle Pass — Saison 1', onClick: () => onOpenBattlePass && onOpenBattlePass(), accent: '#ffd700' },
+          { testId: 'menu-crash', icon: '🚀', label: 'Crash — mini-jeu', onClick: () => onOpenCrash && onOpenCrash(), accent: '#3fe6ff' },
           { testId: 'menu-character', icon: '👤', label: 'Personnaliser le personnage', onClick: () => onOpenCharacter && onOpenCharacter() },
           { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
           { testId: 'menu-change-casino', icon: '🌍', label: 'Changer de casino', onClick: () => onChangeCasino && onChangeCasino() },
@@ -5359,13 +5372,28 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             SERVEUR {mpServerId?.toUpperCase()} · {onlinePlayersCount} EN LIGNE
           </div>
 
-          {/* Barre de vie */}
+          {/* Barre de vie + cœurs de session */}
           <div style={{
             position: 'absolute', top: 40, left: 10, zIndex: 50,
-            width: 180, background: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 6,
-            pointerEvents: 'none',
+            width: 200, background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 8,
+            border: '1px solid rgba(212,175,55,0.35)',
+            pointerEvents: 'none', backdropFilter: 'blur(4px)',
           }}>
-            <div style={{ fontSize: 10, color: '#fff', marginBottom: 2 }}>HP : {myHp}/100</div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              fontSize: 10, color: '#fff', marginBottom: 4,
+            }}>
+              <span>HP : {myHp}/100</span>
+              <span data-testid="mp-lives" style={{ fontSize: 14 }}>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <span key={i} style={{
+                    marginLeft: 2,
+                    color: i < sessionLives ? '#ff3a55' : '#3a3a40',
+                    textShadow: i < sessionLives ? '0 0 6px rgba(255,58,85,0.7)' : 'none',
+                  }}>❤</span>
+                ))}
+              </span>
+            </div>
             <div style={{
               height: 8, background: '#333', borderRadius: 4, overflow: 'hidden',
             }}>
@@ -5378,6 +5406,44 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
               }} />
             </div>
           </div>
+
+          {/* Overlay spectateur (0 vies) */}
+          {spectating && (
+            <div
+              data-testid="mp-spectator-overlay"
+              style={{
+                position: 'absolute', inset: 0, zIndex: 200,
+                background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontFamily: 'Georgia, serif',
+                pointerEvents: 'auto',
+              }}
+            >
+              <div style={{ fontSize: 56, marginBottom: 12 }}>💀</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: '#ff3a55', letterSpacing: 2, marginBottom: 8 }}>
+                MODE SPECTATEUR
+              </div>
+              <div style={{ fontSize: 14, color: '#cca366', marginBottom: 24, maxWidth: 480, textAlign: 'center' }}>
+                Tu as épuisé tes 3 vies pour cette session.<br />
+                Reviens à la session prochaine ou continue à observer.
+              </div>
+              <button
+                onClick={() => {
+                  setSessionLives(3);
+                  setSpectating(false);
+                }}
+                data-testid="mp-respawn-session"
+                style={{
+                  padding: '12px 24px', borderRadius: 10,
+                  background: 'linear-gradient(135deg, #b08000, #ffd700)',
+                  border: 'none', color: '#111', fontWeight: 900,
+                  fontSize: 14, letterSpacing: 1.5, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >🔄 RECOMMENCER (3 vies)</button>
+            </div>
+          )}
 
           {/* Kill feed */}
           {killFeed.length > 0 && (
