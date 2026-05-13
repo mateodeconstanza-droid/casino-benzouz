@@ -2954,6 +2954,124 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
     scene.add(playZoneFence);
 
+    // ─── 5c) DOWNTOWN — skyline de gratte-ciels lumineux ──────────────
+    // Placé au sud du fence (z < -65), visible par-dessus la clôture.
+    // Aucune interaction : c'est le décor "ville moderne" qu'on voit
+    // depuis le casino. Lumières animées via downtownRefs.blinkers.
+    const downtown = new THREE.Group();
+    const downtownBlinkers = []; // lights qui clignotent
+
+    const makeSkyscraper = (opts) => {
+      const { x, z, w, h, d, baseColor, accentColor, hasAntenna = true, hasRotatingTop = false } = opts;
+      const tower = new THREE.Group();
+      tower.position.set(x, 0, z);
+      // Corps principal
+      const body = new THREE.Mesh(
+        roundedBox(w, h, d, 0.6, 4),
+        matMatte(baseColor, { roughness: 0.85 }),
+      );
+      body.position.y = h / 2;
+      body.castShadow = true;
+      tower.add(body);
+      // Sommet (plateforme + bordure or)
+      const top = new THREE.Mesh(
+        roundedBox(w * 1.05, 0.8, d * 1.05, 0.2, 3),
+        matMatte(0x1a1a1a),
+      );
+      top.position.y = h + 0.4;
+      tower.add(top);
+      const topTrim = new THREE.Mesh(
+        roundedBox(w * 1.08, 0.2, d * 1.08, 0.1, 3),
+        matMetal(accentColor || PALETTE.gold),
+      );
+      topTrim.position.y = h + 0.05;
+      tower.add(topTrim);
+      // Fenêtres lumineuses sur la façade avant (face -Z, vers le joueur)
+      const winRows = Math.floor(h / 4);
+      const winCols = Math.max(3, Math.floor(w / 1.8));
+      for (let r = 0; r < winRows; r++) {
+        for (let c = 0; c < winCols; c++) {
+          if (Math.random() < 0.35) continue; // 35% éteint pour réalisme
+          const winGlow = Math.random() < 0.18 ? 0xfff2a0 : (Math.random() < 0.5 ? 0xffd88a : 0x6ac0ff);
+          const win = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.9, 2.2),
+            new THREE.MeshBasicMaterial({ color: winGlow, transparent: true, opacity: 0.85 }),
+          );
+          win.position.set(-w / 2 + 1.2 + c * ((w - 2) / Math.max(1, winCols - 1)), 2 + r * 4, d / 2 + 0.03);
+          tower.add(win);
+        }
+      }
+      // Antenne avec feu rouge clignotant
+      if (hasAntenna) {
+        const antenna = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.16, 4, 6),
+          matMatte(0x222226, { metalness: 0.7 }),
+        );
+        antenna.position.y = h + 2.5;
+        tower.add(antenna);
+        const blink = new THREE.Mesh(
+          new THREE.SphereGeometry(0.35, 12, 10),
+          new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.95 }),
+        );
+        blink.position.y = h + 4.7;
+        tower.add(blink);
+        downtownBlinkers.push(blink);
+      }
+      // Couronne tournante (uniquement pour la tour signature)
+      if (hasRotatingTop) {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(w * 0.5, 0.18, 8, 24),
+          matMetal(accentColor || PALETTE.gold, { emissive: accentColor, emissiveIntensity: 0.45 }),
+        );
+        ring.position.y = h + 1.2;
+        ring.rotation.x = Math.PI / 2;
+        tower.add(ring);
+        tower.userData.rotatingRing = ring;
+      }
+      return tower;
+    };
+
+    // 10 gratte-ciels + 1 tour signature, placés en arc au sud
+    const downtownSpecs = [
+      { x: -110, z: -120, w: 18, h: 42, d: 16, baseColor: 0x2a3245, accentColor: 0x3fe6ff, hasAntenna: true },
+      { x:  -80, z: -135, w: 16, h: 56, d: 14, baseColor: 0x3a2a44, accentColor: 0xff2a8a, hasAntenna: true },
+      { x:  -45, z: -148, w: 20, h: 72, d: 18, baseColor: 0x1a2238, accentColor: 0xffd700, hasAntenna: true, hasRotatingTop: true }, // signature
+      { x:   -8, z: -135, w: 14, h: 48, d: 14, baseColor: 0x2a2a3a, accentColor: 0x3fe6ff, hasAntenna: true },
+      { x:   24, z: -145, w: 18, h: 60, d: 16, baseColor: 0x3a3a48, accentColor: 0xffd700, hasAntenna: true },
+      { x:   58, z: -130, w: 16, h: 50, d: 16, baseColor: 0x2a2a3a, accentColor: 0xff5a3a, hasAntenna: true },
+      { x:   90, z: -140, w: 14, h: 44, d: 14, baseColor: 0x3a2a3a, accentColor: 0x6ac0ff, hasAntenna: true },
+      { x: -140, z: -135, w: 16, h: 52, d: 16, baseColor: 0x2a3a48, accentColor: 0xff2a8a, hasAntenna: true },
+      { x: -175, z: -145, w: 14, h: 40, d: 14, baseColor: 0x2a2a40, accentColor: 0x3fe6ff, hasAntenna: true },
+      { x:  125, z: -150, w: 14, h: 36, d: 14, baseColor: 0x2a3a3a, accentColor: 0xffd700, hasAntenna: true },
+      { x:  155, z: -135, w: 12, h: 32, d: 12, baseColor: 0x3a3a4a, accentColor: 0xff5a3a, hasAntenna: false },
+    ];
+    downtownSpecs.forEach((s) => downtown.add(makeSkyscraper(s)));
+
+    // Grand panneau néon "DOWNTOWN" suspendu au-dessus de l'arc
+    const downtownSignCanvas = document.createElement('canvas');
+    downtownSignCanvas.width = 1024; downtownSignCanvas.height = 256;
+    const dsCtx = downtownSignCanvas.getContext('2d');
+    dsCtx.fillStyle = '#08081a'; dsCtx.fillRect(0, 0, 1024, 256);
+    dsCtx.shadowColor = '#ff2a8a'; dsCtx.shadowBlur = 50;
+    dsCtx.fillStyle = '#ff2a8a'; dsCtx.font = 'bold 130px Georgia'; dsCtx.textAlign = 'center';
+    dsCtx.fillText('DOWNTOWN', 512, 150);
+    dsCtx.shadowBlur = 0;
+    dsCtx.fillStyle = '#3fe6ff'; dsCtx.font = 'bold 32px Georgia';
+    dsCtx.fillText('★ CITY LIGHTS ★', 512, 210);
+    const dsTex = new THREE.CanvasTexture(downtownSignCanvas);
+    const dsSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 14),
+      new THREE.MeshBasicMaterial({ map: dsTex, transparent: true }),
+    );
+    dsSign.position.set(-30, 75, -110);
+    downtown.add(dsSign);
+
+    scene.add(downtown);
+    // Stocke les blinkers pour l'animation dans la loop principale
+    if (!stateRef.current.decoRefs) stateRef.current.decoRefs = {};
+    stateRef.current.decoRefs.downtownBlinkers = downtownBlinkers;
+    stateRef.current.decoRefs.downtownRotating = downtownSpecs[2] && downtown.children[2].userData.rotatingRing;
+
     // ─── 6) Refs sauvegardés pour animation dans le loop ──────────────────────
     const decoRefs = { sea, seaPos, seaBaseZ, foam, fountainJet, clouds: cloudsGroup };
 
@@ -3189,6 +3307,20 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
             if (cl.position.x > 400) cl.position.x = -400;
           });
         }
+        // Downtown : feux d'antenne clignotants (rouge) toutes les ~1.2s
+        const blinkers = stateRef.current.decoRefs?.downtownBlinkers;
+        if (blinkers && blinkers.length > 0) {
+          const phase = (tWave * 0.9) % 1;
+          const on = phase < 0.5;
+          for (let i = 0; i < blinkers.length; i++) {
+            const offset = (i * 0.13) % 1;
+            const ll = ((phase + offset) % 1) < 0.5;
+            blinkers[i].material.opacity = ll ? 0.95 : 0.18;
+          }
+        }
+        // Couronne de la tour signature qui tourne
+        const rotRing = stateRef.current.decoRefs?.downtownRotating;
+        if (rotRing) rotRing.rotation.z += 0.012;
       }
 
       // ===== Véhicule : suivre le joueur et animer =====
