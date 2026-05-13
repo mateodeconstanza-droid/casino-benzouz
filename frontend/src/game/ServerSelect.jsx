@@ -4,8 +4,8 @@ import { fetchServers, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
 // Écran de sélection de mode : Solo ou l'un des 2 serveurs en ligne.
 const ServerSelect = ({ onChoose, casino }) => {
   const [servers, setServers] = useState([
-    { id: 'alpha', label: 'Alpha', region: 'EU West', maxPlayers: 30, online: 0 },
-    { id: 'beta', label: 'Beta', region: 'US East', maxPlayers: 30, online: 0 },
+    { id: 'alpha', label: 'Alpha', region: 'EU West', maxPlayers: 50, online: 0 },
+    { id: 'beta', label: 'Beta', region: 'US East', maxPlayers: 50, online: 0 },
   ]);
   const [loading, setLoading] = useState(MULTIPLAYER_AVAILABLE);
   const [error, setError] = useState(MULTIPLAYER_AVAILABLE ? null : "Multijoueur indisponible sur cette plateforme (pas de backend). Joue en Solo.");

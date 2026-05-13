@@ -14,6 +14,7 @@ import HighCardGame from '@/game/HighCard';
 import ServerSelect from '@/game/ServerSelect';
 import DeviceSelect from '@/game/DeviceSelect';
 import ControlsHelp from '@/game/ControlsHelp';
+import PlayerProfile from '@/game/PlayerProfile';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -36,6 +37,7 @@ export default function Casino() {
   });
   const [minBet, setMinBet] = useState(20);
   const [showControls, setShowControls] = useState(false);
+  const [showProfile, setShowProfile] = useState(null); // null | 'mine' | { otherProfile }
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -164,6 +166,9 @@ export default function Casino() {
         outfit: appearance?.outfit ?? 0,
         shoes: appearance?.shoes ?? 0,
         skin: '#e0b48a',
+        // Bannières : les 5 gratuites pré-débloquées, la première équipée par défaut
+        ownedBanners: ['b-default','b-classic','b-cards','b-neon','b-pixel'],
+        equippedBanner: 'b-default',
         customized: true, // fait sur le login
         lastWheelSpin: 0, lastWithdraw: 0,
         keys: [], ownedHouses: [],
@@ -854,6 +859,7 @@ export default function Casino() {
           onToggleVehicle={handleEquipVehicle}
           onExitCasino={handleExitToStreet}
           onOpenControls={() => setShowControls(true)}
+          onOpenProfile={() => setShowProfile('mine')}
         />
       )}
 
@@ -897,6 +903,20 @@ export default function Casino() {
       {screen === 'poker' && <PokerGame {...gameProps} />}
 
       {showControls && <ControlsHelp onClose={() => setShowControls(false)} />}
+
+      {showProfile && (
+        <PlayerProfile
+          profile={showProfile === 'mine' ? profile : showProfile.otherProfile}
+          isMine={showProfile === 'mine'}
+          onClose={() => setShowProfile(null)}
+          onEquipBanner={(bannerId) => {
+            if (showProfile !== 'mine') return;
+            const next = { ...profile, equippedBanner: bannerId };
+            setProfile(next);
+            saveProfile({ ...next, balance });
+          }}
+        />
+      )}
 
       {showWheel && (
         <FortuneWheel3D 

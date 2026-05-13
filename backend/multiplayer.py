@@ -17,8 +17,8 @@ mp_router = APIRouter(prefix="/api/mp")
 
 # --- Configuration des serveurs ---
 SERVERS = {
-    "alpha": {"id": "alpha", "label": "Alpha", "region": "EU West", "maxPlayers": 30},
-    "beta": {"id": "beta", "label": "Beta", "region": "US East", "maxPlayers": 30},
+    "alpha": {"id": "alpha", "label": "Alpha", "region": "EU West", "maxPlayers": 50},
+    "beta": {"id": "beta", "label": "Beta", "region": "US East", "maxPlayers": 50},
 }
 
 # État en mémoire par serveur
