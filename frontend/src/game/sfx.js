@@ -60,17 +60,56 @@ const noise = (c, { duration = 0.3, volume = 0.3, filterFreq = 1000, filterType 
   src.stop(c.currentTime + duration + 0.05);
 };
 
-// ---- Sons dédiés ----
+// ---- Sons dédiés (par type d'arme — chaque arme a sa signature) ----
 const playGun = () => {
   const c = getCtx(); if (!c) return;
+  // Détonation : noise bref filtré bandpass + tone bas
   noise(c, { duration: 0.12, volume: 0.4, filterFreq: 1800, filterType: 'bandpass', slideTo: 600 });
   tone(c, { freq: 220, slideTo: 60, duration: 0.18, type: 'square', volume: 0.18 });
+  // Petit tintement de douille qui tombe (250 ms après)
+  setTimeout(() => {
+    tone(c, { freq: 1800, slideTo: 1200, duration: 0.05, type: 'sine', volume: 0.06 });
+    tone(c, { freq: 2200, duration: 0.04, type: 'triangle', volume: 0.05 });
+  }, 250);
 };
 
 const playShotgun = () => {
   const c = getCtx(); if (!c) return;
+  // Détonation grave
   noise(c, { duration: 0.25, volume: 0.55, filterFreq: 900, filterType: 'lowpass', slideTo: 200 });
   tone(c, { freq: 100, slideTo: 40, duration: 0.3, type: 'sawtooth', volume: 0.22 });
+  // "Kashunk" du re-chargement à pompe (400ms après)
+  setTimeout(() => {
+    noise(c, { duration: 0.08, volume: 0.18, filterFreq: 1500, filterType: 'bandpass' });
+    tone(c, { freq: 500, slideTo: 200, duration: 0.06, type: 'square', volume: 0.08 });
+    setTimeout(() => {
+      noise(c, { duration: 0.08, volume: 0.15, filterFreq: 1200, filterType: 'bandpass' });
+    }, 120);
+  }, 400);
+};
+
+const playSniper = () => {
+  const c = getCtx(); if (!c) return;
+  // Crack sec à haute fréquence + écho lointain
+  noise(c, { duration: 0.08, volume: 0.6, filterFreq: 3500, filterType: 'bandpass', slideTo: 1200 });
+  tone(c, { freq: 600, slideTo: 80, duration: 0.4, type: 'sawtooth', volume: 0.32 });
+  // Echo (200ms après) plus doux
+  setTimeout(() => {
+    noise(c, { duration: 0.3, volume: 0.2, filterFreq: 800, filterType: 'lowpass', slideTo: 80 });
+    tone(c, { freq: 200, slideTo: 50, duration: 0.5, type: 'triangle', volume: 0.14 });
+  }, 220);
+};
+
+const playKatana = () => {
+  const c = getCtx(); if (!c) return;
+  // Sifflement aigu de la lame qui fend l'air
+  noise(c, { duration: 0.25, volume: 0.28, filterFreq: 4500, filterType: 'bandpass', slideTo: 1200 });
+  tone(c, { freq: 1500, slideTo: 600, duration: 0.2, type: 'triangle', volume: 0.12 });
+  // Choc métallique à l'impact (180ms après)
+  setTimeout(() => {
+    tone(c, { freq: 2400, duration: 0.08, type: 'sine', volume: 0.18 });
+    tone(c, { freq: 3200, slideTo: 1200, duration: 0.12, type: 'triangle', volume: 0.1 });
+  }, 180);
 };
 
 const playBazooka = () => {
@@ -224,11 +263,13 @@ const setEnabled = (v) => {
 const SOUNDS = {
   gun: playGun,
   shotgun: playShotgun,
+  sniper: playSniper,
   bazooka: playBazooka,
   laser: playLaser,
   throwknife: playThrowknife,
   knife: playKnife,
   machete: playKnife,
+  katana: playKatana,
   flame: playFlame,
   flamethrower: playFlame,
   grenade: playGrenade,

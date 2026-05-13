@@ -15,6 +15,8 @@ import ServerSelect from '@/game/ServerSelect';
 import DeviceSelect from '@/game/DeviceSelect';
 import ControlsHelp from '@/game/ControlsHelp';
 import PlayerProfile from '@/game/PlayerProfile';
+import Leaderboard from '@/game/Leaderboard';
+import { submitLeaderboard } from '@/game/multiplayer';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -38,6 +40,7 @@ export default function Casino() {
   const [minBet, setMinBet] = useState(20);
   const [showControls, setShowControls] = useState(false);
   const [showProfile, setShowProfile] = useState(null); // null | 'mine' | { otherProfile }
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -124,6 +127,24 @@ export default function Casino() {
       window.__benzbetClose = () => setShowGambleBet(false);
     }
   }, []);
+
+  // Auto-submit leaderboard quand totalWinnings change (debounced 3s)
+  useEffect(() => {
+    if (!profile?.name) return;
+    const t = setTimeout(() => {
+      const rawLang = (typeof navigator !== 'undefined' && navigator.language) || 'fr-FR';
+      const m = rawLang.toUpperCase().match(/[-_]([A-Z]{2})/);
+      const country = m ? m[1] : (rawLang.length === 2 ? rawLang.toUpperCase() : 'FR');
+      submitLeaderboard({
+        name: profile.name,
+        country,
+        totalWinnings: profile.totalWinnings || 0,
+        equippedBanner: profile.equippedBanner || 'b-default',
+        sessions: profile.sessions || 0,
+      });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [profile?.name, profile?.totalWinnings, profile?.equippedBanner]);
 
 
   // Charger profils
@@ -860,6 +881,7 @@ export default function Casino() {
           onExitCasino={handleExitToStreet}
           onOpenControls={() => setShowControls(true)}
           onOpenProfile={() => setShowProfile('mine')}
+          onOpenLeaderboard={() => setShowLeaderboard(true)}
         />
       )}
 
@@ -903,6 +925,7 @@ export default function Casino() {
       {screen === 'poker' && <PokerGame {...gameProps} />}
 
       {showControls && <ControlsHelp onClose={() => setShowControls(false)} />}
+      {showLeaderboard && <Leaderboard profile={profile} onClose={() => setShowLeaderboard(false)} />}
 
       {showProfile && (
         <PlayerProfile

@@ -13,7 +13,7 @@ import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile }) => {
+const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -225,6 +225,56 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         emitter.rotation.x = Math.PI / 2;
         emitter.position.set(0, 0, 0.32);
         g.add(emitter);
+      } else if (id === 'sniper') {
+        // Long canon noir + crosse bois + lunette dorée
+        const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.16), woodMat);
+        stock.position.set(0, 0, -0.05);
+        g.add(stock);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.42), blackMat);
+        body.position.set(0, 0.02, 0.18);
+        g.add(body);
+        // Lunette (cylindre doré)
+        const scope = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.025, 0.025, 0.18, 12),
+          goldMat,
+        );
+        scope.rotation.x = Math.PI / 2;
+        scope.position.set(0, 0.07, 0.14);
+        g.add(scope);
+        // Canon plus long
+        const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.04, 0.2), blackMat);
+        barrel.position.set(0, 0.025, 0.42);
+        g.add(barrel);
+        // Crosse poignée
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.07), blackMat);
+        grip.position.set(0, -0.07, -0.02);
+        g.add(grip);
+      } else if (id === 'katana') {
+        // Lame longue courbée + tsuba + manche
+        const blade = new THREE.Mesh(
+          new THREE.BoxGeometry(0.04, 0.01, 0.55),
+          new THREE.MeshStandardMaterial({ color: 0xd8d8e0, metalness: 0.95, roughness: 0.15 }),
+        );
+        blade.position.set(0, 0, 0.35);
+        // Très légère courbure : rotation sur Y pour donner un angle
+        blade.rotation.y = 0.05;
+        g.add(blade);
+        // Tsuba (garde, disque doré)
+        const tsuba = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.05, 0.05, 0.018, 14),
+          goldMat,
+        );
+        tsuba.rotation.x = Math.PI / 2;
+        tsuba.position.set(0, 0, 0.08);
+        g.add(tsuba);
+        // Manche bois tressé noir
+        const handle = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.022, 0.022, 0.18, 10),
+          new THREE.MeshStandardMaterial({ color: 0x1a1410, roughness: 0.9 }),
+        );
+        handle.rotation.x = Math.PI / 2;
+        handle.position.set(0, 0, -0.03);
+        g.add(handle);
       }
       return g;
     };
@@ -4699,6 +4749,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         position="top-right"
         extraItems={[
           { testId: 'menu-profile', icon: '🪪', label: 'Mon profil & bannière', onClick: () => onOpenProfile && onOpenProfile() },
+          { testId: 'menu-leaderboard', icon: '🏆', label: 'Classement mondial', onClick: () => onOpenLeaderboard && onOpenLeaderboard() },
           { testId: 'menu-character', icon: '👤', label: 'Personnaliser le personnage', onClick: () => onOpenCharacter && onOpenCharacter() },
           { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
           { testId: 'menu-change-casino', icon: '🌍', label: 'Changer de casino', onClick: () => onChangeCasino && onChangeCasino() },

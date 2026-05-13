@@ -61,13 +61,57 @@ async def create_status_check(input: StatusCheckCreate):
 async def get_status_checks():
     # Exclude MongoDB's _id field from the query results
     status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
+
     # Convert ISO string timestamps back to datetime objects
     for check in status_checks:
         if isinstance(check['timestamp'], str):
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
+
     return status_checks
+
+
+# ============================================================
+# LEADERBOARD — top joueurs par totalWinnings
+# ============================================================
+class LeaderboardEntry(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str
+    country: str = "XX"  # ISO 2 lettres
+    totalWinnings: int = 0
+    equippedBanner: str = "b-default"
+    sessions: int = 0
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@api_router.post("/leaderboard/submit")
+async def submit_leaderboard(entry: LeaderboardEntry):
+    """Upsert le score d'un joueur. Appelé périodiquement par le frontend."""
+    doc = entry.model_dump()
+    doc['updatedAt'] = doc['updatedAt'].isoformat()
+    await db.leaderboard.update_one(
+        {"name": entry.name},
+        {"$set": doc, "$max": {"totalWinnings": entry.totalWinnings}},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api_router.get("/leaderboard")
+async def get_leaderboard(country: str = "", limit: int = 50):
+    """
+    Top joueurs par totalWinnings.
+    - country='' → classement mondial
+    - country='FR' (2 lettres) → classement national
+    """
+    query = {}
+    if country:
+        query["country"] = country.upper()
+    cursor = db.leaderboard.find(query, {"_id": 0}).sort("totalWinnings", -1).limit(max(1, min(200, limit)))
+    rows = await cursor.to_list(length=limit)
+    # Strip updatedAt pour réduire le payload
+    for r in rows:
+        r.pop('updatedAt', None)
+    return {"country": country or "global", "count": len(rows), "entries": rows}
 
 # Include the router in the main app
 app.include_router(api_router)

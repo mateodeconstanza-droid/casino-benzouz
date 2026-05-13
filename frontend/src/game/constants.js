@@ -106,6 +106,9 @@ export const WEAPONS = [
   { id: 'uzi',          name: 'UZI GambleLife Or',            price: 400000,  damage: 'fort',        desc: 'Auto 950 rpm, chargeur 32 coups',        type: 'auto',       projectile: 'bullet' },
   { id: 'grenade',      name: 'Grenades frag',          price: 600000,  damage: 'massif',      desc: 'M67 — explosion 3m, fragments',          type: 'throwable',  projectile: 'grenade' },
   { id: 'laserrifle',   name: 'Fusil laser prototype',  price: 3500000, damage: 'dévastateur', desc: 'Rayon instantané, traverse tout',        type: 'laser',      projectile: 'laser' },
+  // Nouvelles armes (Phase 2)
+  { id: 'sniper',       name: 'Sniper Magnum .50',      price: 1500000, damage: 'massif',      desc: 'Très précis, longue portée — un coup, un mort',        type: 'gun',        projectile: 'bullet' },
+  { id: 'katana',       name: 'Katana ancestral',       price: 850000,  damage: 'fort',        desc: 'Lame courbée affûtée — rapide et silencieuse',         type: 'melee' },
 ];
 
 // ============== CHICHAS — accessoires casino (G4) ==============

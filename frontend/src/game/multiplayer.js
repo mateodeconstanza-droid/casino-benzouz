@@ -94,3 +94,34 @@ export const fetchServers = async () => {
     return null;
   }
 };
+
+// ============================================================
+// LEADERBOARD — communication backend
+// ============================================================
+export const submitLeaderboard = async (entry) => {
+  if (!BACKEND) return null;
+  try {
+    const res = await fetch(`${BACKEND}/api/leaderboard/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+    return res.ok ? await res.json() : null;
+  } catch (_e) {
+    return null;
+  }
+};
+
+export const fetchLeaderboard = async ({ country = '', limit = 50 } = {}) => {
+  if (!BACKEND) return null;
+  try {
+    const q = new URLSearchParams();
+    if (country) q.set('country', country);
+    q.set('limit', String(limit));
+    const res = await fetch(`${BACKEND}/api/leaderboard?${q.toString()}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_e) {
+    return null;
+  }
+};
