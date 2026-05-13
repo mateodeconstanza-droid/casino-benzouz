@@ -816,15 +816,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     });
     scene.add(tower4);
 
-    // Colliders + interactables (rooftop = type 'rooftop' qui ouvre la vue)
+    // Interactables des 4 tours (les obstacles sont déclarés plus loin avec
+    // les autres bboxes du casino — les bboxes des tours y sont inlinées).
     [{ x: -22, z: -14, id: 'apt-1', rid: 'rooftop-1' },
      { x:  42, z: -30, id: 'apt2-1', rid: 'rooftop-2' },
      { x: -55, z:   6, id: 'apt3-1', rid: 'rooftop-3' },
      { x:  55, z:  22, id: 'apt4-1', rid: 'rooftop-4' }].forEach(t => {
-      obstacles.push({
-        minX: t.x - 4.3, maxX: t.x + 4.3,
-        minZ: t.z - 3.8, maxZ: t.z + 3.8,
-      });
       interactables.push({ type: 'building', id: t.id, pos: new THREE.Vector3(t.x, 0, t.z), radius: 8 });
       // Échelle = interactable séparé situé sur le côté droit (x + 4.5)
       interactables.push({ type: 'rooftop', id: t.rid, towerX: t.x, towerZ: t.z, pos: new THREE.Vector3(t.x + 4.5, 0, t.z), radius: 3 });
@@ -1019,7 +1016,12 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     const obstacles = [
       // Casino : bbox réel 14 m × 10 m (positionné x=0, z=-10)
       { minX: -7.2, maxX: 7.2,   minZ: -15.5, maxZ: -4.5 },
-      // Immeuble : 8 × 7 (à -22, -14)
+      // Tours d'appartements (4 immeubles 8 × 7 chacun)
+      { minX: -26.3, maxX: -17.7, minZ: -17.8, maxZ: -10.2 }, // Tour 1 Résidences
+      { minX:  37.7, maxX:  46.3, minZ: -33.8, maxZ: -26.2 }, // Tour 2 Horizon
+      { minX: -59.3, maxX: -50.7, minZ:   2.2, maxZ:   9.8 }, // Tour 3 Azur
+      { minX:  50.7, maxX:  59.3, minZ:  18.2, maxZ:  25.8 }, // Tour 4 Palace
+      // Immeuble (entrée d'origine — gardé en double pour rétrocompat)
       { minX: -26.5, maxX: -17.5, minZ: -17.8, maxZ: -10.2 },
       // 3 maisons standalone (h-1, h-2, h-3)
       { minX: -17,  maxX: -13,  minZ: -24, maxZ: -20 },
