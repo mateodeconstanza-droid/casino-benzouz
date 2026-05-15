@@ -19,6 +19,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
   const [showInventory, setShowInventory] = useState(false);
+  const [showArcadeMenu, setShowArcadeMenu] = useState(false);
   const [shooting, setShooting] = useState(false);
   const [viewMode, setViewMode] = useState('first'); // 'first' | 'third'
   const viewModeRef = useRef('first');
@@ -41,6 +42,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     wheel: () => onOpenWheel(),
     shop: () => onOpenShop(),
     benzbet: () => onOpenGambleBet(),
+    arcade: () => setShowArcadeMenu(true),
     exit: () => onExitCasino && onExitCasino(),
   };
   
@@ -2904,10 +2906,183 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     };
     const benzBetObj = createGambleBet();
 
+    // =========== BORNE ARCADE MINI-JEUX ===========
+    // Borne style "GameZone" : Crash (avion), Mines, Plinko, Dice
+    // Position : à droite près du bar, face au joueur
+    const createArcadeKiosk = () => {
+      const group = new THREE.Group();
+      group.position.set(11, 0, -9);
+      group.rotation.y = -Math.PI / 5; // légèrement orientée vers le centre du casino
+
+      // Base de la borne (caisson noir laqué)
+      const base = new THREE.Mesh(
+        roundedBox(1.6, 1.0, 1.0, 0.06, 3),
+        new THREE.MeshPhysicalMaterial({
+          color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
+          clearcoat: 1.0, clearcoatRoughness: 0.08,
+        })
+      );
+      base.position.y = 0.5;
+      group.add(base);
+
+      // Pilier arrière (qui tient l'écran)
+      const pillar = new THREE.Mesh(
+        roundedBox(1.6, 1.6, 0.3, 0.04, 3),
+        new THREE.MeshPhysicalMaterial({
+          color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
+          clearcoat: 1.0, clearcoatRoughness: 0.08,
+        })
+      );
+      pillar.position.set(0, 1.8, -0.35);
+      group.add(pillar);
+
+      // Écran principal (TV plate)
+      const screenFrame = new THREE.Mesh(
+        roundedBox(1.5, 1.05, 0.08, 0.04, 3),
+        new THREE.MeshPhysicalMaterial({
+          color: 0x1a1a22, metalness: 0.9, roughness: 0.2,
+          clearcoat: 1.0, clearcoatRoughness: 0.06,
+        })
+      );
+      screenFrame.position.set(0, 2.0, -0.2);
+      screenFrame.rotation.x = -0.05;
+      group.add(screenFrame);
+
+      // Texture canvas pour l'écran (texte animé "MINI JEUX")
+      const cv = document.createElement('canvas');
+      cv.width = 512; cv.height = 320;
+      const cx = cv.getContext('2d');
+      // Fond dégradé bleu nuit
+      const grad = cx.createLinearGradient(0, 0, 0, 320);
+      grad.addColorStop(0, '#0a0d20');
+      grad.addColorStop(0.5, '#1a2540');
+      grad.addColorStop(1, '#0a0d20');
+      cx.fillStyle = grad;
+      cx.fillRect(0, 0, 512, 320);
+      // Bordure néon
+      cx.strokeStyle = '#3fe6ff';
+      cx.lineWidth = 4;
+      cx.strokeRect(8, 8, 496, 304);
+      // Titre
+      cx.fillStyle = '#3fe6ff';
+      cx.font = 'bold 56px Georgia, serif';
+      cx.textAlign = 'center';
+      cx.shadowColor = '#3fe6ff';
+      cx.shadowBlur = 20;
+      cx.fillText('🎮 ARCADE', 256, 100);
+      cx.font = 'bold 38px Georgia, serif';
+      cx.fillStyle = '#ffd700';
+      cx.shadowColor = '#ffd700';
+      cx.fillText('MINI JEUX', 256, 170);
+      cx.font = '24px sans-serif';
+      cx.fillStyle = '#fff';
+      cx.shadowBlur = 0;
+      cx.fillText('🚀 CRASH · 💎 MINES', 256, 220);
+      cx.fillText('🎲 DÉ · 🪙 PILE/FACE', 256, 256);
+      cx.font = 'bold 18px sans-serif';
+      cx.fillStyle = '#aaa';
+      cx.fillText('— TOUCHE [E] POUR JOUER —', 256, 295);
+      const screenTex = new THREE.CanvasTexture(cv);
+      screenTex.colorSpace = THREE.SRGBColorSpace;
+      const screen = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.38, 0.93),
+        new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false })
+      );
+      screen.position.set(0, 2.0, -0.155);
+      screen.rotation.x = -0.05;
+      group.add(screen);
+
+      // Boutons rouges sur la console (3 gros boutons d'arcade)
+      const btnColors = [0xff2244, 0x3fe6ff, 0xffd700];
+      btnColors.forEach((c, i) => {
+        const btn = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.07, 0.07, 0.04, 16),
+          new THREE.MeshPhysicalMaterial({
+            color: c, metalness: 0.4, roughness: 0.3,
+            emissive: c, emissiveIntensity: 0.5,
+            clearcoat: 0.8,
+          })
+        );
+        btn.position.set(-0.4 + i * 0.4, 1.04, 0.3);
+        btn.rotation.x = Math.PI / 2;
+        group.add(btn);
+      });
+
+      // Joystick (manche court avec boule rouge)
+      const stickBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.08, 0.04, 12),
+        new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6, roughness: 0.4 })
+      );
+      stickBase.position.set(0.5, 1.04, 0.1);
+      group.add(stickBase);
+      const stick = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.015, 0.015, 0.18, 8),
+        new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.5, roughness: 0.6 })
+      );
+      stick.position.set(0.5, 1.15, 0.1);
+      group.add(stick);
+      const stickBall = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05, 16, 12),
+        new THREE.MeshPhysicalMaterial({
+          color: 0xff2244, metalness: 0.5, roughness: 0.25,
+          clearcoat: 1.0,
+        })
+      );
+      stickBall.position.set(0.5, 1.26, 0.1);
+      group.add(stickBall);
+
+      // Néons LED tout autour du frame (style Tron)
+      const neonMat = new THREE.MeshBasicMaterial({
+        color: 0x3fe6ff, toneMapped: false,
+      });
+      // Bandes verticales sur les côtés
+      for (let s = -1; s <= 1; s += 2) {
+        const neon = new THREE.Mesh(
+          new THREE.BoxGeometry(0.04, 1.5, 0.04),
+          neonMat
+        );
+        neon.position.set(s * 0.78, 1.8, -0.3);
+        group.add(neon);
+      }
+      // Bande horizontale en haut (logo)
+      const topBar = new THREE.Mesh(
+        new THREE.BoxGeometry(1.65, 0.16, 0.18),
+        new THREE.MeshPhysicalMaterial({
+          color: 0xff00aa, metalness: 0.3, roughness: 0.2,
+          emissive: 0xff00aa, emissiveIntensity: 1.2,
+          clearcoat: 1.0,
+        })
+      );
+      topBar.position.set(0, 2.7, -0.3);
+      group.add(topBar);
+
+      // Light cyan au-dessus de l'écran pour ambiance
+      const arcadeLight = new THREE.PointLight(0x3fe6ff, 0.8, 5);
+      arcadeLight.position.set(0, 2.5, 0.3);
+      group.add(arcadeLight);
+
+      // Zone d'interaction (sphère devant la borne)
+      const zone = new THREE.Mesh(
+        new THREE.SphereGeometry(2.0, 8, 8),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      zone.userData = { zoneId: 'arcade' };
+      zone.position.set(0, 1, 1.3);
+      group.add(zone);
+
+      scene.add(group);
+      // Anim subtle : pulse léger sur le ball + tilt screen
+      group.userData.arcadeBall = stickBall;
+      group.userData.arcadeScreen = screen;
+      return { zone, group };
+    };
+    const arcadeObj = createArcadeKiosk();
+
     // Liste globale des zones d'interaction
     const interactZones = [
       bj.zone, rl.zone, hc.zone, pk.zone,
       barObj.zone, toiletObj.zone, atmObj.zone, wheelObj.zone, shopObj.zone, benzBetObj.zone,
+      arcadeObj.zone,
     ];
 
     // ========== PORTE DE SORTIE 3D (retour à la rue) ==========
@@ -3677,6 +3852,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     wheel: { icon: '🎡', name: 'ROUE FORTUNE' },
     shop: { icon: '🏎', name: 'GAMBLELIFE STORE' },
     benzbet: { icon: '🎟️', name: 'BENZBET' },
+    arcade: { icon: '🎮', name: 'BORNE ARCADE — MINI JEUX' },
     exit: { icon: '🚪', name: 'SORTIE — VERS LA RUE' },
   };
 
@@ -5415,6 +5591,135 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
                   color: '#888', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
                 }}>Déséquiper</button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+           BORNE ARCADE : modal de choix mini-jeu
+           ============================================================ */}
+      {showArcadeMenu && (
+        <div
+          data-testid="arcade-menu-modal"
+          onClick={() => setShowArcadeMenu(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+            zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20, backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(145deg, #0a1020, #050810)',
+              border: '2px solid #3fe6ff', borderRadius: 18,
+              maxWidth: 580, width: '100%', padding: 24, color: '#fff',
+              boxShadow: '0 30px 80px rgba(0,0,0,0.75), 0 0 60px rgba(63,230,255,0.15)',
+            }}
+          >
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginBottom: 16, paddingBottom: 12,
+              borderBottom: '1px solid rgba(63,230,255,0.2)',
+            }}>
+              <h3 style={{
+                color: '#3fe6ff', margin: 0, letterSpacing: 3,
+                fontFamily: 'Georgia, serif', fontSize: 22,
+                textShadow: '0 0 12px rgba(63,230,255,0.5)',
+              }}>🎮 ARCADE MINI-JEUX</h3>
+              <button
+                onClick={() => setShowArcadeMenu(false)}
+                style={{
+                  background: 'transparent', border: '1px solid #3fe6ff',
+                  color: '#3fe6ff', width: 34, height: 34, borderRadius: 8,
+                  cursor: 'pointer', fontWeight: 800, fontSize: 16,
+                }}
+              >✕</button>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12,
+            }}>
+              {[
+                {
+                  id: 'crash',
+                  emoji: '🚀',
+                  title: 'CRASH',
+                  desc: 'Prédis quand l\'avion va décoller. Multiplie ta mise mais cash out avant le crash !',
+                  accent: '#3fe6ff',
+                  ready: true,
+                  onClick: () => {
+                    setShowArcadeMenu(false);
+                    onOpenCrash && onOpenCrash();
+                  },
+                },
+                {
+                  id: 'mines',
+                  emoji: '💎',
+                  title: 'MINES',
+                  desc: 'Grille de 25 cases, évite les bombes. Plus tu cliques, plus tu multiplies.',
+                  accent: '#ff00aa',
+                  ready: false,
+                },
+                {
+                  id: 'dice',
+                  emoji: '🎲',
+                  title: 'DÉ HIGH/LOW',
+                  desc: 'Mise sur high (>50) ou low (≤50). Gain × 1.95.',
+                  accent: '#ffd700',
+                  ready: false,
+                },
+                {
+                  id: 'coin',
+                  emoji: '🪙',
+                  title: 'PILE OU FACE',
+                  desc: 'Mise sur pile ou face. Gain × 1.95. Best 5 streaks.',
+                  accent: '#ffa500',
+                  ready: false,
+                },
+              ].map((g) => (
+                <button
+                  key={g.id}
+                  data-testid={`arcade-game-${g.id}`}
+                  disabled={!g.ready}
+                  onClick={g.onClick}
+                  style={{
+                    padding: 14, borderRadius: 12,
+                    background: g.ready
+                      ? `linear-gradient(135deg, ${g.accent}22, rgba(0,0,0,0.4))`
+                      : 'rgba(255,255,255,0.03)',
+                    border: `2px solid ${g.ready ? g.accent : 'rgba(255,255,255,0.08)'}`,
+                    color: '#fff', cursor: g.ready ? 'pointer' : 'not-allowed',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    opacity: g.ready ? 1 : 0.45,
+                    transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                  }}
+                >
+                  <div style={{ fontSize: 32, marginBottom: 6 }}>{g.emoji}</div>
+                  <div style={{
+                    fontSize: 14, fontWeight: 900, letterSpacing: 1.5,
+                    color: g.ready ? g.accent : '#888', marginBottom: 4,
+                  }}>{g.title}</div>
+                  <div style={{
+                    fontSize: 11, color: '#aaa', lineHeight: 1.35,
+                  }}>{g.desc}</div>
+                  {!g.ready && (
+                    <div style={{
+                      marginTop: 8, fontSize: 9, fontWeight: 800,
+                      color: '#666', letterSpacing: 1.5,
+                    }}>BIENTÔT</div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div style={{
+              marginTop: 14, padding: '8px 12px', borderRadius: 8,
+              background: 'rgba(63,230,255,0.06)',
+              border: '1px solid rgba(63,230,255,0.18)',
+              fontSize: 11, color: '#aaa', textAlign: 'center',
+            }}>
+              🎯 Les autres jeux arrivent dans une prochaine mise à jour
+            </div>
           </div>
         </div>
       )}
