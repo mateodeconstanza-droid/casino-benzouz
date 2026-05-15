@@ -3772,6 +3772,39 @@ const Street3D = ({
       delete remotePlayersRef.current[id];
     };
 
+    // === Helper : applique la liste complète de joueurs serveur, gère ajouts/retraits ===
+    const applyRemoteSnapshot = (players) => {
+      const seenIds = new Set();
+      let visibleCount = 0; // nombre de joueurs autres que soi
+      players.forEach((pd) => {
+        if (!pd || !pd.id) return;
+        seenIds.add(pd.id);
+        if (pd.id === myMpIdRef.current) return;
+        visibleCount++;
+        let entry = remotePlayersRef.current[pd.id];
+        if (!entry) {
+          const mesh = buildRemote(pd);
+          scene.add(mesh);
+          entry = { mesh, data: pd };
+          remotePlayersRef.current[pd.id] = entry;
+        }
+        entry.data = pd;
+        const m = entry.mesh;
+        const tx = pd.x || 0, tz = pd.z || 0;
+        m.position.x += (tx - m.position.x) * 0.22;
+        m.position.z += (tz - m.position.z) * 0.22;
+        m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
+      });
+      // Cleanup : retire les avatars dont l'id n'est plus dans la snapshot
+      // (ghost avatars après déco non notifiée)
+      Object.keys(remotePlayersRef.current).forEach((id) => {
+        if (!seenIds.has(id)) removeRemote(id);
+      });
+      // Online count = autres + soi-même (si on est dans la snapshot)
+      const total = visibleCount + (seenIds.has(myMpIdRef.current) ? 1 : 1);
+      setOnlineCount(total);
+    };
+
     const client = new MPClient({
       serverId: mpServerId,
       username: profile?.name || 'Anon',
@@ -3779,45 +3812,27 @@ const Street3D = ({
       onMessage: (msg) => {
         if (msg.type === 'welcome') {
           myMpIdRef.current = msg.you?.id;
+          // Sécurité : si on reconnecte, on clean d'abord tous les remotes
+          // qui pouvaient persister du précédent socket
+          Object.keys(remotePlayersRef.current).forEach((id) => removeRemote(id));
           setMpChat((msg.chat || []).slice(-30));
-          // Spawn tous les autres présents
-          (msg.players || []).forEach((pd) => {
-            if (!pd || !pd.id || pd.id === myMpIdRef.current) return;
-            const mesh = buildRemote(pd);
-            scene.add(mesh);
-            remotePlayersRef.current[pd.id] = { mesh, data: pd };
-          });
-          setOnlineCount((msg.players || []).length);
+          applyRemoteSnapshot(msg.players || []);
           setMpChat((prev) => [...prev, { from: 'SYSTÈME', text: `Connecté au serveur ville ${mpServerId.toUpperCase()}`, ts: Date.now() / 1000 }].slice(-30));
         } else if (msg.type === 'player_joined') {
           const pd = msg.player;
           if (!pd || !pd.id || pd.id === myMpIdRef.current) return;
-          const mesh = buildRemote(pd);
-          scene.add(mesh);
-          remotePlayersRef.current[pd.id] = { mesh, data: pd };
-          setOnlineCount((c) => c + 1);
+          if (!remotePlayersRef.current[pd.id]) {
+            const mesh = buildRemote(pd);
+            scene.add(mesh);
+            remotePlayersRef.current[pd.id] = { mesh, data: pd };
+          }
+          // On ne touche pas à onlineCount ici — c'est la snapshot qui est la
+          // source de vérité (évite les drifts d'incrément/décrément manqués)
           setMpChat((prev) => [...prev, { from: 'SYSTÈME', text: `${pd.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));
         } else if (msg.type === 'player_left') {
           removeRemote(msg.id);
-          setOnlineCount((c) => Math.max(0, c - 1));
         } else if (msg.type === 'snapshot') {
-          (msg.players || []).forEach((pd) => {
-            if (!pd || !pd.id || pd.id === myMpIdRef.current) return;
-            let entry = remotePlayersRef.current[pd.id];
-            if (!entry) {
-              const mesh = buildRemote(pd);
-              scene.add(mesh);
-              entry = { mesh, data: pd };
-              remotePlayersRef.current[pd.id] = entry;
-            }
-            entry.data = pd;
-            // Interpolation douce vers la position cible
-            const m = entry.mesh;
-            const tx = pd.x || 0, tz = pd.z || 0;
-            m.position.x += (tx - m.position.x) * 0.22;
-            m.position.z += (tz - m.position.z) * 0.22;
-            m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
-          });
+          applyRemoteSnapshot(msg.players || []);
         } else if (msg.type === 'chat') {
           setMpChat((prev) => [...prev, msg].slice(-30));
         }
@@ -4145,121 +4160,248 @@ const Street3D = ({
         ]}
       />
 
-      {/* === MP : badge "en ligne" + chat ville === */}
+      {/* === MP : badge "en ligne" + chat ville (layout mobile vs desktop) === */}
       {mpOnline && (
         <>
+          {/* Badge serveur — top-center desktop, top-right mobile */}
           <div style={{
-            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 10, padding: '6px 14px', borderRadius: 18,
+            position: 'absolute',
+            top: 14,
+            left: deviceType === 'mobile' ? 'auto' : '50%',
+            right: deviceType === 'mobile' ? 14 : 'auto',
+            transform: deviceType === 'mobile' ? 'none' : 'translateX(-50%)',
+            zIndex: 10, padding: '6px 12px', borderRadius: 18,
             background: 'rgba(10,10,15,0.78)',
             border: '1.5px solid rgba(63,230,255,0.5)',
-            color: '#3fe6ff', fontSize: 11, fontWeight: 800, letterSpacing: 1.5,
+            color: '#3fe6ff', fontSize: deviceType === 'mobile' ? 10 : 11,
+            fontWeight: 800, letterSpacing: 1.2,
             backdropFilter: 'blur(8px)',
           }}>
-            🌐 SERVEUR {mpServerId?.toUpperCase()} · {onlineCount} EN LIGNE
+            🌐 {onlineCount} EN LIGNE
           </div>
-          {/* Chat toggle */}
-          <button
-            onClick={() => setMpChatCollapsed(c => !c)}
-            data-testid="street-mp-chat-toggle"
-            style={{
-              position: 'absolute',
-              bottom: mpChatCollapsed ? 110 : (deviceType === 'mobile' ? 250 : 340),
-              left: 10, zIndex: 51,
-              padding: '6px 10px', borderRadius: 16,
-              background: 'linear-gradient(135deg, rgba(20,15,30,0.92), rgba(0,0,0,0.92))',
-              border: '1.5px solid rgba(63,230,255,0.5)',
-              color: '#3fe6ff', fontSize: 11, fontWeight: 800,
-              cursor: 'pointer', letterSpacing: 0.5,
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {mpChatCollapsed
-              ? `💬 Chat${mpChat.length > 0 ? ` (${mpChat.length})` : ''}`
-              : '— Réduire'}
-          </button>
-          {/* Chat panel */}
-          {!mpChatCollapsed && (
-            <div style={{
-              position: 'absolute',
-              bottom: 120, left: 10, zIndex: 50,
-              width: deviceType === 'mobile' ? 'calc(100vw - 24px)' : 340,
-              maxWidth: deviceType === 'mobile' ? 320 : 340,
-              maxHeight: deviceType === 'mobile' ? 130 : 200,
-              overflowY: 'auto',
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.78), rgba(0,15,25,0.7))',
-              border: '1px solid rgba(63,230,255,0.35)',
-              borderRadius: 10, padding: deviceType === 'mobile' ? 6 : 10,
-              pointerEvents: 'none',
-              fontSize: deviceType === 'mobile' ? 10 : 12,
-              color: '#fff',
-              backdropFilter: 'blur(6px)',
-            }} data-testid="street-mp-chat-log">
-              {mpChat.length === 0 ? (
-                <div style={{ color: '#6a8a9a', fontStyle: 'italic', fontSize: 11 }}>
-                  💬 Aucun message — {deviceType === 'mobile' ? 'tape pour discuter' : 'appuie sur T'}
-                </div>
-              ) : (
-                mpChat.slice(-10).map((m, i) => {
-                  const isSys = m.from === 'SYSTÈME';
-                  const isMine = !isSys && myMpIdRef.current && m.from === myMpIdRef.current;
-                  const col = isSys ? '#ffd700' : isMine ? '#a8e88a' : '#7fceff';
-                  return (
-                    <div key={`${m.ts}-${i}`} style={{ marginBottom: 3, padding: '3px 6px', borderRadius: 4 }}>
-                      <b style={{ color: col }}>{isMine ? 'toi' : m.from}</b>
-                      <span style={{ color: '#888' }}>:</span>{' '}
-                      <span style={{ color: isSys ? '#ffd896' : '#e8e8ea', fontStyle: isSys ? 'italic' : 'normal' }}>{m.text}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-          {/* Chat input (T) */}
-          {mpChatOpen && (
-            <div style={{
-              position: 'absolute', bottom: 80, left: 10, zIndex: 60,
-              width: deviceType === 'mobile' ? 'calc(100vw - 24px)' : 330,
-              maxWidth: 330, display: 'flex', gap: 6,
-            }}>
-              <input
-                ref={mpChatInputRef}
-                value={mpChatInput}
-                onChange={(e) => setMpChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') sendMpChat();
-                  if (e.key === 'Escape') { setMpChatOpen(false); setMpChatInput(''); }
-                }}
-                placeholder="Message (Entrée pour envoyer)…"
-                style={{
-                  flex: 1, padding: '8px 10px', borderRadius: 4,
-                  border: '1px solid #3fe6ff', background: 'rgba(0,0,0,0.85)',
-                  color: '#fff', fontSize: 13, outline: 'none',
-                }}
-                maxLength={200}
-              />
+
+          {deviceType === 'mobile' ? (
+            // ============== LAYOUT MOBILE : chat en haut-droite, séparé du D-pad ==============
+            <>
+              {/* Chat toggle (icône bulle) en haut à droite, sous le badge */}
               <button
-                onClick={sendMpChat}
+                onClick={() => setMpChatCollapsed(c => !c)}
+                data-testid="street-mp-chat-toggle"
                 style={{
-                  padding: '8px 14px', borderRadius: 4, fontWeight: 800,
-                  background: '#3fe6ff', color: '#001828', border: 'none', cursor: 'pointer',
+                  position: 'fixed', top: 48, right: 14, zIndex: 51,
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: mpChatCollapsed
+                    ? 'linear-gradient(135deg, rgba(20,15,30,0.92), rgba(0,0,0,0.92))'
+                    : 'linear-gradient(135deg, #3fe6ff, #0a9ec7)',
+                  border: `2px solid ${mpChatCollapsed ? 'rgba(63,230,255,0.5)' : '#fff'}`,
+                  color: mpChatCollapsed ? '#3fe6ff' : '#001828',
+                  fontSize: 18, fontWeight: 800, cursor: 'pointer',
+                  boxShadow: '0 6px 14px rgba(0,0,0,0.5)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'relative',
                 }}
-              >ENVOYER</button>
-            </div>
-          )}
-          {/* Bouton mobile : ouvrir input chat (mobile n'a pas de touche T) */}
-          {deviceType === 'mobile' && !mpChatOpen && (
-            <button
-              onClick={() => { setMpChatOpen(true); setMpChatCollapsed(false); setTimeout(() => mpChatInputRef.current?.focus(), 50); }}
-              style={{
-                position: 'absolute',
-                bottom: mpChatCollapsed ? 110 : 250,
-                left: 110, zIndex: 51,
-                padding: '6px 10px', borderRadius: 16,
-                background: '#3fe6ff', border: 'none', color: '#001828',
-                fontSize: 11, fontWeight: 800, cursor: 'pointer',
-              }}
-            >✍️ Écrire</button>
+              >
+                💬
+                {mpChat.length > 0 && mpChatCollapsed && (
+                  <span style={{
+                    position: 'absolute', top: -4, right: -4,
+                    minWidth: 18, height: 18, borderRadius: 9,
+                    background: '#ff4a4a', color: '#fff',
+                    fontSize: 10, fontWeight: 900,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 5px',
+                  }}>{mpChat.length > 99 ? '99+' : mpChat.length}</span>
+                )}
+              </button>
+
+              {/* Chat log + bouton écrire (sous le toggle) */}
+              {!mpChatCollapsed && (
+                <>
+                  <div
+                    style={{
+                      position: 'fixed', top: 100, right: 14, zIndex: 50,
+                      width: 'min(80vw, 280px)',
+                      maxHeight: '35vh', overflowY: 'auto',
+                      background: 'linear-gradient(135deg, rgba(0,0,0,0.85), rgba(0,15,25,0.8))',
+                      border: '1px solid rgba(63,230,255,0.35)',
+                      borderRadius: 12, padding: 8,
+                      fontSize: 10, color: '#fff',
+                      backdropFilter: 'blur(8px)',
+                      pointerEvents: 'auto',
+                    }}
+                    data-testid="street-mp-chat-log"
+                  >
+                    {mpChat.length === 0 ? (
+                      <div style={{ color: '#6a8a9a', fontStyle: 'italic', fontSize: 10, padding: 4 }}>
+                        💬 Aucun message — tape ✍️ pour discuter
+                      </div>
+                    ) : (
+                      mpChat.slice(-15).map((m, i) => {
+                        const isSys = m.from === 'SYSTÈME';
+                        const isMine = !isSys && myMpIdRef.current && m.from === myMpIdRef.current;
+                        const col = isSys ? '#ffd700' : isMine ? '#a8e88a' : '#7fceff';
+                        return (
+                          <div key={`${m.ts}-${i}`} style={{ marginBottom: 2, padding: '2px 4px', borderRadius: 4, lineHeight: 1.3 }}>
+                            <b style={{ color: col }}>{isMine ? 'toi' : m.from}</b>
+                            <span style={{ color: '#888' }}>:</span>{' '}
+                            <span style={{ color: isSys ? '#ffd896' : '#e8e8ea', fontStyle: isSys ? 'italic' : 'normal' }}>{m.text}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  {/* Bouton ✍️ Écrire (juste sous le log) */}
+                  {!mpChatOpen && (
+                    <button
+                      onClick={() => { setMpChatOpen(true); setTimeout(() => mpChatInputRef.current?.focus(), 80); }}
+                      data-testid="street-mp-write-btn"
+                      style={{
+                        position: 'fixed',
+                        top: `calc(100px + 35vh + 6px)`, right: 14, zIndex: 51,
+                        padding: '8px 14px', borderRadius: 18,
+                        background: 'linear-gradient(135deg, #3fe6ff, #0a9ec7)',
+                        border: '1.5px solid #fff', color: '#001828',
+                        fontSize: 11, fontWeight: 900, cursor: 'pointer',
+                        boxShadow: '0 6px 14px rgba(0,0,0,0.4)', letterSpacing: 0.5,
+                      }}
+                    >✍️ Écrire</button>
+                  )}
+                </>
+              )}
+
+              {/* Input pop : slide-up COMPACT en bas centré, n'apparaît que quand on écrit */}
+              {mpChatOpen && (
+                <div style={{
+                  position: 'fixed', bottom: 14, left: '50%', transform: 'translateX(-50%)',
+                  zIndex: 80,
+                  width: 'min(92vw, 380px)',
+                  display: 'flex', gap: 6,
+                  padding: 6, borderRadius: 24,
+                  background: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(0,15,25,0.88))',
+                  border: '2px solid #3fe6ff',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+                  backdropFilter: 'blur(10px)',
+                }}>
+                  <input
+                    ref={mpChatInputRef}
+                    value={mpChatInput}
+                    onChange={(e) => setMpChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') sendMpChat();
+                      if (e.key === 'Escape') { setMpChatOpen(false); setMpChatInput(''); }
+                    }}
+                    placeholder="Message…"
+                    autoFocus
+                    style={{
+                      flex: 1, padding: '8px 14px', borderRadius: 18,
+                      border: 'none', background: 'rgba(0,0,0,0.5)',
+                      color: '#fff', fontSize: 13, outline: 'none',
+                    }}
+                    maxLength={200}
+                  />
+                  <button
+                    onClick={sendMpChat}
+                    style={{
+                      padding: '6px 12px', borderRadius: 16, fontWeight: 800,
+                      background: '#3fe6ff', color: '#001828',
+                      border: 'none', cursor: 'pointer', fontSize: 11,
+                    }}
+                  >→</button>
+                  <button
+                    onClick={() => { setMpChatOpen(false); setMpChatInput(''); }}
+                    style={{
+                      padding: '6px 10px', borderRadius: 16, fontWeight: 800,
+                      background: 'rgba(255,255,255,0.1)', color: '#fff',
+                      border: 'none', cursor: 'pointer', fontSize: 11,
+                    }}
+                  >✕</button>
+                </div>
+              )}
+            </>
+          ) : (
+            // ============== LAYOUT DESKTOP : chat en bas-gauche (inchangé) ==============
+            <>
+              <button
+                onClick={() => setMpChatCollapsed(c => !c)}
+                data-testid="street-mp-chat-toggle"
+                style={{
+                  position: 'absolute',
+                  bottom: mpChatCollapsed ? 110 : 340,
+                  left: 10, zIndex: 51,
+                  padding: '6px 10px', borderRadius: 16,
+                  background: 'linear-gradient(135deg, rgba(20,15,30,0.92), rgba(0,0,0,0.92))',
+                  border: '1.5px solid rgba(63,230,255,0.5)',
+                  color: '#3fe6ff', fontSize: 11, fontWeight: 800,
+                  cursor: 'pointer', letterSpacing: 0.5,
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                {mpChatCollapsed
+                  ? `💬 Chat${mpChat.length > 0 ? ` (${mpChat.length})` : ''}`
+                  : '— Réduire'}
+              </button>
+              {!mpChatCollapsed && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: 120, left: 10, zIndex: 50,
+                  width: 340, maxHeight: 200, overflowY: 'auto',
+                  background: 'linear-gradient(135deg, rgba(0,0,0,0.78), rgba(0,15,25,0.7))',
+                  border: '1px solid rgba(63,230,255,0.35)',
+                  borderRadius: 10, padding: 10,
+                  fontSize: 12, color: '#fff',
+                  backdropFilter: 'blur(6px)',
+                }} data-testid="street-mp-chat-log">
+                  {mpChat.length === 0 ? (
+                    <div style={{ color: '#6a8a9a', fontStyle: 'italic', fontSize: 11 }}>
+                      💬 Aucun message — appuie sur T
+                    </div>
+                  ) : (
+                    mpChat.slice(-10).map((m, i) => {
+                      const isSys = m.from === 'SYSTÈME';
+                      const isMine = !isSys && myMpIdRef.current && m.from === myMpIdRef.current;
+                      const col = isSys ? '#ffd700' : isMine ? '#a8e88a' : '#7fceff';
+                      return (
+                        <div key={`${m.ts}-${i}`} style={{ marginBottom: 3, padding: '3px 6px', borderRadius: 4 }}>
+                          <b style={{ color: col }}>{isMine ? 'toi' : m.from}</b>
+                          <span style={{ color: '#888' }}>:</span>{' '}
+                          <span style={{ color: isSys ? '#ffd896' : '#e8e8ea', fontStyle: isSys ? 'italic' : 'normal' }}>{m.text}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+              {mpChatOpen && (
+                <div style={{
+                  position: 'absolute', bottom: 80, left: 10, zIndex: 60,
+                  width: 330, display: 'flex', gap: 6,
+                }}>
+                  <input
+                    ref={mpChatInputRef}
+                    value={mpChatInput}
+                    onChange={(e) => setMpChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') sendMpChat();
+                      if (e.key === 'Escape') { setMpChatOpen(false); setMpChatInput(''); }
+                    }}
+                    placeholder="Message (Entrée pour envoyer)…"
+                    style={{
+                      flex: 1, padding: '8px 10px', borderRadius: 4,
+                      border: '1px solid #3fe6ff', background: 'rgba(0,0,0,0.85)',
+                      color: '#fff', fontSize: 13, outline: 'none',
+                    }}
+                    maxLength={200}
+                  />
+                  <button
+                    onClick={sendMpChat}
+                    style={{
+                      padding: '8px 14px', borderRadius: 4, fontWeight: 800,
+                      background: '#3fe6ff', color: '#001828', border: 'none', cursor: 'pointer',
+                    }}
+                  >ENVOYER</button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

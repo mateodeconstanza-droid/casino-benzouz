@@ -3848,6 +3848,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       onMessage: (msg) => {
         if (msg.type === 'welcome') {
           myIdRef.current = msg.you?.id;
+          // Sécurité reconnect : retire tous les remotes du précédent socket
+          // pour éviter les avatars dupliqués
+          Object.keys(remotePlayersRef.current).forEach((id) => removeRemoteAvatar(id));
           // initial snapshot
           const map = {};
           (msg.players || []).forEach(p => { map[p.id] = p; });
@@ -3863,6 +3866,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           const me = (msg.players || []).find(p => p.id === myIdRef.current);
           if (me) setMyHp(me.hp);
         } else if (msg.type === 'player_joined') {
+          // Pas de set onlineCount manuel — la snapshot fait foi
           setChatMessages((prev) => [...prev, { from: 'SYSTÈME', text: `${msg.player.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));
         } else if (msg.type === 'player_left') {
           removeRemoteAvatar(msg.id);
