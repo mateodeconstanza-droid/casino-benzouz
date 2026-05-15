@@ -29,8 +29,9 @@ const _sidePositions = (() => {
   for (let i = 0; i < 7; i++) arr.push({ x: -54 + i * 18, z: -32 });
   // Rangée 3 (z=-44) — 7 maisons décalées d'un demi-pas
   for (let i = 0; i < 7; i++) arr.push({ x: -45 + i * 18, z: -44 });
-  // Rangée 4 (z=-58) — 6 maisons (un peu plus serrées en x car proche du fond)
-  for (let i = 0; i < 6; i++) arr.push({ x: -45 + i * 18, z: -58 });
+  // Rangée 4 (z=-50) — 6 maisons (un peu plus serrées en x car proche du fond)
+  // Décalée à -50 au lieu de -58 pour libérer la route est-ouest qui passe à z=-60
+  for (let i = 0; i < 6; i++) arr.push({ x: -45 + i * 18, z: -50 });
   // === DEVANT le casino (z positif), derrière le shop/garage à z=30 ===
   for (let i = 0; i < 5; i++) arr.push({ x: -40 + i * 20, z: 44 });
   for (let i = 0; i < 5; i++) arr.push({ x: -44 + i * 22, z: 54 });
@@ -61,11 +62,11 @@ export const HOUSES = [
   { id: 'apt-4', label: 'Résidences A4',  type: 'apartment', price:   5000000, floor: 3, x:  -22, z: -14 },
   { id: 'apt-5', label: 'Résidences A5',  type: 'apartment', price:   5000000, floor: 4, x:  -22, z: -14 },
   // Tour 2 - Horizon (42, -30)
-  { id: 'apt2-1', label: 'Horizon B1', type: 'apartment', price: 7000000, floor: 0, x:  42, z: -30 },
-  { id: 'apt2-2', label: 'Horizon B2', type: 'apartment', price: 7000000, floor: 1, x:  42, z: -30 },
-  { id: 'apt2-3', label: 'Horizon B3', type: 'apartment', price: 7000000, floor: 2, x:  42, z: -30 },
-  { id: 'apt2-4', label: 'Horizon B4', type: 'apartment', price: 7000000, floor: 3, x:  42, z: -30 },
-  { id: 'apt2-5', label: 'Horizon B5', type: 'apartment', price: 7000000, floor: 4, x:  42, z: -30 },
+  { id: 'apt2-1', label: 'Horizon B1', type: 'apartment', price: 7000000, floor: 0, x:  58, z: -30 },
+  { id: 'apt2-2', label: 'Horizon B2', type: 'apartment', price: 7000000, floor: 1, x:  58, z: -30 },
+  { id: 'apt2-3', label: 'Horizon B3', type: 'apartment', price: 7000000, floor: 2, x:  58, z: -30 },
+  { id: 'apt2-4', label: 'Horizon B4', type: 'apartment', price: 7000000, floor: 3, x:  58, z: -30 },
+  { id: 'apt2-5', label: 'Horizon B5', type: 'apartment', price: 7000000, floor: 4, x:  58, z: -30 },
   // Tour 3 - Azur (-55, 6)
   { id: 'apt3-1', label: 'Azur C1', type: 'apartment', price: 6000000, floor: 0, x: -55, z: 6 },
   { id: 'apt3-2', label: 'Azur C2', type: 'apartment', price: 6000000, floor: 1, x: -55, z: 6 },
@@ -73,11 +74,11 @@ export const HOUSES = [
   { id: 'apt3-4', label: 'Azur C4', type: 'apartment', price: 6000000, floor: 3, x: -55, z: 6 },
   { id: 'apt3-5', label: 'Azur C5', type: 'apartment', price: 6000000, floor: 4, x: -55, z: 6 },
   // Tour 4 - Palace (55, 22)
-  { id: 'apt4-1', label: 'Palace D1', type: 'apartment', price: 8000000, floor: 0, x: 55, z: 22 },
-  { id: 'apt4-2', label: 'Palace D2', type: 'apartment', price: 8000000, floor: 1, x: 55, z: 22 },
-  { id: 'apt4-3', label: 'Palace D3', type: 'apartment', price: 8000000, floor: 2, x: 55, z: 22 },
-  { id: 'apt4-4', label: 'Palace D4', type: 'apartment', price: 8000000, floor: 3, x: 55, z: 22 },
-  { id: 'apt4-5', label: 'Palace D5', type: 'apartment', price: 8000000, floor: 4, x: 55, z: 22 },
+  { id: 'apt4-1', label: 'Palace D1', type: 'apartment', price: 8000000, floor: 0, x: 75, z: 32 },
+  { id: 'apt4-2', label: 'Palace D2', type: 'apartment', price: 8000000, floor: 1, x: 75, z: 32 },
+  { id: 'apt4-3', label: 'Palace D3', type: 'apartment', price: 8000000, floor: 2, x: 75, z: 32 },
+  { id: 'apt4-4', label: 'Palace D4', type: 'apartment', price: 8000000, floor: 3, x: 75, z: 32 },
+  { id: 'apt4-5', label: 'Palace D5', type: 'apartment', price: 8000000, floor: 4, x: 75, z: 32 },
   // 3 maisons standalone
   { id: 'h-1',   label: 'Maison Bleue',   type: 'house',     price:  10000000, x:  -10, z: -18 },
   { id: 'h-2',   label: 'Maison Beige',   type: 'house',     price:  10000000, x:   -2, z: -18 },
@@ -117,6 +118,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [aptPickerOpen, setAptPickerOpen] = useState(false);
   const [garageOpen, setGarageOpen] = useState(false);
   const [rooftopView, setRooftopView] = useState(null); // { id, towerX, towerZ }
+  const [onRooftop, setOnRooftop] = useState(null);     // null | { id, towerX, towerZ } — joueur physiquement en hauteur
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
@@ -787,7 +789,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
 
     // ===== 3 nouveaux immeubles =====
     const tower2 = createApartmentBuilding({
-      x: 42, z: -30,
+      x: 58, z: -30,
       wallColor: 0xd6c0a0,
       label: 'TOUR HORIZON',
       priceLabel: '5 APPARTS · 7M $',
@@ -807,7 +809,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     scene.add(tower3);
 
     const tower4 = createApartmentBuilding({
-      x: 55, z: 22,
+      x: 75, z: 32,
       wallColor: 0xb8a890,
       label: 'TOUR PALACE',
       priceLabel: '5 APPARTS · 8M $',
@@ -819,7 +821,7 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
     // Interactables des 4 tours (les obstacles sont déclarés plus loin avec
     // les autres bboxes du casino — les bboxes des tours y sont inlinées).
     [{ x: -22, z: -14, id: 'apt-1', rid: 'rooftop-1' },
-     { x:  42, z: -30, id: 'apt2-1', rid: 'rooftop-2' },
+     { x:  58, z: -30, id: 'apt2-1', rid: 'rooftop-2' },
      { x: -55, z:   6, id: 'apt3-1', rid: 'rooftop-3' },
      { x:  55, z:  22, id: 'apt4-1', rid: 'rooftop-4' }].forEach(t => {
       interactables.push({ type: 'building', id: t.id, pos: new THREE.Vector3(t.x, 0, t.z), radius: 8 });
@@ -1018,9 +1020,9 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       { minX: -7.2, maxX: 7.2,   minZ: -15.5, maxZ: -4.5 },
       // Tours d'appartements (4 immeubles 8 × 7 chacun)
       { minX: -26.3, maxX: -17.7, minZ: -17.8, maxZ: -10.2 }, // Tour 1 Résidences
-      { minX:  37.7, maxX:  46.3, minZ: -33.8, maxZ: -26.2 }, // Tour 2 Horizon
+      { minX:  53.7, maxX:  62.3, minZ: -33.8, maxZ: -26.2 }, // Tour 2 Horizon (déplacée hors route rx=40)
       { minX: -59.3, maxX: -50.7, minZ:   2.2, maxZ:   9.8 }, // Tour 3 Azur
-      { minX:  50.7, maxX:  59.3, minZ:  18.2, maxZ:  25.8 }, // Tour 4 Palace
+      { minX:  70.7, maxX:  79.3, minZ:  28.2, maxZ:  35.8 }, // Tour 4 Palace (déplacée hors route rz=20)
       // Immeuble (entrée d'origine — gardé en double pour rétrocompat)
       { minX: -26.5, maxX: -17.5, minZ: -17.8, maxZ: -10.2 },
       // 3 maisons standalone (h-1, h-2, h-3)
@@ -3274,7 +3276,10 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         st.onPlayerDeath && st.onPlayerDeath();
       }
       // Applique à la caméra (yaw + pitch via Euler YXZ pour éviter le gimbal)
-      camera.position.set(p.x, 2.6, p.z);
+      // Hauteur dynamique : 2.6 m au sol par défaut, élevée à 15+ m si le
+      // joueur est monté sur un rooftop (p.y défini).
+      const camY = (typeof p.y === 'number' && p.y > 2.6) ? p.y : 2.6;
+      camera.position.set(p.x, camY, p.z);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = p.rotY;
       camera.rotation.x = p.rotX || 0;
@@ -3603,7 +3608,24 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
       onOpenShop ? onOpenShop() : setGarageOpen(true);
     };
     stateRef.current.onRooftopClick = (nb) => {
-      setRooftopView({ id: nb.id, towerX: nb.towerX, towerZ: nb.towerZ });
+      // Téléporte le joueur sur le toit (y=14.7) ou le redescend s'il y est
+      // déjà. Le clic sur l'échelle = monter/descendre selon l'état actuel.
+      const p = stateRef.current.player;
+      if (!p) return;
+      const onRoof = (p.y || 0) > 5;
+      if (onRoof) {
+        // Descendre — au pied de la tour
+        p.y = 2.6;
+        p.x = nb.towerX;
+        p.z = nb.towerZ + 6;
+        setOnRooftop(null);
+      } else {
+        // Monter — sur le toit, légèrement devant la table centrale
+        p.y = 14.7;
+        p.x = nb.towerX;
+        p.z = nb.towerZ + 2;
+        setOnRooftop({ id: nb.id, towerX: nb.towerX, towerZ: nb.towerZ });
+      }
     };
     // Hooks de test (dev) — permettent de téléporter / ouvrir directement
     if (typeof window !== 'undefined') {
@@ -4300,6 +4322,48 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           border: `2px solid ${STAKE.gold}`, color: '#fff',
           fontWeight: 800, fontSize: 13, zIndex: 200, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
         }}>{toast}</div>
+      )}
+
+      {/* === HUD ROOFTOP — visible quand le joueur est physiquement sur un toit === */}
+      {onRooftop && (
+        <div className="hud-control" style={{
+          position: 'absolute', top: 110, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 30, display: 'flex', gap: 8, alignItems: 'center',
+          background: 'rgba(0,0,0,0.75)', padding: '8px 14px', borderRadius: 24,
+          border: '1px solid rgba(212,175,55,0.5)', backdropFilter: 'blur(6px)',
+          color: '#fff', fontFamily: 'Georgia, serif',
+        }}>
+          <span style={{ fontSize: 12, color: '#ffd700' }}>🏗️ Sur le toit</span>
+          <button
+            data-testid="rooftop-view-btn"
+            onClick={() => setRooftopView(onRooftop)}
+            style={{
+              padding: '6px 12px', borderRadius: 6,
+              background: 'rgba(212,175,55,0.18)',
+              border: '1px solid #d4af37', color: '#ffd700',
+              cursor: 'pointer', fontSize: 11, fontWeight: 800,
+              fontFamily: 'inherit',
+            }}
+          >🗺️ CARTE</button>
+          <button
+            data-testid="rooftop-descend-btn"
+            onClick={() => {
+              if (stateRef.current.player) {
+                stateRef.current.player.y = 2.6;
+                stateRef.current.player.x = onRooftop.towerX;
+                stateRef.current.player.z = onRooftop.towerZ + 6;
+              }
+              setOnRooftop(null);
+            }}
+            style={{
+              padding: '6px 12px', borderRadius: 6,
+              background: 'linear-gradient(135deg, #8b2828, #4a1414)',
+              border: '1px solid #c83838', color: '#ffcaca',
+              cursor: 'pointer', fontSize: 11, fontWeight: 800,
+              fontFamily: 'inherit',
+            }}
+          >⬇ DESCENDRE</button>
+        </div>
       )}
 
       {/* === ROOFTOP VIEW — Vue panoramique depuis le toit === */}

@@ -10,6 +10,9 @@ import React from 'react';
 //   'pass-N' → débloquée au niveau N du battle pass (saison 1)
 // =============================================================
 export const BANNER_CATALOG = [
+  // ── EXCLUSIVE PASS PREMIUM ──
+  { id: 'b-pass-gold', name: 'Pass Or',       theme: 'casino',   price: 2000000,  unlockSource: 'shop',   colors: ['#ffd700','#1a1410'] },
+
   // ── 5 GRATUITES ──
   { id: 'b-default',   name: 'GambleLife',    theme: 'casino',   price: 0,        unlockSource: 'free',   colors: ['#d4af37','#1a1410'] },
   { id: 'b-classic',   name: 'Classique',     theme: 'minimal',  price: 0,        unlockSource: 'free',   colors: ['#3a3a40','#0a0a0a'] },

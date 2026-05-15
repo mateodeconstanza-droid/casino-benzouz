@@ -70,8 +70,11 @@ export const SEASON_REWARDS = [
   { level: 25, type: 'banner', value: 'b-king',                name: 'Bannière Couronne', icon: '👑' },
 ];
 
-// XP gagné par dollar de totalWinnings (1 XP / 10 000 $)
-export const xpFromWinnings = (totalWinnings) => Math.floor((totalWinnings || 0) / 10000);
+// XP gagné par dollar de totalWinnings (1 XP / 10 000 $).
+// Si le joueur a le Battle Pass premium, son multiplicateur s'applique
+// (×2 par défaut quand l'item est acheté en boutique).
+export const xpFromWinnings = (totalWinnings, multiplier = 1) =>
+  Math.floor(((totalWinnings || 0) / 10000) * multiplier);
 
 // Niveau actuel : plus grand N tel que xp >= REQUIRED_XP[N]
 export const computeLevel = (xp) => {
@@ -97,7 +100,9 @@ export const progressToNext = (xp) => {
 // =============================================================
 export const BattlePass = ({ profile, onClose, onClaimReward }) => {
   const totalWinnings = profile?.totalWinnings || 0;
-  const xp = xpFromWinnings(totalWinnings);
+  const xpMul = profile?.battlePassXpMultiplier || 1;
+  const xp = xpFromWinnings(totalWinnings, xpMul);
+  const isPremium = !!profile?.battlePassPremium;
   const level = computeLevel(xp);
   const progress = progressToNext(xp);
   const claimed = profile?.claimedPassRewards || [];
@@ -131,8 +136,16 @@ export const BattlePass = ({ profile, onClose, onClaimReward }) => {
               ⚔️ {SEASON_NAME}
             </div>
             <div style={{ fontSize: 12, color: '#9aa3b0', marginTop: 2 }}>
-              Niveau {level}/25 · {xp} XP · 1 XP par 10 000 $ gagnés
+              Niveau {level}/25 · {xp} XP · {xpMul > 1 ? `×${xpMul} ` : ''}1 XP par 10 000 $
             </div>
+            {isPremium && (
+              <div style={{
+                marginTop: 4, display: 'inline-block',
+                padding: '2px 10px', borderRadius: 4,
+                background: 'linear-gradient(135deg, #b08000, #ffd700)',
+                color: '#111', fontWeight: 900, fontSize: 10, letterSpacing: 1,
+              }}>★ PREMIUM ACTIF</div>
+            )}
           </div>
           <button onClick={onClose} style={{
             padding: '8px 16px', borderRadius: 8,

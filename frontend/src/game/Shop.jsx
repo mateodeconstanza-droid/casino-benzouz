@@ -139,6 +139,7 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
             ['hair',      '💇 Cheveux'],
             ['outfit',    '👕 Vêtements'],
             ['shoes',     '👟 Chaussures'],
+            ['battlepass','⚔️ Battle Pass'],
           ].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)}
               data-testid={`shop-tab-${k}`}
@@ -323,6 +324,85 @@ const Shop = ({ profile, balance, onBuy, onBuyVehicle, onEquipVehicle, onBuyCosm
         {tab === 'hair'   && renderCosmetics(HAIR_CATALOG,   ownedHair,   'hair',   'coiffures', profile.hair)}
         {tab === 'outfit' && renderCosmetics(OUTFIT_CATALOG, ownedOutfit, 'outfit', 'vêtements', profile.outfit)}
         {tab === 'shoes'  && renderCosmetics(SHOES_CATALOG,  ownedShoes,  'shoes',  'chaussures', profile.shoes)}
+
+        {tab === 'battlepass' && (
+          <div data-testid="shop-battlepass" style={{
+            background: 'linear-gradient(180deg, #1a0a25, #0a0510)',
+            border: `2px solid ${casino.secondary}55`, borderRadius: 14, padding: 24,
+          }}>
+            <div style={{ fontSize: 12, color: casino.secondary, letterSpacing: 3, textAlign: 'center', marginBottom: 10 }}>
+              ★ PASS PREMIUM ★
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#ffd700', marginBottom: 8 }}>
+                  ⚔️ BATTLE PASS<br />SAISON 1
+                </div>
+                <div style={{ fontSize: 13, color: '#e8e8ea', lineHeight: 1.5 }}>
+                  Achète le pass premium pour :<br />
+                  • <b>×2 XP</b> sur tous les gains casino<br />
+                  • <b>+500K $</b> immédiats<br />
+                  • <b>Bannière exclusive</b> "Pass Or"<br />
+                  • Récompenses récupérables jusqu'au niveau 25
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: 64, marginBottom: 8,
+                  filter: 'drop-shadow(0 0 14px rgba(255,215,0,0.5))',
+                }}>⚔️</div>
+                {profile.battlePassPremium ? (
+                  <div style={{
+                    color: '#a8e88a', fontWeight: 900, fontSize: 16,
+                    padding: '12px 18px', borderRadius: 10,
+                    background: 'rgba(20,195,86,0.15)',
+                    border: '1px solid #14c356',
+                  }}>✓ PASS PREMIUM ACTIF</div>
+                ) : (
+                  <button
+                    data-testid="shop-buy-battlepass"
+                    disabled={balance < 2000000}
+                    onClick={() => {
+                      if (balance < 2000000) return;
+                      setBalance(balance - 2000000 + 500000);
+                      const next = {
+                        ...profile,
+                        battlePassPremium: true,
+                        battlePassXpMultiplier: 2,
+                        ownedBanners: [...new Set([...(profile.ownedBanners || []), 'b-pass-gold'])],
+                      };
+                      setProfile(next);
+                      saveProfile({ ...next, balance: balance - 2000000 + 500000 });
+                    }}
+                    style={{
+                      width: '100%', padding: '14px 18px',
+                      background: balance >= 2000000
+                        ? `linear-gradient(135deg, ${casino.primary}, ${casino.accent})`
+                        : '#3a3a3a',
+                      color: balance >= 2000000 ? '#fff' : '#888',
+                      border: 'none', borderRadius: 10,
+                      fontWeight: 900, fontSize: 16, letterSpacing: 1, cursor: balance >= 2000000 ? 'pointer' : 'not-allowed',
+                      fontFamily: 'inherit',
+                      boxShadow: '0 6px 18px rgba(212,175,55,0.4)',
+                    }}>
+                    {balance >= 2000000 ? '🛒 ACHETER · 2 000 000 $' : 'SOLDE INSUFFISANT'}
+                  </button>
+                )}
+                <div style={{ fontSize: 10, color: '#888', marginTop: 6 }}>
+                  Achat à vie, valable Saison 1
+                </div>
+              </div>
+            </div>
+            <div style={{
+              marginTop: 16, padding: 10, borderRadius: 8,
+              background: 'rgba(212,175,55,0.06)',
+              border: '1px solid rgba(212,175,55,0.25)',
+              textAlign: 'center', fontSize: 12, color: '#cca366', fontStyle: 'italic',
+            }}>
+              💡 Tu peux toujours consulter ta progression via le menu universel → ⚔️ Battle Pass
+            </div>
+          </div>
+        )}
 
         {tab === 'hookahs' && (
           <div data-testid="shop-hookahs" style={{
