@@ -94,6 +94,7 @@ class LoginIn(BaseModel):
 class CheckPseudoIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     pseudo: str
+    email: Optional[str] = None
 
 
 def _norm_pseudo(p: str) -> str:
@@ -111,17 +112,34 @@ def _verify_pw(pw: str, hashed: str) -> bool:
         return False
 
 
-# Pseudo réservé : seul le créateur du jeu peut prendre "ByJaze".
-RESERVED_PSEUDOS = {"byjaze"}
+# Pseudos réservés : seul le créateur du jeu (email spécifique) peut
+# revendiquer ces noms. Mapping pseudo_lower → email autorisé.
+RESERVED_PSEUDOS = {
+    "byjaze": "mateodeconstanza@gmail.com",
+}
+
+
+def _is_reserved_pseudo(pseudo_lower: str, email: Optional[str]) -> bool:
+    """Retourne True si le pseudo est réservé ET l'email fourni n'est pas
+    celui du propriétaire autorisé (donc on doit bloquer)."""
+    owner = RESERVED_PSEUDOS.get(pseudo_lower)
+    if owner is None:
+        return False  # pas réservé
+    if not email:
+        return True   # réservé et pas d'email → bloquer
+    return email.strip().lower() != owner.lower()
 
 
 @api_router.post("/auth/check-pseudo")
 async def check_pseudo(payload: CheckPseudoIn):
-    """Vérifie qu'un pseudo est disponible (avant submit du formulaire)."""
+    """Vérifie qu'un pseudo est disponible (avant submit du formulaire).
+    Si payload.email correspond au propriétaire autorisé d'un pseudo
+    réservé, on retourne `available: true` (à condition qu'il ne soit
+    pas déjà créé)."""
     p = _norm_pseudo(payload.pseudo)
     if not PSEUDO_RE.match(p):
         return {"available": False, "reason": "format"}
-    if p.lower() in RESERVED_PSEUDOS:
+    if _is_reserved_pseudo(p.lower(), payload.email):
         return {"available": False, "reason": "reserved"}
     existing = await db.users.find_one({"pseudo_lower": p.lower()})
     return {"available": existing is None, "reason": None if existing is None else "taken"}
@@ -132,8 +150,8 @@ async def register(payload: RegisterIn):
     p = _norm_pseudo(payload.pseudo)
     if not PSEUDO_RE.match(p):
         raise HTTPException(status_code=400, detail="Pseudo invalide (3-20 caractères alphanumériques)")
-    if p.lower() in RESERVED_PSEUDOS:
-        raise HTTPException(status_code=403, detail="Pseudo réservé au créateur")
+    if _is_reserved_pseudo(p.lower(), payload.email):
+        raise HTTPException(status_code=403, detail="Pseudo réservé au créateur du jeu")
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Mot de passe trop court (min. 6 caractères)")
     email_lower = payload.email.lower()

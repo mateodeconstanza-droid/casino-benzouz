@@ -131,7 +131,8 @@ const authCall = async (path, body) => {
   }
 };
 
-export const checkPseudoAvailable = async (pseudo) => authCall('/api/auth/check-pseudo', { pseudo });
+export const checkPseudoAvailable = async (pseudo, email = null) =>
+  authCall('/api/auth/check-pseudo', { pseudo, email });
 export const registerAccount = async ({ email, pseudo, password }) =>
   authCall('/api/auth/register', { email, pseudo, password });
 export const loginAccount = async ({ email, password }) =>

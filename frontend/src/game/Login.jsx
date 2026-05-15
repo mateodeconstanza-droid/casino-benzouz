@@ -78,20 +78,22 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // Check live de la disponibilité du pseudo (debounced 400ms)
+  // Check live de la disponibilité du pseudo (debounced 400ms).
+  // L'email est aussi envoyé : ça permet au propriétaire autorisé d'un
+  // pseudo réservé (ex. ByJaze) de le revendiquer.
   useEffect(() => {
     if (!MULTIPLAYER_AVAILABLE) { setPseudoCheck({ state: 'idle', reason: null }); return; }
     const p = name.trim();
     if (p.length < 3) { setPseudoCheck({ state: 'idle', reason: null }); return; }
     setPseudoCheck({ state: 'checking', reason: null });
     const t = setTimeout(async () => {
-      const res = await checkPseudoAvailable(p);
+      const res = await checkPseudoAvailable(p, email || null);
       if (!res?.ok && res?.error) { setPseudoCheck({ state: 'idle', reason: null }); return; }
       if (res.available) setPseudoCheck({ state: 'ok', reason: null });
       else setPseudoCheck({ state: 'taken', reason: res.reason || 'taken' });
     }, 400);
     return () => clearTimeout(t);
-  }, [name]);
+  }, [name, email]);
 
   const containerStyle = {
     position: 'fixed', inset: 0,
