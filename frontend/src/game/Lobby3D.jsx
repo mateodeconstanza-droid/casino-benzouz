@@ -393,6 +393,37 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       pmrem.dispose();
     }
 
+    // === gta-mechanics : SpringArm caméra TPS ===
+    // 1) Lerp smooth pour fluidifier les rotations (Directive #1)
+    // 2) Raycast contre les murs pour ne plus traverser (Directive #2)
+    const TPS_DESIRED_DIST = 2.8;   // distance idéale derrière le joueur
+    const TPS_MIN_DIST     = 0.5;   // jamais plus près que ça (sinon on voit l'intérieur du perso)
+    const TPS_WALL_PAD     = 0.18;  // marge avant le mur pour éviter le clip
+    const TPS_HEIGHT       = 2.3;
+    const TPS_LERP         = 0.18;  // smooth factor (directive : 0.1, mais 0.18 plus snappy au casino)
+    const tpsRaycaster     = new THREE.Raycaster();
+    const tpsRayOrigin     = new THREE.Vector3();
+    const tpsRayDir        = new THREE.Vector3();
+    const tpsTargetPos     = new THREE.Vector3();
+    const tpsSmoothPos     = new THREE.Vector3(0, TPS_HEIGHT, 0);
+    let tpsSmoothInit = false;
+
+    const isCameraBlockedBy = (obj) => {
+      // Ignore : avatar du joueur (et ses enfants), sprites (badges), ombres
+      // de contact, lumières, helpers, et le sol/plafond (planes horizontaux).
+      let cur = obj;
+      while (cur) {
+        if (cur === playerAvatar) return false;
+        if (cur.userData && cur.userData.isContactShadow) return false;
+        if (cur.userData && cur.userData.isFloor) return false;
+        cur = cur.parent;
+      }
+      if (obj.isSprite || obj.isLight) return false;
+      // Skip sprites de noms MP et meshes invisibles
+      if (obj.visible === false) return false;
+      return true;
+    };
+
     // ========== SOL MARBRE UNIFORME ==========
     // Texture marbre dessinée en canvas (uniforme partout)
     const floorCanvas = document.createElement('canvas');
@@ -433,6 +464,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
+    floor.userData.isFloor = true; // gta-mechanics : ignoré par le raycast caméra
     scene.add(floor);
 
     // ========== TAPIS AUX COULEURS DU PAYS ==========
@@ -3514,12 +3546,41 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         // Avatar toujours au sol (plus de baisse auto près des tables)
         playerAvatar.position.y = 0;
 
-        // Recule la caméra derrière l'avatar pour le rendu en vue TPS
-        // On crée une caméra "virtuelle" en clonant temporairement la position
+        // === gta-mechanics : SpringArm avec raycast + lerp ===
+        // Sauvegarde la position "tête" pour la restaurer après rendu
         const origPos = camera.position.clone();
-        camera.position.x = origPos.x - camDir.x * 2.8;
-        camera.position.z = origPos.z - camDir.z * 2.8;
-        camera.position.y = 2.3;
+
+        // 1) Position désirée : `TPS_DESIRED_DIST` derrière le joueur
+        let desiredDist = TPS_DESIRED_DIST;
+
+        // 2) Raycast tête → position désirée. Si un mur est avant, on rapproche.
+        tpsRayOrigin.set(origPos.x, 1.8, origPos.z);
+        tpsRayDir.set(-camDir.x, 0, -camDir.z).normalize();
+        tpsRaycaster.set(tpsRayOrigin, tpsRayDir);
+        tpsRaycaster.far = TPS_DESIRED_DIST + 0.5;
+        const hits = tpsRaycaster
+          .intersectObjects(scene.children, true)
+          .filter((h) => isCameraBlockedBy(h.object));
+        if (hits.length > 0) {
+          desiredDist = Math.max(TPS_MIN_DIST, hits[0].distance - TPS_WALL_PAD);
+        }
+
+        tpsTargetPos.set(
+          origPos.x - camDir.x * desiredDist,
+          TPS_HEIGHT,
+          origPos.z - camDir.z * desiredDist,
+        );
+
+        // 3) Lerp doux vers la cible (snap la 1ère frame pour éviter le pop)
+        if (!tpsSmoothInit) {
+          tpsSmoothPos.copy(tpsTargetPos);
+          tpsSmoothInit = true;
+        } else {
+          tpsSmoothPos.lerp(tpsTargetPos, TPS_LERP);
+        }
+
+        camera.position.copy(tpsSmoothPos);
+
         // MP : mise à jour des avatars distants avant render
         updateRemoteAvatars();
         renderer.render(scene, camera);
