@@ -14,7 +14,7 @@ import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
-const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard, onOpenBattlePass, onOpenCrash }) => {
+const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard, onOpenBattlePass, onOpenCrash, onOpenDice, onOpenCoinFlip, onOpenMines }) => {
   const mountRef = useRef(null);
   const [nearZone, setNearZone] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -42,7 +42,10 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     wheel: () => onOpenWheel(),
     shop: () => onOpenShop(),
     benzbet: () => onOpenGambleBet(),
-    arcade: () => setShowArcadeMenu(true),
+    'arcade-crash': () => onOpenCrash && onOpenCrash(),
+    'arcade-mines': () => onOpenMines && onOpenMines(),
+    'arcade-dice':  () => onOpenDice && onOpenDice(),
+    'arcade-coin':  () => onOpenCoinFlip && onOpenCoinFlip(),
     exit: () => onExitCasino && onExitCasino(),
   };
   
@@ -2906,183 +2909,216 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     };
     const benzBetObj = createGambleBet();
 
-    // =========== BORNE ARCADE MINI-JEUX ===========
-    // Borne style "GameZone" : Crash (avion), Mines, Plinko, Dice
-    // Position : à droite près du bar, face au joueur
-    const createArcadeKiosk = () => {
-      const group = new THREE.Group();
-      group.position.set(11, 0, -9);
-      group.rotation.y = -Math.PI / 5; // légèrement orientée vers le centre du casino
+    // =========== SALLE ARCADE — 4 bornes côte à côte ===========
+    // Tapis violet au sol pour délimiter la zone arcade
+    const arcadeCarpet = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 3),
+      new THREE.MeshStandardMaterial({
+        color: 0x1a0d2a, roughness: 0.85, metalness: 0.1,
+        emissive: 0x3a1a5a, emissiveIntensity: 0.15,
+      })
+    );
+    arcadeCarpet.rotation.x = -Math.PI / 2;
+    arcadeCarpet.position.set(10.5, 0.02, -10);
+    arcadeCarpet.receiveShadow = true;
+    arcadeCarpet.userData.isFloor = true;
+    scene.add(arcadeCarpet);
 
-      // Base de la borne (caisson noir laqué)
-      const base = new THREE.Mesh(
-        roundedBox(1.6, 1.0, 1.0, 0.06, 3),
-        new THREE.MeshPhysicalMaterial({
-          color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
-          clearcoat: 1.0, clearcoatRoughness: 0.08,
-        })
+    // Panneau "ARCADE" au-dessus de la zone
+    const arcadeBanner = (() => {
+      const cv = document.createElement('canvas');
+      cv.width = 768; cv.height = 128;
+      const cx = cv.getContext('2d');
+      const g = cx.createLinearGradient(0, 0, 768, 0);
+      g.addColorStop(0, '#0a0d20'); g.addColorStop(0.5, '#1a2540'); g.addColorStop(1, '#0a0d20');
+      cx.fillStyle = g; cx.fillRect(0, 0, 768, 128);
+      cx.strokeStyle = '#3fe6ff'; cx.lineWidth = 6; cx.strokeRect(8, 8, 752, 112);
+      cx.fillStyle = '#3fe6ff';
+      cx.font = 'bold 64px Georgia, serif';
+      cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.shadowColor = '#3fe6ff'; cx.shadowBlur = 24;
+      cx.fillText('🎮 SALLE ARCADE 🎮', 384, 64);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(4.5, 0.75),
+        new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, transparent: true })
       );
+      m.position.set(10.5, 4.0, -11.4);
+      m.rotation.y = -Math.PI / 12;
+      scene.add(m);
+      return m;
+    })();
+
+    // Builder paramétrique : produit une borne arcade configurée pour un jeu
+    const createArcadeKiosk = ({
+      gameId, accentHex, accentEmissive, title, subtitle, emoji, x, z, rotY = 0,
+    }) => {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rotY;
+
+      const blackLac = new THREE.MeshPhysicalMaterial({
+        color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
+        clearcoat: 1.0, clearcoatRoughness: 0.08,
+      });
+
+      // Base
+      const base = new THREE.Mesh(roundedBox(1.5, 1.0, 0.95, 0.06, 3), blackLac);
       base.position.y = 0.5;
       group.add(base);
 
-      // Pilier arrière (qui tient l'écran)
-      const pillar = new THREE.Mesh(
-        roundedBox(1.6, 1.6, 0.3, 0.04, 3),
-        new THREE.MeshPhysicalMaterial({
-          color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
-          clearcoat: 1.0, clearcoatRoughness: 0.08,
-        })
-      );
-      pillar.position.set(0, 1.8, -0.35);
+      // Pilier
+      const pillar = new THREE.Mesh(roundedBox(1.5, 1.6, 0.3, 0.04, 3), blackLac);
+      pillar.position.set(0, 1.8, -0.32);
       group.add(pillar);
 
-      // Écran principal (TV plate)
+      // Frame écran
       const screenFrame = new THREE.Mesh(
-        roundedBox(1.5, 1.05, 0.08, 0.04, 3),
+        roundedBox(1.4, 1.0, 0.08, 0.04, 3),
         new THREE.MeshPhysicalMaterial({
-          color: 0x1a1a22, metalness: 0.9, roughness: 0.2,
-          clearcoat: 1.0, clearcoatRoughness: 0.06,
+          color: 0x1a1a22, metalness: 0.9, roughness: 0.2, clearcoat: 1.0, clearcoatRoughness: 0.06,
         })
       );
-      screenFrame.position.set(0, 2.0, -0.2);
+      screenFrame.position.set(0, 2.0, -0.18);
       screenFrame.rotation.x = -0.05;
       group.add(screenFrame);
 
-      // Texture canvas pour l'écran (texte animé "MINI JEUX")
+      // Écran texturé spécifique au jeu
       const cv = document.createElement('canvas');
-      cv.width = 512; cv.height = 320;
+      cv.width = 512; cv.height = 384;
       const cx = cv.getContext('2d');
-      // Fond dégradé bleu nuit
-      const grad = cx.createLinearGradient(0, 0, 0, 320);
-      grad.addColorStop(0, '#0a0d20');
-      grad.addColorStop(0.5, '#1a2540');
-      grad.addColorStop(1, '#0a0d20');
-      cx.fillStyle = grad;
-      cx.fillRect(0, 0, 512, 320);
-      // Bordure néon
-      cx.strokeStyle = '#3fe6ff';
-      cx.lineWidth = 4;
-      cx.strokeRect(8, 8, 496, 304);
-      // Titre
-      cx.fillStyle = '#3fe6ff';
-      cx.font = 'bold 56px Georgia, serif';
-      cx.textAlign = 'center';
-      cx.shadowColor = '#3fe6ff';
-      cx.shadowBlur = 20;
-      cx.fillText('🎮 ARCADE', 256, 100);
-      cx.font = 'bold 38px Georgia, serif';
-      cx.fillStyle = '#ffd700';
-      cx.shadowColor = '#ffd700';
-      cx.fillText('MINI JEUX', 256, 170);
-      cx.font = '24px sans-serif';
+      const grad = cx.createLinearGradient(0, 0, 0, 384);
+      grad.addColorStop(0, '#0a0d18'); grad.addColorStop(0.5, '#181f2a'); grad.addColorStop(1, '#0a0d18');
+      cx.fillStyle = grad; cx.fillRect(0, 0, 512, 384);
+      const accentCss = '#' + accentHex.toString(16).padStart(6, '0');
+      cx.strokeStyle = accentCss; cx.lineWidth = 4;
+      cx.strokeRect(8, 8, 496, 368);
+      // Emoji géant
+      cx.font = 'bold 140px sans-serif';
+      cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.shadowColor = accentCss; cx.shadowBlur = 30;
       cx.fillStyle = '#fff';
-      cx.shadowBlur = 0;
-      cx.fillText('🚀 CRASH · 💎 MINES', 256, 220);
-      cx.fillText('🎲 DÉ · 🪙 PILE/FACE', 256, 256);
-      cx.font = 'bold 18px sans-serif';
-      cx.fillStyle = '#aaa';
-      cx.fillText('— TOUCHE [E] POUR JOUER —', 256, 295);
+      cx.fillText(emoji, 256, 130);
+      // Titre
+      cx.font = 'bold 56px Georgia, serif';
+      cx.fillStyle = accentCss; cx.shadowBlur = 20;
+      cx.fillText(title, 256, 250);
+      // Sous-titre
+      cx.font = '22px sans-serif';
+      cx.fillStyle = '#ccc'; cx.shadowBlur = 0;
+      cx.fillText(subtitle, 256, 310);
+      cx.font = 'bold 16px sans-serif';
+      cx.fillStyle = '#888';
+      cx.fillText('— [E] / TAP POUR JOUER —', 256, 350);
       const screenTex = new THREE.CanvasTexture(cv);
       screenTex.colorSpace = THREE.SRGBColorSpace;
       const screen = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.38, 0.93),
+        new THREE.PlaneGeometry(1.28, 0.88),
         new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false })
       );
-      screen.position.set(0, 2.0, -0.155);
+      screen.position.set(0, 2.0, -0.135);
       screen.rotation.x = -0.05;
       group.add(screen);
 
-      // Boutons rouges sur la console (3 gros boutons d'arcade)
-      const btnColors = [0xff2244, 0x3fe6ff, 0xffd700];
+      // Joystick avec bille accent
+      const stickBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.08, 0.04, 12),
+        new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6, roughness: 0.4 })
+      );
+      stickBase.position.set(0.4, 1.04, 0.1); group.add(stickBase);
+      const stick = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.015, 0.015, 0.18, 8),
+        new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.5, roughness: 0.6 })
+      );
+      stick.position.set(0.4, 1.15, 0.1); group.add(stick);
+      const stickBall = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05, 16, 12),
+        new THREE.MeshPhysicalMaterial({
+          color: accentHex, metalness: 0.5, roughness: 0.25, clearcoat: 1.0,
+        })
+      );
+      stickBall.position.set(0.4, 1.26, 0.1); group.add(stickBall);
+
+      // 2 boutons d'arcade colorés
+      const btnColors = [accentHex, 0xffd700];
       btnColors.forEach((c, i) => {
         const btn = new THREE.Mesh(
           new THREE.CylinderGeometry(0.07, 0.07, 0.04, 16),
           new THREE.MeshPhysicalMaterial({
             color: c, metalness: 0.4, roughness: 0.3,
-            emissive: c, emissiveIntensity: 0.5,
-            clearcoat: 0.8,
+            emissive: c, emissiveIntensity: 0.5, clearcoat: 0.8,
           })
         );
-        btn.position.set(-0.4 + i * 0.4, 1.04, 0.3);
+        btn.position.set(-0.4 + i * 0.25, 1.04, 0.25);
         btn.rotation.x = Math.PI / 2;
         group.add(btn);
       });
 
-      // Joystick (manche court avec boule rouge)
-      const stickBase = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.08, 0.04, 12),
-        new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6, roughness: 0.4 })
-      );
-      stickBase.position.set(0.5, 1.04, 0.1);
-      group.add(stickBase);
-      const stick = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.015, 0.015, 0.18, 8),
-        new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.5, roughness: 0.6 })
-      );
-      stick.position.set(0.5, 1.15, 0.1);
-      group.add(stick);
-      const stickBall = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 16, 12),
-        new THREE.MeshPhysicalMaterial({
-          color: 0xff2244, metalness: 0.5, roughness: 0.25,
-          clearcoat: 1.0,
-        })
-      );
-      stickBall.position.set(0.5, 1.26, 0.1);
-      group.add(stickBall);
-
-      // Néons LED tout autour du frame (style Tron)
-      const neonMat = new THREE.MeshBasicMaterial({
-        color: 0x3fe6ff, toneMapped: false,
-      });
-      // Bandes verticales sur les côtés
+      // Néons verticaux accent (toneMapped:false pour rester saturés)
+      const neonMat = new THREE.MeshBasicMaterial({ color: accentHex, toneMapped: false });
       for (let s = -1; s <= 1; s += 2) {
-        const neon = new THREE.Mesh(
-          new THREE.BoxGeometry(0.04, 1.5, 0.04),
-          neonMat
-        );
-        neon.position.set(s * 0.78, 1.8, -0.3);
+        const neon = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.5, 0.04), neonMat);
+        neon.position.set(s * 0.72, 1.8, -0.28);
         group.add(neon);
       }
-      // Bande horizontale en haut (logo)
+
+      // Top bar accent emissive (logo)
       const topBar = new THREE.Mesh(
-        new THREE.BoxGeometry(1.65, 0.16, 0.18),
+        new THREE.BoxGeometry(1.55, 0.16, 0.18),
         new THREE.MeshPhysicalMaterial({
-          color: 0xff00aa, metalness: 0.3, roughness: 0.2,
-          emissive: 0xff00aa, emissiveIntensity: 1.2,
+          color: accentHex, metalness: 0.3, roughness: 0.2,
+          emissive: accentEmissive ?? accentHex, emissiveIntensity: 1.2,
           clearcoat: 1.0,
         })
       );
-      topBar.position.set(0, 2.7, -0.3);
+      topBar.position.set(0, 2.7, -0.28);
       group.add(topBar);
 
-      // Light cyan au-dessus de l'écran pour ambiance
-      const arcadeLight = new THREE.PointLight(0x3fe6ff, 0.8, 5);
-      arcadeLight.position.set(0, 2.5, 0.3);
+      // Light ambiance
+      const arcadeLight = new THREE.PointLight(accentHex, 0.6, 4);
+      arcadeLight.position.set(0, 2.4, 0.3);
       group.add(arcadeLight);
 
-      // Zone d'interaction (sphère devant la borne)
+      // Zone d'interaction
       const zone = new THREE.Mesh(
-        new THREE.SphereGeometry(2.0, 8, 8),
+        new THREE.SphereGeometry(1.5, 8, 8),
         new THREE.MeshBasicMaterial({ visible: false })
       );
-      zone.userData = { zoneId: 'arcade' };
-      zone.position.set(0, 1, 1.3);
+      zone.userData = { zoneId: `arcade-${gameId}` };
+      zone.position.set(0, 1, 1.0);
       group.add(zone);
 
       scene.add(group);
-      // Anim subtle : pulse léger sur le ball + tilt screen
-      group.userData.arcadeBall = stickBall;
-      group.userData.arcadeScreen = screen;
       return { zone, group };
     };
-    const arcadeObj = createArcadeKiosk();
+
+    // === 4 bornes alignées au centre du tapis arcade ===
+    // Rangée à z=-10, espacement 2.0m sur x, toutes face au sud (+z)
+    const arcadeBornes = [
+      createArcadeKiosk({
+        gameId: 'crash', accentHex: 0x3fe6ff, title: 'CRASH', subtitle: 'L\'avion décolle… cash out !',
+        emoji: '🚀', x: 7.5, z: -10, rotY: 0,
+      }),
+      createArcadeKiosk({
+        gameId: 'mines', accentHex: 0xff00aa, title: 'MINES', subtitle: 'Évite les bombes, multiplie',
+        emoji: '💎', x: 9.5, z: -10, rotY: 0,
+      }),
+      createArcadeKiosk({
+        gameId: 'dice', accentHex: 0xffd700, title: 'DICE', subtitle: 'High ou Low ? Gain × 1.95',
+        emoji: '🎲', x: 11.5, z: -10, rotY: 0,
+      }),
+      createArcadeKiosk({
+        gameId: 'coin', accentHex: 0xffa500, title: 'COIN FLIP', subtitle: 'Pile ou face, gain × 1.95',
+        emoji: '🪙', x: 13.5, z: -10, rotY: 0,
+      }),
+    ];
 
     // Liste globale des zones d'interaction
     const interactZones = [
       bj.zone, rl.zone, hc.zone, pk.zone,
       barObj.zone, toiletObj.zone, atmObj.zone, wheelObj.zone, shopObj.zone, benzBetObj.zone,
-      arcadeObj.zone,
+      ...arcadeBornes.map(b => b.zone),
     ];
 
     // ========== PORTE DE SORTIE 3D (retour à la rue) ==========
@@ -3852,7 +3888,10 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     wheel: { icon: '🎡', name: 'ROUE FORTUNE' },
     shop: { icon: '🏎', name: 'GAMBLELIFE STORE' },
     benzbet: { icon: '🎟️', name: 'BENZBET' },
-    arcade: { icon: '🎮', name: 'BORNE ARCADE — MINI JEUX' },
+    'arcade-crash': { icon: '🚀', name: 'CRASH — ARCADE' },
+    'arcade-mines': { icon: '💎', name: 'MINES — ARCADE' },
+    'arcade-dice':  { icon: '🎲', name: 'DICE — ARCADE' },
+    'arcade-coin':  { icon: '🪙', name: 'COIN FLIP — ARCADE' },
     exit: { icon: '🚪', name: 'SORTIE — VERS LA RUE' },
   };
 
@@ -5595,9 +5634,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         </div>
       )}
 
-      {/* ============================================================
-           BORNE ARCADE : modal de choix mini-jeu
-           ============================================================ */}
+      {/* Legacy modal (gardé pour rétrocompat — accessible via menu universel) */}
       {showArcadeMenu && (
         <div
           data-testid="arcade-menu-modal"

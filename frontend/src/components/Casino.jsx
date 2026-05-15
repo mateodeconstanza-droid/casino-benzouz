@@ -19,6 +19,7 @@ import Leaderboard from '@/game/Leaderboard';
 import { submitLeaderboard, fetchCloudProfile, syncCloudProfile, getAuthToken, setAuthToken } from '@/game/multiplayer';
 import { BattlePass, applyPassReward } from '@/game/BattlePass';
 import CrashGame from '@/game/Crash';
+import { ArcadeDice, ArcadeCoinFlip, ArcadeMines } from '@/game/ArcadeGames';
 import PokerGame from '@/game/Poker';
 import Shop from '@/game/Shop';
 import ATM from '@/game/ATM';
@@ -45,6 +46,9 @@ export default function Casino() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBattlePass, setShowBattlePass] = useState(false);
   const [showCrash, setShowCrash] = useState(false);
+  const [showDice, setShowDice] = useState(false);
+  const [showCoinFlip, setShowCoinFlip] = useState(false);
+  const [showMines, setShowMines] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -208,6 +212,9 @@ export default function Casino() {
       if (showWheel)        { setShowWheel(false); ev.preventDefault(); return; }
       if (showGambleBet)    { setShowGambleBet(false); ev.preventDefault(); return; }
       if (showCrash)        { setShowCrash(false); ev.preventDefault(); return; }
+      if (showDice)         { setShowDice(false); ev.preventDefault(); return; }
+      if (showCoinFlip)     { setShowCoinFlip(false); ev.preventDefault(); return; }
+      if (showMines)        { setShowMines(false); ev.preventDefault(); return; }
       if (showBattlePass)   { setShowBattlePass(false); ev.preventDefault(); return; }
       if (showLeaderboard)  { setShowLeaderboard(false); ev.preventDefault(); return; }
       if (showTrophies)     { setShowTrophies(false); ev.preventDefault(); return; }
@@ -222,7 +229,8 @@ export default function Casino() {
     return () => window.removeEventListener('keydown', onKey);
   }, [
     showShop, showATM, showBar, showToilet, showWheel, showGambleBet,
-    showCrash, showBattlePass, showLeaderboard, showTrophies, showQuests,
+    showCrash, showDice, showCoinFlip, showMines,
+    showBattlePass, showLeaderboard, showTrophies, showQuests,
     showProfile, showControls, showChangeCasino, unlockedTrophy,
   ]);
 
@@ -1043,6 +1051,54 @@ export default function Casino() {
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBattlePass={() => setShowBattlePass(true)}
           onOpenCrash={() => setShowCrash(true)}
+          onOpenDice={() => setShowDice(true)}
+          onOpenCoinFlip={() => setShowCoinFlip(true)}
+          onOpenMines={() => setShowMines(true)}
+        />
+      )}
+
+      {/* === Mini-jeux Arcade casino === */}
+      {showDice && profile && (
+        <ArcadeDice
+          balance={balance}
+          onClose={() => setShowDice(false)}
+          onResult={(payout) => {
+            // payout : positif = gain net ajouté, négatif = mise débitée
+            const newBal = (balance || 0) + payout;
+            setBalance(newBal);
+            const next = { ...profile, balance: newBal };
+            if (payout > 0) next.totalWinnings = (profile.totalWinnings || 0) + payout;
+            setProfile(next);
+            saveProfile(next);
+          }}
+        />
+      )}
+      {showCoinFlip && profile && (
+        <ArcadeCoinFlip
+          balance={balance}
+          onClose={() => setShowCoinFlip(false)}
+          onResult={(payout) => {
+            const newBal = (balance || 0) + payout;
+            setBalance(newBal);
+            const next = { ...profile, balance: newBal };
+            if (payout > 0) next.totalWinnings = (profile.totalWinnings || 0) + payout;
+            setProfile(next);
+            saveProfile(next);
+          }}
+        />
+      )}
+      {showMines && profile && (
+        <ArcadeMines
+          balance={balance}
+          onClose={() => setShowMines(false)}
+          onResult={(payout) => {
+            const newBal = (balance || 0) + payout;
+            setBalance(newBal);
+            const next = { ...profile, balance: newBal };
+            if (payout > 0) next.totalWinnings = (profile.totalWinnings || 0) + payout;
+            setProfile(next);
+            saveProfile(next);
+          }}
         />
       )}
 
