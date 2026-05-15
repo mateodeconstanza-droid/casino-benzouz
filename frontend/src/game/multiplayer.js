@@ -146,6 +146,56 @@ export const loginWithGoogle = async ({ credential, pseudo = null }) =>
 // Si vide → le bouton Google est caché automatiquement.
 export const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
+// ============================================================
+// SESSION TOKEN — stocké en localStorage, envoyé en Authorization
+// ============================================================
+const TOKEN_KEY = 'gamblelife_token';
+
+export const getAuthToken = () => {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_e) { return ''; }
+};
+
+export const setAuthToken = (token) => {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch (_e) { /* noop */ }
+};
+
+const authedFetch = async (path, options = {}) => {
+  if (!BACKEND) return { ok: false, error: 'Backend offline' };
+  const token = getAuthToken();
+  if (!token) return { ok: false, error: 'Pas de session — reconnecte-toi' };
+  try {
+    const res = await fetch(`${BACKEND}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 401) setAuthToken(''); // session morte → nettoie
+      return { ok: false, error: data.detail || `HTTP ${res.status}` };
+    }
+    return { ok: true, ...data };
+  } catch (e) {
+    return { ok: false, error: 'Réseau indisponible' };
+  }
+};
+
+// === Profil cloud : GET le profil sauvé serveur (cross-device) ===
+export const fetchCloudProfile = async () => authedFetch('/api/profile');
+
+// === Profil cloud : PUT — synchronise le profil local vers le serveur ===
+export const syncCloudProfile = async (profile) =>
+  authedFetch('/api/profile', { method: 'PUT', body: JSON.stringify({ profile }) });
+
+// Logout côté serveur (révoque le token)
+export const serverLogout = async () => authedFetch('/api/auth/logout', { method: 'POST' });
+
 export const fetchLeaderboard = async ({ country = '', limit = 50 } = {}) => {
   if (!BACKEND) return null;
   try {

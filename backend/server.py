@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Header
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -8,9 +8,10 @@ import os
 import logging
 import re
 import bcrypt
+import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
 from multiplayer import mp_router, start_snapshot_loop
@@ -145,6 +146,42 @@ async def check_pseudo(payload: CheckPseudoIn):
     return {"available": existing is None, "reason": None if existing is None else "taken"}
 
 
+def _new_session_token() -> str:
+    """Token cryptographiquement sécurisé pour authentifier les requêtes profil."""
+    return secrets.token_urlsafe(32)
+
+
+async def _issue_token(user_doc: dict) -> str:
+    """Génère un token + le persiste sur le user (multi-token possible : on garde
+    une liste pour permettre la connexion simultanée sur plusieurs appareils)."""
+    token = _new_session_token()
+    sessions = user_doc.get("sessions_tokens") or []
+    sessions.append({
+        "token": token,
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    })
+    # Cap à 5 tokens (5 appareils max). On expire les plus anciens.
+    sessions = sessions[-5:]
+    await db.users.update_one(
+        {"_id": user_doc.get("_id")} if user_doc.get("_id") else {"email_lower": user_doc["email_lower"]},
+        {"$set": {"sessions_tokens": sessions}},
+    )
+    return token
+
+
+async def _user_from_token(authorization: Optional[str]) -> dict:
+    """Récupère l'utilisateur à partir d'un Authorization: Bearer <token>."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token manquant")
+    token = authorization[len("Bearer "):].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Token invalide")
+    user = await db.users.find_one({"sessions_tokens.token": token})
+    if not user:
+        raise HTTPException(status_code=401, detail="Session expirée ou invalide")
+    return user
+
+
 @api_router.post("/auth/register")
 async def register(payload: RegisterIn):
     p = _norm_pseudo(payload.pseudo)
@@ -166,18 +203,74 @@ async def register(payload: RegisterIn):
         "pseudo_lower": p.lower(),
         "password_hash": _hash_pw(payload.password),
         "createdAt": datetime.now(timezone.utc).isoformat(),
+        "sessions_tokens": [],
+        "profile": None,  # synchronisé au premier save
     }
-    await db.users.insert_one(doc)
-    return {"ok": True, "pseudo": p, "email": payload.email}
+    res = await db.users.insert_one(doc)
+    doc["_id"] = res.inserted_id
+    token = await _issue_token(doc)
+    return {"ok": True, "pseudo": p, "email": payload.email, "token": token}
 
 
 @api_router.post("/auth/login")
 async def login(payload: LoginIn):
     email_lower = payload.email.lower()
-    user = await db.users.find_one({"email_lower": email_lower}, {"_id": 0})
+    user = await db.users.find_one({"email_lower": email_lower})
     if not user or not _verify_pw(payload.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    return {"ok": True, "pseudo": user["pseudo"], "email": user["email"]}
+    token = await _issue_token(user)
+    return {"ok": True, "pseudo": user["pseudo"], "email": user["email"], "token": token}
+
+
+# ============================================================
+# PROFIL — GET / PUT pour synchroniser entre appareils
+# ============================================================
+class ProfileIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    profile: Dict[str, Any]
+
+
+@api_router.get("/profile")
+async def get_profile(authorization: Optional[str] = Header(None)):
+    user = await _user_from_token(authorization)
+    return {
+        "ok": True,
+        "pseudo": user["pseudo"],
+        "email": user["email"],
+        "profile": user.get("profile"),
+        "updatedAt": user.get("profile_updatedAt"),
+    }
+
+
+@api_router.put("/profile")
+async def put_profile(payload: ProfileIn, authorization: Optional[str] = Header(None)):
+    user = await _user_from_token(authorization)
+    # On limite la taille du profil pour éviter les abus (1 Mo max)
+    import json as _json
+    blob = _json.dumps(payload.profile)
+    if len(blob) > 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Profil trop volumineux")
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {
+            "profile": payload.profile,
+            "profile_updatedAt": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    return {"ok": True}
+
+
+@api_router.post("/auth/logout")
+async def logout(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        return {"ok": True}  # idempotent
+    token = authorization[len("Bearer "):].strip()
+    # Retire le token spécifique
+    await db.users.update_one(
+        {"sessions_tokens.token": token},
+        {"$pull": {"sessions_tokens": {"token": token}}},
+    )
+    return {"ok": True}
 
 
 # ============================================================
@@ -221,9 +314,10 @@ async def auth_google(payload: GoogleAuthIn):
     email_lower = email.lower()
 
     # Existe déjà ?
-    user = await db.users.find_one({"email_lower": email_lower}, {"_id": 0})
+    user = await db.users.find_one({"email_lower": email_lower})
     if user:
-        return {"ok": True, "pseudo": user["pseudo"], "email": user["email"], "isNew": False}
+        token = await _issue_token(user)
+        return {"ok": True, "pseudo": user["pseudo"], "email": user["email"], "isNew": False, "token": token}
 
     # Premier login Google → on a besoin d'un pseudo
     p = _norm_pseudo(payload.pseudo or "")
@@ -248,9 +342,13 @@ async def auth_google(payload: GoogleAuthIn):
         "password_hash": "",     # pas de password pour les comptes Google
         "provider": "google",
         "createdAt": datetime.now(timezone.utc).isoformat(),
+        "sessions_tokens": [],
+        "profile": None,
     }
-    await db.users.insert_one(doc)
-    return {"ok": True, "pseudo": p, "email": email, "isNew": True}
+    res = await db.users.insert_one(doc)
+    doc["_id"] = res.inserted_id
+    token = await _issue_token(doc)
+    return {"ok": True, "pseudo": p, "email": email, "isNew": True, "token": token}
 
 
 # ============================================================

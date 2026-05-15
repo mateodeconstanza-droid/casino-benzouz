@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { Avatar3D } from '@/game/Avatar3D';
-import { checkPseudoAvailable, registerAccount, loginAccount, loginWithGoogle, GOOGLE_CLIENT_ID, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
+import { checkPseudoAvailable, registerAccount, loginAccount, loginWithGoogle, setAuthToken, GOOGLE_CLIENT_ID, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
 
 // =============================================================
 // MiniAvatar — preview stylisé du personnage (SVG compact)
@@ -121,6 +121,7 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 setAuthError(res.error || 'Connexion Google impossible');
                 return;
               }
+              if (res.token) setAuthToken(res.token);
               onLogin(res.pseudo, res.isNew, { email: res.email, hair, outfit, shoes });
             } finally {
               setAuthBusy(false);
@@ -352,6 +353,7 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                   try {
                     const res = await loginAccount({ email: pickedProfile.email, password: pickedPassword });
                     if (!res.ok) { setAuthError(res.error || 'Mot de passe incorrect'); return; }
+                    if (res.token) setAuthToken(res.token);
                     onLogin(res.pseudo, false, { email: res.email });
                   } finally { setAuthBusy(false); }
                 }}
@@ -435,7 +437,6 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
       if (authMode === 'register') {
         const res = await registerAccount({ email, pseudo: name.trim(), password });
         if (!res.ok) {
-          // Si l'erreur backend mentionne "déjà" / "réservé" / "utilisé" → bascule auto en Connexion
           const err = (res.error || '').toLowerCase();
           if (err.includes('déjà') || err.includes('reservé') || err.includes('réservé') || err.includes('utilisé') || err.includes('taken')) {
             setAuthMode('login');
@@ -445,11 +446,13 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
           setAuthError(res.error || 'Inscription impossible');
           return;
         }
+        if (res.token) setAuthToken(res.token);
         try { onLogin(res.pseudo, true, { hair, outfit, shoes, email }); }
         catch (e) { setAuthError(`Erreur post-login : ${e?.message || e}`); }
       } else {
         const res = await loginAccount({ email, password });
         if (!res.ok) { setAuthError(res.error || 'Connexion impossible'); return; }
+        if (res.token) setAuthToken(res.token);
         try { onLogin(res.pseudo, false, { email }); }
         catch (e) { setAuthError(`Erreur post-login : ${e?.message || e}`); }
       }

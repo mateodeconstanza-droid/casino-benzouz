@@ -16,7 +16,7 @@ import DeviceSelect from '@/game/DeviceSelect';
 import ControlsHelp from '@/game/ControlsHelp';
 import PlayerProfile from '@/game/PlayerProfile';
 import Leaderboard from '@/game/Leaderboard';
-import { submitLeaderboard } from '@/game/multiplayer';
+import { submitLeaderboard, fetchCloudProfile, syncCloudProfile, getAuthToken, setAuthToken } from '@/game/multiplayer';
 import { BattlePass, applyPassReward } from '@/game/BattlePass';
 import CrashGame from '@/game/Crash';
 import PokerGame from '@/game/Poker';
@@ -187,6 +187,10 @@ export default function Casino() {
     try {
       localStorage.setItem(`profile:${p.name}`, JSON.stringify(p));
     } catch (e) {}
+    // Sync cloud (silencieux, ne bloque pas le gameplay)
+    if (getAuthToken()) {
+      syncCloudProfile(p).catch(() => { /* offline-tolerant */ });
+    }
   };
 
   // ============================================================
@@ -277,11 +281,8 @@ export default function Casino() {
       };
     } else {
       p = savedProfiles.find(s => s.name === name);
-      // Cas critique : compte serveur authentifié mais aucun profil local
-      // (nouvel appareil, localStorage vidé, etc.) → on crée un profil local
-      // par défaut. Le user aura "500 $ de bienvenue" sur cet appareil
-      // mais sera bien connecté à son compte mail.
       if (!p) {
+        // Compte serveur OK mais pas de profil local → init par défaut
         p = {
           name, casino: 'vegas',
           balance: 500, totalWinnings: 0, sessions: 0,
@@ -298,9 +299,47 @@ export default function Casino() {
           keys: [], ownedHouses: [],
         };
       } else if (appearance?.email && !p.email) {
-        // Profil local trouvé : on persiste l'email s'il n'y était pas encore
         p.email = appearance.email;
       }
+    }
+    // === SYNCHRO CLOUD : si on a un token, on récupère le profil cloud ===
+    // Stratégie de merge : le cloud GAGNE pour les champs économiques
+    // (balance, totalWinnings, weapons, vehicles, ownedHouses, etc.) car ils
+    // peuvent avoir évolué sur un autre appareil. Mais on garde les champs
+    // d'apparence locale si plus récents (hair/outfit/shoes choisis ici).
+    if (getAuthToken()) {
+      try {
+        const cloud = await fetchCloudProfile();
+        if (cloud?.ok && cloud.profile) {
+          const c = cloud.profile;
+          p = {
+            ...p,
+            // Économique : cloud > local
+            balance: c.balance ?? p.balance,
+            totalWinnings: c.totalWinnings ?? p.totalWinnings,
+            weapons: c.weapons || p.weapons || [],
+            vehicles: c.vehicles || p.vehicles || [],
+            equippedVehicle: c.equippedVehicle ?? p.equippedVehicle,
+            keys: c.keys || p.keys || [],
+            ownedHouses: c.ownedHouses || p.ownedHouses || [],
+            unlockedTrophies: c.unlockedTrophies || p.unlockedTrophies || [],
+            ownedBanners: c.ownedBanners || p.ownedBanners,
+            equippedBanner: c.equippedBanner || p.equippedBanner,
+            ownedHair: c.ownedHair || p.ownedHair,
+            ownedOutfit: c.ownedOutfit || p.ownedOutfit,
+            ownedShoes: c.ownedShoes || p.ownedShoes,
+            // Apparence : on prend ce qui est dans le cloud (cohérent)
+            hair: c.hair ?? p.hair,
+            outfit: c.outfit ?? p.outfit,
+            shoes: c.shoes ?? p.shoes,
+            skin: c.skin || p.skin,
+            // Battle Pass
+            bpProgress: c.bpProgress || p.bpProgress,
+            bpRewardsClaimed: c.bpRewardsClaimed || p.bpRewardsClaimed,
+            bpPremium: c.bpPremium ?? p.bpPremium,
+          };
+        }
+      } catch (_e) { /* offline-tolerant */ }
     }
     p.sessions = (p.sessions || 0) + 1;
     setCasino(CASINOS[p.casino] || CASINOS.vegas);
@@ -383,6 +422,8 @@ export default function Casino() {
       const p = { ...profile, balance };
       await saveProfile(p);
     }
+    // Révoque le token serveur (ne bloque pas la déconnexion locale)
+    setAuthToken('');
     setProfile(null);
     setScreen('login');
     try {
