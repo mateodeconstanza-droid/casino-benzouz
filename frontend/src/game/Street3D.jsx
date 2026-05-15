@@ -3795,6 +3795,28 @@ const Street3D = ({
         </button>
       )}
 
+      {/* ====== BOUTON INVENTAIRE — toujours visible dans la ville ====== */}
+      <button
+        data-testid="street-inventory-fab"
+        onClick={() => setShowStreetInventory(true)}
+        style={{
+          position: 'fixed', right: 16, bottom: hasHookah ? 170 : 100,
+          width: 60, height: 60, borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(20,15,30,0.9), rgba(0,0,0,0.9))',
+          border: '2px solid #ffd700', color: '#ffd700',
+          cursor: 'pointer', fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+          boxShadow: '0 0 18px rgba(255,215,0,0.25), 0 8px 18px rgba(0,0,0,0.55)',
+          zIndex: 30,
+          transform: 'translateZ(0)', willChange: 'transform, box-shadow',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        }}
+        title="Inventaire (armes, véhicules, chichas)"
+      >
+        <div style={{ fontSize: 22 }}>🎒</div>
+        <div style={{ fontSize: 8 }}>INV.</div>
+      </button>
+
       {/* === MENU UNIVERSEL G3 — parité casino === */}
       <UniversalMenu
         profile={profile}

@@ -55,21 +55,24 @@ export const UniversalMenu = ({
           data-testid="universal-menu-drawer"
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', ...posStyle,
+            position: 'fixed', ...posStyle,
             top: 56, // sous le bouton
-            width: 280,
+            width: 300,
+            maxHeight: 'calc(100vh - 80px)',
+            display: 'flex', flexDirection: 'column',
             background: 'linear-gradient(135deg, rgba(20,10,28,0.96), rgba(8,4,14,0.96))',
             border: '2px solid #ffd700', borderRadius: 14,
             padding: 14, color: '#fff', zIndex: 351,
             backdropFilter: 'blur(14px)',
             boxShadow: '0 14px 36px rgba(0,0,0,0.7)',
+            overflow: 'hidden',
           }}
         >
-          {/* Profil header */}
+          {/* Profil header (sticky) */}
           <div style={{
             paddingBottom: 12, marginBottom: 12,
             borderBottom: '1px solid rgba(255,215,0,0.25)',
-            textAlign: 'center',
+            textAlign: 'center', flexShrink: 0,
           }}>
             <div style={{ fontSize: 20, fontWeight: 900, color: '#ffd700' }}>
               {profile?.name || 'JOUEUR'}
@@ -79,8 +82,12 @@ export const UniversalMenu = ({
             </div>
             <RankBadge profile={profile} compact={false} />
           </div>
-          {/* Boutons d'action */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Boutons d'action (scrollable) */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 6,
+            overflowY: 'auto', flex: 1, paddingRight: 4,
+            scrollbarWidth: 'thin', scrollbarColor: '#ffd70055 transparent',
+          }}>
             <MenuItem testId="menu-trophies" icon="🏆" label="Trophées & Progression" onClick={() => { setOpen(false); onOpenTrophies?.(); }} />
             <MenuItem testId="menu-quests" icon="📜" label="Quêtes journalières" onClick={() => { setOpen(false); onOpenQuests?.(); }} />
             <MenuItem testId="menu-shop" icon="🛒" label="Boutique" onClick={() => { setOpen(false); onOpenShop?.(); }} />
@@ -91,6 +98,7 @@ export const UniversalMenu = ({
               <>
                 <div style={{
                   height: 1, background: 'rgba(255,215,0,0.18)', margin: '6px 0',
+                  flexShrink: 0,
                 }} />
                 {extraItems.map((it, i) => (
                   <MenuItem
