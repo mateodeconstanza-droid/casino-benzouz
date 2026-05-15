@@ -12,6 +12,7 @@ import { buildPlayerCharacter } from '@/game/playerCharacter';
 import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 // ============== SCÈNE 3D THREE.JS - LOBBY COMPLET V4 ==============
 const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout, onExitCasino, onReplayTutorial, onOpenTrophies, onOpenShop, onOpenATM, onOpenWheel, walletReady, wheelReady, balance, onOpenBar, onOpenToilet, onOpenGambleBet, weapons, selectedWeapon, setSelectedWeapon, onShoot, onChangeCasino, onOpenCharacter, onToggleVehicle, onOpenQuests, mpMode, mpServerId, onOpenControls, onOpenProfile, onOpenLeaderboard, onOpenBattlePass, onOpenCrash }) => {
   const mountRef = useRef(null);
@@ -374,9 +375,21 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // === fix-rendering : uniformisé à 2 (avant 1.5 → casino moins net que la rue) ===
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = false;
+    // === fix-rendering : look cinéma GTA V ===
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
+
+    // === fix-rendering : env map PBR procédurale ===
+    {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+    }
 
     // ========== SOL MARBRE UNIFORME ==========
     // Texture marbre dessinée en canvas (uniforme partout)
@@ -1105,7 +1118,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           color: 0xe0e0e0, 
           metalness: 0.95, 
           roughness: 0.08,
-          envMapIntensity: 2,
+          envMapIntensity: 1.0,
         })
       );
       mirror.position.set(x, y, z);

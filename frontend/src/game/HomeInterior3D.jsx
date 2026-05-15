@@ -6,6 +6,7 @@ import { HOUSES } from '@/game/Street3D';
 import { FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
 import { useAmbientAudio } from '@/game/useAmbientAudio';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 // =============================================================
 // THÈMES (décor complet : murs + sol + accent meubles)
@@ -127,7 +128,17 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // === fix-rendering ===
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
+
+    {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+    }
 
     const onResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;

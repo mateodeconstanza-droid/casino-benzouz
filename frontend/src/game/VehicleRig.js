@@ -27,16 +27,32 @@ export const buildVehicleRig = (vehicleId) => {
   rig.userData.parts.riderRoot = rider;
 
   // ─── Helpers communs ─────────────────────────────────────────────
+  // fix-rendering : `clearcoat` (et `clearcoatRoughness`) → MeshPhysicalMaterial
+  // pour les surfaces peintes (carrosserie GTA V), sinon Standard normal.
+  const _mkMat = (color, opts = {}) => {
+    if (opts.clearcoat != null) {
+      return new THREE.MeshPhysicalMaterial({
+        color,
+        metalness: opts.metalness ?? 0.5,
+        roughness: opts.roughness ?? 0.4,
+        clearcoat: opts.clearcoat,
+        clearcoatRoughness: opts.clearcoatRoughness ?? 0.08,
+        emissive: opts.emissive,
+        emissiveIntensity: opts.emissiveIntensity || 0,
+      });
+    }
+    return new THREE.MeshStandardMaterial({
+      color,
+      metalness: opts.metalness ?? 0.3,
+      roughness: opts.roughness ?? 0.7,
+      emissive: opts.emissive,
+      emissiveIntensity: opts.emissiveIntensity || 0,
+    });
+  };
   const addCylinder = (parent, r1, r2, h, color, opts = {}) => {
     const m = new THREE.Mesh(
       new THREE.CylinderGeometry(r1, r2, h, opts.radial || 14),
-      new THREE.MeshStandardMaterial({
-        color,
-        metalness: opts.metalness ?? 0.3,
-        roughness: opts.roughness ?? 0.7,
-        emissive: opts.emissive,
-        emissiveIntensity: opts.emissiveIntensity || 0,
-      }),
+      _mkMat(color, opts),
     );
     parent.add(m);
     return m;
@@ -44,11 +60,7 @@ export const buildVehicleRig = (vehicleId) => {
   const addBox = (parent, w, h, d, color, opts = {}) => {
     const m = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshStandardMaterial({
-        color,
-        metalness: opts.metalness ?? 0.3,
-        roughness: opts.roughness ?? 0.7,
-      }),
+      _mkMat(color, opts),
     );
     parent.add(m);
     return m;
@@ -124,7 +136,8 @@ export const buildVehicleRig = (vehicleId) => {
   // rayons fins, pédalier + plateau, selle cuir, guidon courbé.
   // =============================================================
   if (vehicleId === 'bike') {
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0xb43229, metalness: 0.7, roughness: 0.3 });
+    // fix-rendering : carrosserie peinte GTA V (clearcoat = vernis transparent)
+    const frameMat = new THREE.MeshPhysicalMaterial({ color: 0xb43229, metalness: 0.7, roughness: 0.3, clearcoat: 1.0, clearcoatRoughness: 0.06 });
     const blackMat = new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.6, roughness: 0.5 });
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd2d4d8, metalness: 0.95, roughness: 0.18 });
     const seatMat = new THREE.MeshStandardMaterial({ color: 0x222226, roughness: 0.75 });
@@ -473,9 +486,10 @@ export const buildVehicleRig = (vehicleId) => {
   // HOVERBOARD : sci-fi (inchangé volontairement)
   // =============================================================
   if (vehicleId === 'hoverboard') {
+    // fix-rendering : deck hoverboard laqué (clearcoat sci-fi)
     const deck = new THREE.Mesh(
       new THREE.BoxGeometry(1.3, 0.12, 0.5),
-      new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: 0.8, roughness: 0.2 }),
+      new THREE.MeshPhysicalMaterial({ color: 0x1a1a22, metalness: 0.8, roughness: 0.2, clearcoat: 1.0, clearcoatRoughness: 0.04 }),
     );
     deck.position.set(0, 0.55, 0);
     rig.add(deck);

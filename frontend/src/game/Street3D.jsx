@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { fmt, VEHICLES, WEAPONS } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { buildVehicleRig, animateVehicleRig } from '@/game/VehicleRig';
@@ -214,7 +215,18 @@ const Street3D = ({
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // === fix-rendering : look cinéma GTA V ===
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
+
+    // === fix-rendering : env map PBR (RoomEnvironment procédural, pas de fichier HDRI à charger) ===
+    {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+    }
 
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
