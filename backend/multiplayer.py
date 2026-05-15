@@ -31,15 +31,24 @@ class ServerState:
         self.lock = asyncio.Lock()
 
     async def broadcast(self, payload: dict, exclude: str | None = None):
-        dead = []
+        """Diffuse en parallèle à tous les clients (jusqu'à 50). Un client lent
+        ne bloque pas les autres. Les clients qui plantent sont retirés."""
         msg = json.dumps(payload)
-        for pid, ws in list(self.sockets.items()):
-            if exclude and pid == exclude:
-                continue
+        targets = [(pid, ws) for pid, ws in list(self.sockets.items())
+                   if not (exclude and pid == exclude)]
+        if not targets:
+            return
+
+        async def _send(pid, ws):
             try:
-                await ws.send_text(msg)
+                # timeout 1s pour éviter qu'un socket gelé bloque la boucle snapshot
+                await asyncio.wait_for(ws.send_text(msg), timeout=1.0)
+                return None
             except Exception:
-                dead.append(pid)
+                return pid
+
+        results = await asyncio.gather(*(_send(pid, ws) for pid, ws in targets), return_exceptions=False)
+        dead = [pid for pid in results if pid]
         for pid in dead:
             await self.remove(pid)
 
@@ -78,39 +87,60 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
         return
     state = SERVER_STATES[server_id]
 
-    # Pseudo unique : si déjà pris, suffixer
-    base = (username or "Anon").strip()[:16] or "Anon"
-    pid = base
-    i = 2
-    while pid in state.players:
-        pid = f"{base}{i}"
-        i += 1
+    # Vérifier la capacité serveur (50 max)
+    max_players = SERVERS[server_id].get("maxPlayers", 50)
+    if len(state.players) >= max_players:
+        await websocket.close(code=4403, reason="Server full")
+        return
 
     await websocket.accept()
     now = time.time()
-    me = {
-        "id": pid, "name": pid,
-        "x": 0.0, "y": 1.7, "z": 0.0, "rotY": 0.0,
-        "hp": 100, "kills": 0, "deaths": 0,
-        "skin": "#e0b48a", "outfit": 0, "hair": 0,
-        "weapon": None,
-        "lastSeen": now,
-    }
-    await state.add(pid, websocket, me)
+    pid = None
+    me = None
 
-    # Envoyer welcome + snapshot initial au nouveau
+    # CRITIQUE : choix du pseudo + insertion atomiques pour éviter:
+    # (a) deux clients avec même username qui se voient attribuer le même pid
+    # (b) un snapshot_loop qui envoie un snapshot au nouveau socket avant son welcome
     try:
-        await websocket.send_text(json.dumps({
-            "type": "welcome",
-            "you": me,
-            "players": state.snapshot(),
-            "chat": state.chat_log[-30:],
-            "server": SERVERS[server_id],
-        }))
-        # Informer les autres qu'un joueur vient d'arriver
+        async with state.lock:
+            base = (username or "Anon").strip()[:16] or "Anon"
+            pid = base
+            i = 2
+            while pid in state.players:
+                pid = f"{base}{i}"
+                i += 1
+            me = {
+                "id": pid, "name": pid,
+                "x": 0.0, "y": 1.7, "z": 0.0, "rotY": 0.0,
+                "hp": 100, "kills": 0, "deaths": 0,
+                "skin": "#e0b48a", "outfit": 0, "hair": 0,
+                "weapon": None,
+                "lastSeen": now,
+            }
+            # Snapshot des autres joueurs AVANT d'ajouter self
+            others = list(state.players.values())
+            # IMPORTANT: envoyer welcome AVANT d'ajouter le socket à state.sockets,
+            # sinon snapshot_loop peut envoyer un snapshot d'abord -> client crash.
+            await websocket.send_text(json.dumps({
+                "type": "welcome",
+                "you": me,
+                "players": others + [me],
+                "chat": state.chat_log[-30:],
+                "server": SERVERS[server_id],
+            }))
+            # Maintenant on peut publier le socket (snapshot_loop peut l'utiliser)
+            state.sockets[pid] = websocket
+            state.players[pid] = me
+        # Hors du lock : informer les autres qu'un joueur arrive
         await state.broadcast({"type": "player_joined", "player": me}, exclude=pid)
+        logger.info(f"[mp] {pid} joined {server_id} ({len(state.players)}/{max_players})")
     except Exception as e:
-        logger.error(f"[mp] init broadcast failed: {e}")
+        logger.error(f"[mp] init failed for {username}@{server_id}: {e}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+        return
 
     try:
         while True:

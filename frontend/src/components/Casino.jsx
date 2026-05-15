@@ -824,6 +824,17 @@ export default function Casino() {
             onOpenHome={handleEnterHome}
             onOpenShop={() => setShowShop(true)}
             onOpenControls={() => setShowControls(true)}
+            // ↓ Parité menu casino — ces handlers existaient déjà pour Lobby3D
+            onOpenProfile={() => setShowProfile('mine')}
+            onOpenLeaderboard={() => setShowLeaderboard(true)}
+            onOpenBattlePass={() => setShowBattlePass(true)}
+            onOpenCrash={() => setShowCrash(true)}
+            onOpenCharacter={openCharacterFromMenu}
+            onReplayTutorial={async () => {
+              const next = { ...profile, onboardedAt: 0 };
+              setProfile(next);
+              await saveProfile({ ...next, balance });
+            }}
           />
           <Onboarding
             active={!profile.onboardedAt}

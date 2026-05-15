@@ -106,7 +106,14 @@ export const HOUSES = [
 // Composant Street3D — Scène extérieure
 // Props : profile, balance, setBalance, onEnterCasino(), onBuyHouse(houseId), onExitGame()
 // =============================================================
-const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame, onOpenHome, onOpenShop, onOpenTrophies, onOpenQuests, deviceType, setProfile, spawnHint, onSpawnConsumed, onOpenControls }) => {
+const Street3D = ({
+  profile, balance, setBalance, onEnterCasino, onBuyHouse, onExitGame,
+  onOpenHome, onOpenShop, onOpenTrophies, onOpenQuests, deviceType,
+  setProfile, spawnHint, onSpawnConsumed, onOpenControls,
+  // ↓ Parité avec le menu casino : on passe les mêmes handlers
+  onOpenProfile, onOpenLeaderboard, onOpenBattlePass, onOpenCrash,
+  onOpenCharacter, onReplayTutorial,
+}) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
   const stateRef = useRef({});
@@ -119,6 +126,9 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
   const [garageOpen, setGarageOpen] = useState(false);
   const [rooftopView, setRooftopView] = useState(null); // { id, towerX, towerZ }
   const [onRooftop, setOnRooftop] = useState(null);     // null | { id, towerX, towerZ } — joueur physiquement en hauteur
+  const [showStreetInventory, setShowStreetInventory] = useState(false);
+  // Catégorie active de l'inventaire ville (parité casino : armes, véhicules, chichas, cosmétiques)
+  const [streetInvTab, setStreetInvTab] = useState('weapons');
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
@@ -3766,21 +3776,26 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           disabled={usingHookah}
           style={{
             position: 'absolute', right: 16, bottom: 100,
-            width: 56, height: 56, borderRadius: '50%',
+            width: 60, height: 60, borderRadius: '50%',
             background: usingHookah
               ? 'linear-gradient(135deg, #ff6a3a, #c41e3a)'
-              : 'linear-gradient(135deg, rgba(255,215,0,0.9), rgba(200,168,90,0.95))',
+              : 'linear-gradient(135deg, rgba(255,215,0,0.95), rgba(200,168,90,0.95))',
             border: `2px solid ${usingHookah ? '#fff' : '#ffd700'}`,
             color: '#000', cursor: usingHookah ? 'wait' : 'pointer',
-            fontSize: 11, fontWeight: 800,
-            boxShadow: '0 6px 14px rgba(0,0,0,0.6)', zIndex: 30,
+            fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+            boxShadow: usingHookah
+              ? '0 0 24px rgba(255,106,58,0.55), 0 8px 18px rgba(0,0,0,0.6)'
+              : '0 0 18px rgba(255,215,0,0.35), 0 8px 18px rgba(0,0,0,0.55)',
+            zIndex: 30,
+            transform: 'translateZ(0)', willChange: 'transform, box-shadow',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           }}>
           <div style={{ fontSize: 22 }}>💨</div>
           <div style={{ fontSize: 8 }}>{usingHookah ? '...' : 'CHICHA'}</div>
         </button>
       )}
 
-      {/* === MENU UNIVERSEL G3 — accessible partout === */}
+      {/* === MENU UNIVERSEL G3 — parité casino === */}
       <UniversalMenu
         profile={profile}
         balance={balance}
@@ -3790,7 +3805,16 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
         onOpenShop={onOpenShop}
         position="top-right"
         extraItems={[
+          { testId: 'menu-inventory', icon: '🎒', label: 'Inventaire', onClick: () => setShowStreetInventory(true) },
+          { testId: 'menu-profile', icon: '🪪', label: 'Mon profil & bannière', onClick: () => onOpenProfile && onOpenProfile() },
+          { testId: 'menu-leaderboard', icon: '🏆', label: 'Classement mondial', onClick: () => onOpenLeaderboard && onOpenLeaderboard() },
+          { testId: 'menu-battlepass', icon: '⚔️', label: 'Battle Pass — Saison 1', onClick: () => onOpenBattlePass && onOpenBattlePass(), accent: '#ffd700' },
+          { testId: 'menu-crash', icon: '🚀', label: 'Crash — mini-jeu', onClick: () => onOpenCrash && onOpenCrash(), accent: '#3fe6ff' },
+          { testId: 'menu-character', icon: '👤', label: 'Personnaliser le personnage', onClick: () => onOpenCharacter && onOpenCharacter() },
           { testId: 'menu-controls', icon: '⌨️', label: 'Touches & contrôles', onClick: () => onOpenControls && onOpenControls() },
+          { testId: 'menu-enter-casino', icon: '🎰', label: 'Entrer dans le casino', onClick: () => onEnterCasino && onEnterCasino(), accent: '#ffd700' },
+          { testId: 'menu-replay-tutorial', icon: '❔', label: 'Revoir le tutoriel', onClick: () => onReplayTutorial && onReplayTutorial(), accent: '#3fe6ff' },
+          { testId: 'menu-logout', icon: '⏻', label: 'Déconnexion', onClick: () => onExitGame && onExitGame(), accent: '#ff6666' },
         ]}
       />
 
@@ -4540,9 +4564,235 @@ const Street3D = ({ profile, balance, setBalance, onEnterCasino, onBuyHouse, onE
           </div>
         </div>
       )}
+
+      {/* ============================================================
+          INVENTAIRE VILLE — parité casino, multi-onglets (armes / véhicules / chichas)
+          + utilisation des objets directement depuis le panneau
+          ============================================================ */}
+      {showStreetInventory && (
+        <div
+          data-testid="street-inventory-modal"
+          onClick={() => setShowStreetInventory(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+            zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20, backdropFilter: 'blur(8px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(145deg, #15090f, #08040a)',
+              border: `2px solid ${STAKE.gold}`, borderRadius: 18,
+              maxWidth: 640, width: '100%', padding: 22,
+              boxShadow: '0 30px 80px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(255,215,0,0.08)',
+              transform: 'translateZ(0)', willChange: 'transform',
+            }}
+          >
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginBottom: 16, paddingBottom: 14,
+              borderBottom: `1px solid ${STAKE.gold}33`,
+            }}>
+              <h3 style={{
+                color: STAKE.goldLight, margin: 0, letterSpacing: 3,
+                fontFamily: 'Georgia, serif', fontSize: 22,
+              }}>🎒 INVENTAIRE</h3>
+              <button
+                data-testid="street-inv-close"
+                onClick={() => setShowStreetInventory(false)}
+                style={{
+                  background: 'transparent', border: `1px solid ${STAKE.gold}`,
+                  color: STAKE.goldLight, width: 34, height: 34, borderRadius: 8,
+                  cursor: 'pointer', fontWeight: 800, fontSize: 16,
+                }}
+              >✕</button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {[
+                { id: 'weapons',  icon: '⚔️', label: 'Armes',     n: (profile?.weapons || []).length },
+                { id: 'vehicles', icon: '🚗', label: 'Véhicules', n: (profile?.vehicles || []).length },
+                { id: 'hookahs',  icon: '💨', label: 'Chichas',   n: (profile?.hookahs || []).length },
+              ].map(t => {
+                const active = streetInvTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    data-testid={`street-inv-tab-${t.id}`}
+                    onClick={() => setStreetInvTab(t.id)}
+                    style={{
+                      flex: 1, padding: '10px 12px', borderRadius: 10,
+                      background: active
+                        ? `linear-gradient(135deg, ${STAKE.gold}33, ${STAKE.gold}11)`
+                        : 'rgba(255,255,255,0.04)',
+                      border: `1.5px solid ${active ? STAKE.gold : 'rgba(255,255,255,0.08)'}`,
+                      color: active ? STAKE.goldLight : '#aaa',
+                      fontSize: 12, fontWeight: 800, letterSpacing: 1.2,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      transition: 'transform 0.18s ease, border-color 0.18s ease',
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>{t.icon}</span> {t.label}
+                    <span style={{
+                      fontSize: 10, padding: '2px 7px', borderRadius: 999,
+                      background: active ? '#000' : 'rgba(255,255,255,0.08)',
+                      color: active ? STAKE.gold : '#888',
+                    }}>{t.n}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Body */}
+            <div style={{ minHeight: 240, maxHeight: '55vh', overflowY: 'auto', paddingRight: 4 }}>
+              {streetInvTab === 'weapons' && (
+                (profile?.weapons || []).length === 0 ? (
+                  <EmptyState text="Pas d'arme dans l'inventaire — visite l'armurerie du casino." />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                    {(profile.weapons || []).map(wid => {
+                      const w = WEAPONS.find(x => x.id === wid);
+                      if (!w) return null;
+                      const isEquipped = aimingWeapon === wid;
+                      const iconMap = { knife: '🔪', machete: '🔪', gun: '🔫', shotgun: '🔫', bazooka: '🚀', flamethrower: '🔥', throwknife: '🗡️', crossbow: '🏹', uzi: '🔫', grenade: '💣', laserrifle: '⚡', sniper: '🎯', katana: '⚔️' };
+                      const ico = iconMap[wid] || '⚔️';
+                      return (
+                        <button
+                          key={wid}
+                          data-testid={`street-inv-weapon-${wid}`}
+                          onClick={() => {
+                            setAimingWeapon(isEquipped ? null : wid);
+                            setShowStreetInventory(false);
+                          }}
+                          style={{
+                            padding: 12, borderRadius: 12,
+                            background: isEquipped
+                              ? `linear-gradient(135deg, ${STAKE.gold}33, #ff444433)`
+                              : 'rgba(0,0,0,0.45)',
+                            border: `2px solid ${isEquipped ? STAKE.gold : 'rgba(255,255,255,0.08)'}`,
+                            color: '#fff', cursor: 'pointer', textAlign: 'center',
+                            transition: 'transform 0.18s ease, border-color 0.18s ease',
+                          }}
+                        >
+                          <div style={{ fontSize: 36 }}>{ico}</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>{w.name}</div>
+                          <div style={{ fontSize: 10, color: '#cca366', marginTop: 2 }}>{w.damage}</div>
+                          {isEquipped && (
+                            <div style={{ marginTop: 6, fontSize: 10, color: STAKE.goldLight, fontWeight: 800, letterSpacing: 1 }}>
+                              ✓ ÉQUIPÉE
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+
+              {streetInvTab === 'vehicles' && (
+                (profile?.vehicles || []).length === 0 ? (
+                  <EmptyState text="Pas de véhicule — passe au garage à côté du casino." />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                    {(profile.vehicles || []).map(vid => {
+                      const v = VEHICLES.find(x => x.id === vid);
+                      if (!v) return null;
+                      const isActive = (profile.equippedVehicle || null) === vid;
+                      return (
+                        <button
+                          key={vid}
+                          data-testid={`street-inv-vehicle-${vid}`}
+                          onClick={() => {
+                            equipSpecificVehicle && equipSpecificVehicle(vid);
+                            setShowStreetInventory(false);
+                          }}
+                          style={{
+                            padding: 12, borderRadius: 12,
+                            background: isActive
+                              ? `linear-gradient(135deg, ${STAKE.gold}33, #3fe6ff22)`
+                              : 'rgba(0,0,0,0.45)',
+                            border: `2px solid ${isActive ? STAKE.gold : 'rgba(255,255,255,0.08)'}`,
+                            color: '#fff', cursor: 'pointer', textAlign: 'center',
+                          }}
+                        >
+                          <div style={{ fontSize: 36 }}>{v.emoji}</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>{v.name}</div>
+                          <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>×{v.speedMul} vitesse</div>
+                          {isActive && (
+                            <div style={{ marginTop: 6, fontSize: 10, color: STAKE.goldLight, fontWeight: 800, letterSpacing: 1 }}>
+                              ✓ MONTÉ
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+
+              {streetInvTab === 'hookahs' && (
+                !hasHookah ? (
+                  <EmptyState text="Pas de chicha équipée — achète-en une dans la boutique du casino." />
+                ) : (
+                  <div style={{
+                    padding: 18, borderRadius: 14,
+                    background: usingHookah
+                      ? 'linear-gradient(135deg, #c41e3a22, #ff6a3a22)'
+                      : 'rgba(0,0,0,0.45)',
+                    border: `2px solid ${usingHookah ? '#ff6a3a' : STAKE.gold}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                  }}>
+                    <div style={{ fontSize: 64 }}>💨</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: STAKE.goldLight, letterSpacing: 1 }}>
+                      Chicha équipée
+                    </div>
+                    <button
+                      data-testid="street-inv-use-hookah"
+                      disabled={usingHookah}
+                      onClick={() => {
+                        // eslint-disable-next-line react-hooks/rules-of-hooks
+                        if (useHookahFn) useHookahFn();
+                        setShowStreetInventory(false);
+                      }}
+                      style={{
+                        padding: '12px 24px', borderRadius: 30,
+                        background: usingHookah
+                          ? 'linear-gradient(135deg, #6a3a3a, #4a2020)'
+                          : `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`,
+                        border: `2px solid ${usingHookah ? '#888' : STAKE.gold}`,
+                        color: '#111', fontWeight: 900, fontSize: 13, letterSpacing: 1.5,
+                        cursor: usingHookah ? 'wait' : 'pointer',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                        transition: 'transform 0.18s ease',
+                      }}
+                    >
+                      {usingHookah ? '⏳ Fumée en cours…' : '💨 UTILISER LA CHICHA'}
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+// Petit composant utilitaire pour les états vides de l'inventaire
+const EmptyState = ({ text }) => (
+  <div style={{
+    textAlign: 'center', color: '#888', padding: '36px 20px',
+    border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 12,
+    background: 'rgba(255,255,255,0.02)',
+    fontSize: 12, letterSpacing: 0.5,
+  }}>
+    {text}
+  </div>
+);
 
 export default Street3D;
 
