@@ -267,6 +267,7 @@ export default function Casino() {
         outfit: appearance?.outfit ?? 0,
         shoes: appearance?.shoes ?? 0,
         skin: '#e0b48a',
+        email: appearance?.email || null,  // ← persist email pour quick-login profil sauvé
         // Bannières : les 5 gratuites pré-débloquées, la première équipée par défaut
         ownedBanners: ['b-default','b-classic','b-cards','b-neon','b-pixel'],
         equippedBanner: 'b-default',
@@ -276,6 +277,9 @@ export default function Casino() {
       };
     } else {
       p = savedProfiles.find(s => s.name === name);
+      // Si l'utilisateur s'est reconnecté via email/password, on persiste l'email
+      // sur le profil pour faciliter la prochaine session
+      if (p && appearance?.email && !p.email) p.email = appearance.email;
     }
     p.sessions = (p.sessions || 0) + 1;
     setCasino(CASINOS[p.casino] || CASINOS.vegas);

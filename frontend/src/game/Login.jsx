@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { Avatar3D } from '@/game/Avatar3D';
-import { checkPseudoAvailable, registerAccount, loginAccount, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
+import { checkPseudoAvailable, registerAccount, loginAccount, loginWithGoogle, GOOGLE_CLIENT_ID, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
 
 // =============================================================
 // MiniAvatar — preview stylisé du personnage (SVG compact)
@@ -74,9 +74,78 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
   const [authMode, setAuthMode] = useState('register'); // 'register' | 'login'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [pseudoCheck, setPseudoCheck] = useState({ state: 'idle', reason: null }); // idle | checking | ok | taken | reserved | format
+  const [pseudoCheck, setPseudoCheck] = useState({ state: 'idle', reason: null });
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState(null);
+  // Profil sauvé sélectionné (déclenche le modal "tape ton mot de passe")
+  const [pickedProfile, setPickedProfile] = useState(null);
+  const [pickedPassword, setPickedPassword] = useState('');
+  // Réf bouton Google (rendu via gsi/client)
+  const googleBtnRef = useRef(null);
+  const googleBtnNewRef = useRef(null);
+
+  // Charge le script Google Identity Services à la demande (1×)
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || typeof window === 'undefined') return undefined;
+    if (window.google?.accounts?.id) return undefined;
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true; s.defer = true;
+    document.head.appendChild(s);
+    return undefined;
+  }, []);
+
+  // Initialise + render le bouton Google quand le script est chargé.
+  // Mis à jour à chaque changement de mode pour cibler le bon container.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || typeof window === 'undefined') return undefined;
+    let cancelled = false;
+    const waitGoogle = (attempts = 0) => {
+      if (cancelled) return;
+      if (!window.google?.accounts?.id) {
+        if (attempts > 50) return; // timeout 5s
+        setTimeout(() => waitGoogle(attempts + 1), 100);
+        return;
+      }
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            setAuthBusy(true);
+            setAuthError(null);
+            try {
+              // Si le user est sur l'écran "nouveau" et a tapé un pseudo, on l'envoie
+              const pseudoHint = (mode === 'new' && name.trim().length >= 3) ? name.trim() : null;
+              const res = await loginWithGoogle({ credential: response.credential, pseudo: pseudoHint });
+              if (!res.ok) {
+                setAuthError(res.error || 'Connexion Google impossible');
+                return;
+              }
+              onLogin(res.pseudo, res.isNew, { email: res.email, hair, outfit, shoes });
+            } finally {
+              setAuthBusy(false);
+            }
+          },
+          auto_select: false,
+        });
+        const target = googleBtnRef.current || googleBtnNewRef.current;
+        if (target) {
+          target.innerHTML = '';
+          window.google.accounts.id.renderButton(target, {
+            type: 'standard',
+            theme: 'filled_black',
+            size: 'large',
+            text: 'continue_with',
+            shape: 'pill',
+            logo_alignment: 'left',
+            width: 320,
+          });
+        }
+      } catch (_e) {}
+    };
+    waitGoogle();
+    return () => { cancelled = true; };
+  }, [mode, name, hair, outfit, shoes, onLogin]);
 
   // Check live de la disponibilité du pseudo (debounced 400ms).
   // L'email est aussi envoyé : ça permet au propriétaire autorisé d'un
@@ -155,7 +224,17 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
               <button
                 key={p.name}
                 data-testid={`profile-${p.name}`}
-                onClick={() => onLogin(p.name, false)}
+                onClick={() => {
+                  // Si le profil a un email enregistré → modal "tape ton mot de passe"
+                  // Sinon (profil offline / legacy) → connexion directe
+                  if (MULTIPLAYER_AVAILABLE && p.email) {
+                    setPickedProfile(p);
+                    setPickedPassword('');
+                    setAuthError(null);
+                  } else {
+                    onLogin(p.name, false);
+                  }
+                }}
                 style={{
                   width: '100%', padding: '12px 14px', marginBottom: 10,
                   background: 'linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.04))',
@@ -191,12 +270,138 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
               }}
             >+ Créer un nouveau joueur</button>
+
+            {/* Google Sign-In : caché si client ID non configuré */}
+            {GOOGLE_CLIENT_ID && MULTIPLAYER_AVAILABLE && (
+              <>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  margin: '14px 0 10px',
+                }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(212,175,55,0.15)' }} />
+                  <span style={{ fontSize: 10, color: STAKE.inkSoft, letterSpacing: 1.5 }}>OU</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(212,175,55,0.15)' }} />
+                </div>
+                <div ref={googleBtnRef} data-testid="google-signin-btn" style={{
+                  display: 'flex', justifyContent: 'center',
+                }} />
+              </>
+            )}
           </div>
           <div style={{
             textAlign: 'center', marginTop: 20,
             fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1,
-          }}>Solo · Mobile Casino · v2.1</div>
+          }}>Casino · Royal · v2.2</div>
         </div>
+
+        {/* === Modal "tape ton mot de passe" pour profil sauvé === */}
+        {pickedProfile && (
+          <div
+            data-testid="password-modal"
+            onClick={() => setPickedProfile(null)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 100, backdropFilter: 'blur(8px)', padding: 20,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%', maxWidth: 380,
+                background: 'linear-gradient(145deg, rgba(15,25,40,0.96), rgba(8,15,25,0.96))',
+                border: `2px solid ${STAKE.gold}`, borderRadius: 18,
+                padding: 24, color: '#fff',
+                boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
+              }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: 18 }}>
+                <div style={{ margin: '0 auto', width: 58 }}>
+                  <MiniAvatar
+                    hair={pickedProfile.hair || 0}
+                    outfit={pickedProfile.outfit || 0}
+                    shoes={pickedProfile.shoes || 0}
+                    skin={pickedProfile.skin || '#e0b48a'}
+                    size={50}
+                  />
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: STAKE.goldLight, marginTop: 8 }}>
+                  {pickedProfile.name}
+                </div>
+                <div style={{ fontSize: 11, color: STAKE.inkSoft, marginTop: 2 }}>
+                  {pickedProfile.email}
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>
+                Mot de passe
+              </div>
+              <input
+                autoFocus
+                data-testid="picked-password"
+                type="password"
+                value={pickedPassword}
+                onChange={(e) => { setPickedPassword(e.target.value); setAuthError(null); }}
+                onKeyDown={async (e) => {
+                  if (e.key !== 'Enter' || pickedPassword.length < 6 || authBusy) return;
+                  setAuthBusy(true);
+                  setAuthError(null);
+                  try {
+                    const res = await loginAccount({ email: pickedProfile.email, password: pickedPassword });
+                    if (!res.ok) { setAuthError(res.error || 'Mot de passe incorrect'); return; }
+                    onLogin(res.pseudo, false, { email: res.email });
+                  } finally { setAuthBusy(false); }
+                }}
+                placeholder="••••••"
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  background: 'rgba(0,0,0,0.45)',
+                  border: `1px solid ${STAKE.gold}`,
+                  borderRadius: 12, color: '#fff', fontSize: 14,
+                  fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none',
+                }}
+              />
+              {authError && (
+                <div style={{
+                  marginTop: 10, padding: 8, borderRadius: 6,
+                  background: 'rgba(220,60,60,0.15)', border: '1px solid #a33',
+                  color: '#faa', fontSize: 12, textAlign: 'center',
+                }}>⚠️ {authError}</div>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                <button
+                  onClick={() => setPickedProfile(null)}
+                  style={{
+                    flex: 1, padding: 12, borderRadius: 10,
+                    background: 'transparent', color: STAKE.inkSoft,
+                    border: '1px solid rgba(212,175,55,0.3)',
+                    fontWeight: 700, cursor: 'pointer', fontSize: 12, letterSpacing: 1,
+                  }}
+                >Annuler</button>
+                <button
+                  data-testid="picked-submit"
+                  disabled={pickedPassword.length < 6 || authBusy}
+                  onClick={async () => {
+                    setAuthBusy(true); setAuthError(null);
+                    try {
+                      const res = await loginAccount({ email: pickedProfile.email, password: pickedPassword });
+                      if (!res.ok) { setAuthError(res.error || 'Mot de passe incorrect'); return; }
+                      onLogin(res.pseudo, false, { email: res.email });
+                    } finally { setAuthBusy(false); }
+                  }}
+                  style={{
+                    flex: 2, padding: 12, borderRadius: 10,
+                    background: (pickedPassword.length >= 6 && !authBusy)
+                      ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`
+                      : '#333',
+                    color: pickedPassword.length >= 6 ? '#111' : '#666',
+                    border: 'none', fontWeight: 900, fontSize: 13, letterSpacing: 1.5,
+                    cursor: pickedPassword.length >= 6 ? 'pointer' : 'not-allowed',
+                  }}
+                >{authBusy ? '⟳' : 'CONNEXION →'}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -432,6 +637,28 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 fontSize: 12, letterSpacing: 1,
               }}
             >← Retour aux profils</button>
+          )}
+
+          {/* Google Sign-In (écran nouveau joueur) */}
+          {GOOGLE_CLIENT_ID && MULTIPLAYER_AVAILABLE && (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                margin: '16px 0 10px',
+              }}>
+                <div style={{ flex: 1, height: 1, background: 'rgba(212,175,55,0.15)' }} />
+                <span style={{ fontSize: 10, color: STAKE.inkSoft, letterSpacing: 1.5 }}>OU</span>
+                <div style={{ flex: 1, height: 1, background: 'rgba(212,175,55,0.15)' }} />
+              </div>
+              <div ref={googleBtnNewRef} data-testid="google-signin-btn-new" style={{
+                display: 'flex', justifyContent: 'center',
+              }} />
+              {authMode === 'register' && name.trim().length < 3 && (
+                <div style={{ marginTop: 8, fontSize: 10, color: STAKE.inkSoft, textAlign: 'center', letterSpacing: 0.5 }}>
+                  Astuce : choisis un pseudo ci-dessus avant Google pour créer ton compte
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

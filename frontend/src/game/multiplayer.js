@@ -137,6 +137,14 @@ export const registerAccount = async ({ email, pseudo, password }) =>
   authCall('/api/auth/register', { email, pseudo, password });
 export const loginAccount = async ({ email, password }) =>
   authCall('/api/auth/login', { email, password });
+// === Google OAuth — envoie l'ID token JWT reçu de Google au backend ===
+export const loginWithGoogle = async ({ credential, pseudo = null }) =>
+  authCall('/api/auth/google', { credential, pseudo });
+
+// Côté frontend : client ID Google OAuth.
+// Configure REACT_APP_GOOGLE_CLIENT_ID dans .env.local (build time).
+// Si vide → le bouton Google est caché automatiquement.
+export const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
 export const fetchLeaderboard = async ({ country = '', limit = 50 } = {}) => {
   if (!BACKEND) return null;

@@ -181,6 +181,79 @@ async def login(payload: LoginIn):
 
 
 # ============================================================
+# GOOGLE OAUTH — connexion via compte Google (Google Identity Services)
+# Le frontend envoie l'ID token reçu de Google, on le vérifie côté serveur
+# avec la lib google-auth et on crée/connecte l'utilisateur.
+# Pour activer : définir GOOGLE_CLIENT_ID dans .env, et pip install google-auth
+# ============================================================
+class GoogleAuthIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    credential: str          # ID token JWT renvoyé par Google
+    pseudo: Optional[str] = None  # requis si premier login (création de compte)
+
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
+
+@api_router.post("/auth/google")
+async def auth_google(payload: GoogleAuthIn):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google login non configuré (GOOGLE_CLIENT_ID manquant)")
+    # Vérification du JWT Google
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as ga_requests
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Module google-auth non installé sur le serveur")
+    try:
+        info = id_token.verify_oauth2_token(
+            payload.credential,
+            ga_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+    except Exception as e:
+        logging.warning("Google token verification failed: %s", e)
+        raise HTTPException(status_code=401, detail="Token Google invalide")
+
+    email = info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email manquant dans le token Google")
+    email_lower = email.lower()
+
+    # Existe déjà ?
+    user = await db.users.find_one({"email_lower": email_lower}, {"_id": 0})
+    if user:
+        return {"ok": True, "pseudo": user["pseudo"], "email": user["email"], "isNew": False}
+
+    # Premier login Google → on a besoin d'un pseudo
+    p = _norm_pseudo(payload.pseudo or "")
+    if not PSEUDO_RE.match(p):
+        # Suggestion automatique à partir de la partie locale du mail
+        suggestion = re.sub(r"[^A-Za-z0-9_-]", "", email.split("@")[0])[:18]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pseudo manquant ou invalide. Suggestion : {suggestion or 'Joueur'}",
+        )
+    if _is_reserved_pseudo(p.lower(), email):
+        raise HTTPException(status_code=403, detail="Pseudo réservé au créateur du jeu")
+    if await db.users.find_one({"pseudo_lower": p.lower()}):
+        raise HTTPException(status_code=409, detail="Pseudo déjà utilisé")
+
+    doc = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "email_lower": email_lower,
+        "pseudo": p,
+        "pseudo_lower": p.lower(),
+        "password_hash": "",     # pas de password pour les comptes Google
+        "provider": "google",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(doc)
+    return {"ok": True, "pseudo": p, "email": email, "isNew": True}
+
+
+# ============================================================
 # LEADERBOARD — top joueurs par totalWinnings
 # ============================================================
 class LeaderboardEntry(BaseModel):
