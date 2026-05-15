@@ -56,6 +56,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const [chatMessages, setChatMessages] = useState([]); // [{from, text, ts}]
   const [chatInput, setChatInput] = useState('');
   const [showChatInput, setShowChatInput] = useState(false);
+  // Chat collapsible — par défaut REPLIÉ sur mobile, déplié sur desktop
+  const [chatCollapsed, setChatCollapsed] = useState(deviceType === 'mobile');
   const chatInputRef = useRef(null);
   const [killFeed, setKillFeed] = useState([]); // [{killer, victim, weapon, ts}]
   const [myHp, setMyHp] = useState(100);
@@ -5543,20 +5545,49 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             </div>
           )}
 
-          {/* Chat fenêtre (bas gauche) — design enrichi avec timestamps et
-              différenciation message propre / autre joueur / système */}
+          {/* Toggle chat : badge compact toujours visible, surtout mobile */}
+          <button
+            data-testid="mp-chat-toggle"
+            onClick={() => setChatCollapsed(c => !c)}
+            style={{
+              position: 'absolute',
+              bottom: chatCollapsed ? 110 : (deviceType === 'mobile' ? 230 : 340),
+              left: 10, zIndex: 51,
+              padding: '6px 10px', borderRadius: 16,
+              background: 'linear-gradient(135deg, rgba(20,15,30,0.92), rgba(0,0,0,0.92))',
+              border: '1.5px solid rgba(212,175,55,0.5)',
+              color: '#ffd700', fontSize: 11, fontWeight: 800,
+              cursor: 'pointer', letterSpacing: 0.5,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(8px)',
+              transition: 'transform 0.18s ease',
+            }}
+          >
+            {chatCollapsed
+              ? `💬 Chat${chatMessages.length > 0 ? ` (${chatMessages.length})` : ''}`
+              : '— Réduire'}
+          </button>
+
+          {/* Chat fenêtre (bas gauche) — collapsible, mobile-aware */}
+          {!chatCollapsed && (
           <div style={{
-            position: 'absolute', bottom: 120, left: 10, zIndex: 50,
-            width: 360, maxHeight: 220, overflowY: 'auto',
+            position: 'absolute',
+            bottom: 120, left: 10, zIndex: 50,
+            width: deviceType === 'mobile' ? 'calc(100vw - 24px)' : 360,
+            maxWidth: deviceType === 'mobile' ? 320 : 360,
+            maxHeight: deviceType === 'mobile' ? 140 : 220,
+            overflowY: 'auto',
             background: 'linear-gradient(135deg, rgba(0,0,0,0.7), rgba(15,5,25,0.65))',
             border: '1px solid rgba(212,175,55,0.35)',
-            borderRadius: 10, padding: 10,
-            pointerEvents: 'none', fontSize: 12, color: '#fff',
+            borderRadius: 10, padding: deviceType === 'mobile' ? 6 : 10,
+            pointerEvents: 'none',
+            fontSize: deviceType === 'mobile' ? 10 : 12,
+            color: '#fff',
             backdropFilter: 'blur(6px)',
           }} data-testid="mp-chat-log">
             {chatMessages.length === 0 ? (
               <div style={{ color: '#9a8a6a', fontStyle: 'italic', fontSize: 11 }}>
-                💬 Aucun message — appuie sur T pour discuter
+                💬 Aucun message — {deviceType === 'mobile' ? 'tape pour discuter' : 'appuie sur T pour discuter'}
               </div>
             ) : (
               chatMessages.slice(-10).map((m, i) => {
@@ -5592,6 +5623,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
               })
             )}
           </div>
+          )}
 
           {/* Champ chat (activé par T) */}
           {showChatInput && (

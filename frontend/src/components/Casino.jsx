@@ -872,6 +872,8 @@ export default function Casino() {
             profile={profile}
             spawnHint={spawnHint}
             deviceType={deviceType}
+            mpMode={mpMode}
+            mpServerId={mpServerId}
             onOpenTrophies={() => setShowTrophies(true)}
             onOpenQuests={() => setShowQuests(true)}
             onSpawnConsumed={() => setSpawnHint(null)}

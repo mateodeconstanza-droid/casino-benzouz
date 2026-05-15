@@ -10,6 +10,7 @@ import { UniversalMenu } from '@/game/UniversalMenu';
 import { FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
 import { useAmbientAudio } from '@/game/useAmbientAudio';
+import { MPClient } from '@/game/multiplayer';
 import sfx from '@/game/sfx';
 import { PALETTE, createSkyDome, setupFog, roundedBox, matMatte, matMetal, matGlow, createContactShadow } from '@/game/style';
 import { buildPlayerCharacter } from '@/game/playerCharacter';
@@ -114,6 +115,8 @@ const Street3D = ({
   // ↓ Parité avec le menu casino : on passe les mêmes handlers
   onOpenProfile, onOpenLeaderboard, onOpenBattlePass, onOpenCrash,
   onOpenCharacter, onReplayTutorial,
+  // ↓ Multijoueur (même infra que Lobby3D)
+  mpMode, mpServerId,
 }) => {
   const mountRef = useRef(null);
   const radarRef = useRef(null);
@@ -128,8 +131,19 @@ const Street3D = ({
   const [rooftopView, setRooftopView] = useState(null); // { id, towerX, towerZ }
   const [onRooftop, setOnRooftop] = useState(null);     // null | { id, towerX, towerZ } — joueur physiquement en hauteur
   const [showStreetInventory, setShowStreetInventory] = useState(false);
-  // Catégorie active de l'inventaire ville (parité casino : armes, véhicules, chichas, cosmétiques)
   const [streetInvTab, setStreetInvTab] = useState('weapons');
+  // === Multijoueur ville ===
+  const mpOnline = mpMode === 'online' && !!mpServerId;
+  const mpRef = useRef(null);
+  const remotePlayersRef = useRef({}); // id → { mesh, data }
+  const myMpIdRef = useRef(null);
+  const lastPosSentRef = useRef(0);
+  const [mpChat, setMpChat] = useState([]);
+  const [mpChatInput, setMpChatInput] = useState('');
+  const [mpChatOpen, setMpChatOpen] = useState(false);
+  const [mpChatCollapsed, setMpChatCollapsed] = useState(deviceType === 'mobile');
+  const [onlineCount, setOnlineCount] = useState(0);
+  const mpChatInputRef = useRef(null);
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
@@ -3701,6 +3715,177 @@ const Street3D = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ============================================================
+  // Multijoueur dans la ville — connexion + remote players + chat
+  // ============================================================
+  useEffect(() => {
+    if (!mpOnline) return undefined;
+    const scene = stateRef.current.scene;
+    if (!scene) return undefined;
+
+    const buildRemote = (pd) => {
+      const g = new THREE.Group();
+      const skinHex = (typeof pd.skin === 'string' && pd.skin.startsWith('#'))
+        ? parseInt(pd.skin.slice(1), 16) : 0xe0b48a;
+      const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.32, 0.9, 6, 12),
+        new THREE.MeshStandardMaterial({ color: 0x335588, roughness: 0.7 })
+      );
+      body.position.y = 1.0;
+      g.add(body);
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.24, 16, 12),
+        new THREE.MeshStandardMaterial({ color: skinHex, roughness: 0.55 })
+      );
+      head.position.y = 1.85;
+      g.add(head);
+      // Ombre de contact sous le joueur
+      g.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
+      // Badge nom (sprite billboard)
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 64;
+      const cx = cv.getContext('2d');
+      cx.fillStyle = 'rgba(0,0,0,0.78)';
+      cx.fillRect(0, 0, 256, 64);
+      cx.fillStyle = '#ffd700';
+      cx.font = 'bold 26px Georgia, serif';
+      cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText(pd.name || '?', 128, 32);
+      const tex = new THREE.CanvasTexture(cv);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sprite.position.y = 2.55;
+      sprite.scale.set(1.4, 0.35, 1);
+      g.add(sprite);
+      g.position.set(pd.x || 0, 0, pd.z || 0);
+      g.userData = { lastPos: new THREE.Vector3(pd.x || 0, 0, pd.z || 0) };
+      return g;
+    };
+
+    const removeRemote = (id) => {
+      const entry = remotePlayersRef.current[id];
+      if (!entry) return;
+      scene.remove(entry.mesh);
+      entry.mesh.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+      });
+      delete remotePlayersRef.current[id];
+    };
+
+    const client = new MPClient({
+      serverId: mpServerId,
+      username: profile?.name || 'Anon',
+      onOpen: () => {},
+      onMessage: (msg) => {
+        if (msg.type === 'welcome') {
+          myMpIdRef.current = msg.you?.id;
+          setMpChat((msg.chat || []).slice(-30));
+          // Spawn tous les autres présents
+          (msg.players || []).forEach((pd) => {
+            if (!pd || !pd.id || pd.id === myMpIdRef.current) return;
+            const mesh = buildRemote(pd);
+            scene.add(mesh);
+            remotePlayersRef.current[pd.id] = { mesh, data: pd };
+          });
+          setOnlineCount((msg.players || []).length);
+          setMpChat((prev) => [...prev, { from: 'SYSTÈME', text: `Connecté au serveur ville ${mpServerId.toUpperCase()}`, ts: Date.now() / 1000 }].slice(-30));
+        } else if (msg.type === 'player_joined') {
+          const pd = msg.player;
+          if (!pd || !pd.id || pd.id === myMpIdRef.current) return;
+          const mesh = buildRemote(pd);
+          scene.add(mesh);
+          remotePlayersRef.current[pd.id] = { mesh, data: pd };
+          setOnlineCount((c) => c + 1);
+          setMpChat((prev) => [...prev, { from: 'SYSTÈME', text: `${pd.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));
+        } else if (msg.type === 'player_left') {
+          removeRemote(msg.id);
+          setOnlineCount((c) => Math.max(0, c - 1));
+        } else if (msg.type === 'snapshot') {
+          (msg.players || []).forEach((pd) => {
+            if (!pd || !pd.id || pd.id === myMpIdRef.current) return;
+            let entry = remotePlayersRef.current[pd.id];
+            if (!entry) {
+              const mesh = buildRemote(pd);
+              scene.add(mesh);
+              entry = { mesh, data: pd };
+              remotePlayersRef.current[pd.id] = entry;
+            }
+            entry.data = pd;
+            // Interpolation douce vers la position cible
+            const m = entry.mesh;
+            const tx = pd.x || 0, tz = pd.z || 0;
+            m.position.x += (tx - m.position.x) * 0.22;
+            m.position.z += (tz - m.position.z) * 0.22;
+            m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
+          });
+        } else if (msg.type === 'chat') {
+          setMpChat((prev) => [...prev, msg].slice(-30));
+        }
+      },
+      onClose: () => {},
+    });
+    client.connect();
+    mpRef.current = client;
+
+    return () => {
+      try { client.close(); } catch (_e) {}
+      Object.keys(remotePlayersRef.current).forEach(removeRemote);
+      mpRef.current = null;
+      myMpIdRef.current = null;
+    };
+  }, [mpOnline, mpServerId, profile?.name]);
+
+  // Envoi position throttled 150ms (économise réseau vs Lobby3D à 100ms)
+  useEffect(() => {
+    if (!mpOnline) return undefined;
+    let raf = 0;
+    const loop = () => {
+      const c = mpRef.current;
+      const p = stateRef.current.player;
+      if (c && p) {
+        const now = performance.now();
+        if (now - lastPosSentRef.current > 150) {
+          lastPosSentRef.current = now;
+          c.sendPos(p.x || 0, p.y || 1.7, p.z || 0, p.rotY || 0, null,
+            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair });
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [mpOnline, profile?.skin, profile?.outfit, profile?.hair]);
+
+  // T pour ouvrir le chat
+  useEffect(() => {
+    if (!mpOnline) return undefined;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.key === 't' || e.key === 'T') {
+        if (!mpChatOpen) {
+          e.preventDefault();
+          setMpChatOpen(true);
+          setMpChatCollapsed(false);
+          setTimeout(() => mpChatInputRef.current?.focus(), 50);
+        }
+      } else if (e.key === 'Escape' && mpChatOpen) {
+        setMpChatOpen(false);
+        setMpChatInput('');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mpOnline, mpChatOpen]);
+
+  const sendMpChat = () => {
+    const text = mpChatInput.trim();
+    if (!text || !mpRef.current) return;
+    mpRef.current.sendChat(text);
+    setMpChatInput('');
+    setMpChatOpen(false);
+  };
+
   // Callbacks live (pas besoin de re-init la scène)
   useEffect(() => {
     stateRef.current.onCasinoClick = () => {
@@ -3959,6 +4144,125 @@ const Street3D = ({
           { testId: 'menu-logout', icon: '⏻', label: 'Déconnexion', onClick: () => onExitGame && onExitGame(), accent: '#ff6666' },
         ]}
       />
+
+      {/* === MP : badge "en ligne" + chat ville === */}
+      {mpOnline && (
+        <>
+          <div style={{
+            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 10, padding: '6px 14px', borderRadius: 18,
+            background: 'rgba(10,10,15,0.78)',
+            border: '1.5px solid rgba(63,230,255,0.5)',
+            color: '#3fe6ff', fontSize: 11, fontWeight: 800, letterSpacing: 1.5,
+            backdropFilter: 'blur(8px)',
+          }}>
+            🌐 SERVEUR {mpServerId?.toUpperCase()} · {onlineCount} EN LIGNE
+          </div>
+          {/* Chat toggle */}
+          <button
+            onClick={() => setMpChatCollapsed(c => !c)}
+            data-testid="street-mp-chat-toggle"
+            style={{
+              position: 'absolute',
+              bottom: mpChatCollapsed ? 110 : (deviceType === 'mobile' ? 250 : 340),
+              left: 10, zIndex: 51,
+              padding: '6px 10px', borderRadius: 16,
+              background: 'linear-gradient(135deg, rgba(20,15,30,0.92), rgba(0,0,0,0.92))',
+              border: '1.5px solid rgba(63,230,255,0.5)',
+              color: '#3fe6ff', fontSize: 11, fontWeight: 800,
+              cursor: 'pointer', letterSpacing: 0.5,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {mpChatCollapsed
+              ? `💬 Chat${mpChat.length > 0 ? ` (${mpChat.length})` : ''}`
+              : '— Réduire'}
+          </button>
+          {/* Chat panel */}
+          {!mpChatCollapsed && (
+            <div style={{
+              position: 'absolute',
+              bottom: 120, left: 10, zIndex: 50,
+              width: deviceType === 'mobile' ? 'calc(100vw - 24px)' : 340,
+              maxWidth: deviceType === 'mobile' ? 320 : 340,
+              maxHeight: deviceType === 'mobile' ? 130 : 200,
+              overflowY: 'auto',
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.78), rgba(0,15,25,0.7))',
+              border: '1px solid rgba(63,230,255,0.35)',
+              borderRadius: 10, padding: deviceType === 'mobile' ? 6 : 10,
+              pointerEvents: 'none',
+              fontSize: deviceType === 'mobile' ? 10 : 12,
+              color: '#fff',
+              backdropFilter: 'blur(6px)',
+            }} data-testid="street-mp-chat-log">
+              {mpChat.length === 0 ? (
+                <div style={{ color: '#6a8a9a', fontStyle: 'italic', fontSize: 11 }}>
+                  💬 Aucun message — {deviceType === 'mobile' ? 'tape pour discuter' : 'appuie sur T'}
+                </div>
+              ) : (
+                mpChat.slice(-10).map((m, i) => {
+                  const isSys = m.from === 'SYSTÈME';
+                  const isMine = !isSys && myMpIdRef.current && m.from === myMpIdRef.current;
+                  const col = isSys ? '#ffd700' : isMine ? '#a8e88a' : '#7fceff';
+                  return (
+                    <div key={`${m.ts}-${i}`} style={{ marginBottom: 3, padding: '3px 6px', borderRadius: 4 }}>
+                      <b style={{ color: col }}>{isMine ? 'toi' : m.from}</b>
+                      <span style={{ color: '#888' }}>:</span>{' '}
+                      <span style={{ color: isSys ? '#ffd896' : '#e8e8ea', fontStyle: isSys ? 'italic' : 'normal' }}>{m.text}</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+          {/* Chat input (T) */}
+          {mpChatOpen && (
+            <div style={{
+              position: 'absolute', bottom: 80, left: 10, zIndex: 60,
+              width: deviceType === 'mobile' ? 'calc(100vw - 24px)' : 330,
+              maxWidth: 330, display: 'flex', gap: 6,
+            }}>
+              <input
+                ref={mpChatInputRef}
+                value={mpChatInput}
+                onChange={(e) => setMpChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') sendMpChat();
+                  if (e.key === 'Escape') { setMpChatOpen(false); setMpChatInput(''); }
+                }}
+                placeholder="Message (Entrée pour envoyer)…"
+                style={{
+                  flex: 1, padding: '8px 10px', borderRadius: 4,
+                  border: '1px solid #3fe6ff', background: 'rgba(0,0,0,0.85)',
+                  color: '#fff', fontSize: 13, outline: 'none',
+                }}
+                maxLength={200}
+              />
+              <button
+                onClick={sendMpChat}
+                style={{
+                  padding: '8px 14px', borderRadius: 4, fontWeight: 800,
+                  background: '#3fe6ff', color: '#001828', border: 'none', cursor: 'pointer',
+                }}
+              >ENVOYER</button>
+            </div>
+          )}
+          {/* Bouton mobile : ouvrir input chat (mobile n'a pas de touche T) */}
+          {deviceType === 'mobile' && !mpChatOpen && (
+            <button
+              onClick={() => { setMpChatOpen(true); setMpChatCollapsed(false); setTimeout(() => mpChatInputRef.current?.focus(), 50); }}
+              style={{
+                position: 'absolute',
+                bottom: mpChatCollapsed ? 110 : 250,
+                left: 110, zIndex: 51,
+                padding: '6px 10px', borderRadius: 16,
+                background: '#3fe6ff', border: 'none', color: '#001828',
+                fontSize: 11, fontWeight: 800, cursor: 'pointer',
+              }}
+            >✍️ Écrire</button>
+          )}
+        </>
+      )}
 
       {/* HUD top */}
       <div style={{

@@ -232,10 +232,22 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
             pass
 
 
-# Tâche de fond : diffuse un snapshot de tous les joueurs toutes les 120ms
+# Tâche de fond : diffuse un snapshot adaptatif
+#   ≤10 joueurs : 120 ms (8.3 Hz) — fluidité max pour petits serveurs
+#   11-25      : 180 ms (5.5 Hz)
+#   26-50      : 250 ms (4 Hz)   — réduit la charge réseau sur les gros serveurs
 async def snapshot_loop():
     while True:
-        await asyncio.sleep(0.12)
+        # Le sleep dynamique permet de gérer chaque serveur à son rythme.
+        # On utilise le serveur le plus chargé pour fixer le délai global.
+        max_players = max((len(s.players) for s in SERVER_STATES.values()), default=0)
+        if max_players <= 10:
+            delay = 0.12
+        elif max_players <= 25:
+            delay = 0.18
+        else:
+            delay = 0.25
+        await asyncio.sleep(delay)
         for state in SERVER_STATES.values():
             if not state.sockets:
                 continue
