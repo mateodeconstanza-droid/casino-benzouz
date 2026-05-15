@@ -80,6 +80,64 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
   const [showTrophies, setShowTrophies] = useState(false);
   const [showFurnStore, setShowFurnStore] = useState(false);
   const [furnTab, setFurnTab] = useState('salon');
+  // === Système de placement par carte ===
+  const [showFloorPlan, setShowFloorPlan] = useState(false);
+  const [planFloor, setPlanFloor] = useState(1);       // 1 = RDC, 2 = étage
+  const [planSelected, setPlanSelected] = useState(null);  // furniture id en cours de placement
+  const placedFurniture = owned?.customizations?.furniturePlaced || [];
+  const ownedFurnIds = owned?.customizations?.furniture || [];
+
+  // ESC ferme les modals de cette scène
+  useEffect(() => {
+    const onKey = (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (showFloorPlan)   { setShowFloorPlan(false); ev.preventDefault(); return; }
+      if (showFurnStore)   { setShowFurnStore(false); ev.preventDefault(); return; }
+      if (showTrophies)    { setShowTrophies(false); ev.preventDefault(); return; }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showFloorPlan, showFurnStore, showTrophies]);
+
+  // Helper : commit du placement d'un meuble à (x, z, floor)
+  const placeFurnitureAt = (furnId, x, z, floor = 1) => {
+    if (!furnId || !setProfile) return;
+    setProfile((p) => ({
+      ...p,
+      ownedHouses: (p.ownedHouses || []).map((h) => {
+        if (h.id !== houseId) return h;
+        const cust = h.customizations || {};
+        const prevPlaced = (cust.furniturePlaced || []).filter((it) => it.id !== furnId);
+        return {
+          ...h,
+          customizations: {
+            ...cust,
+            furniturePlaced: [...prevPlaced, { id: furnId, x, z, floor }],
+          },
+        };
+      }),
+    }));
+    setPlanSelected(null);
+  };
+
+  // Helper : retirer un meuble placé (le remettre en "non placé")
+  const unplaceFurniture = (furnId) => {
+    if (!setProfile) return;
+    setProfile((p) => ({
+      ...p,
+      ownedHouses: (p.ownedHouses || []).map((h) => {
+        if (h.id !== houseId) return h;
+        const cust = h.customizations || {};
+        return {
+          ...h,
+          customizations: {
+            ...cust,
+            furniturePlaced: (cust.furniturePlaced || []).filter((it) => it.id !== furnId),
+          },
+        };
+      }),
+    }));
+  };
   // G3 — Animation d'arrivée 4s (similaire au casino)
   const [arriving, setArriving] = useState(true);
   useEffect(() => {
@@ -651,9 +709,12 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     clock.position.set(0, 3.0, -size.d / 2 + 0.05);
     scene.add(clock);
 
-    // ========== MEUBLES ACHETÉS PAR LE JOUEUR (placés automatiquement) ==========
-    // On place chaque meuble acheté à une position libre prédéfinie par catégorie.
+    // ========== MEUBLES ACHETÉS PAR LE JOUEUR ==========
+    // 2 sources : (a) furniturePlaced = positions explicites mises par le joueur via le Plan,
+    //             (b) furniture = legacy auto-slot pour les meubles non encore placés.
     const ownedFurn = ((profile?.ownedHouses || []).find(h => h.id === houseId)?.customizations?.furniture) || [];
+    const placedList = ((profile?.ownedHouses || []).find(h => h.id === houseId)?.customizations?.furniturePlaced) || [];
+    const placedMap = new Map(placedList.map((it) => [it.id, it]));
     const slotCounts = { salon: 0, cuisine: 0, chambre: 0, jeux: 0, deco: 0 };
     const slotPositions = {
       salon:   [[ -size.w / 2 + 2.5, 0,  size.d / 2 - 2.5], [ -size.w / 2 + 4,   0,  size.d / 2 - 4.5]],
@@ -665,10 +726,19 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
     ownedFurn.forEach((furnId) => {
       const def = FURNITURE_CATALOG.find(f => f.id === furnId);
       if (!def) return;
-      const slots = slotPositions[def.category] || slotPositions.deco;
-      const slotIdx = slotCounts[def.category] % slots.length;
-      const [fx, fy, fz] = slots[slotIdx];
-      slotCounts[def.category]++;
+      // Position : si placée explicitement, on l'utilise. Sinon auto-slot.
+      let fx, fy, fz;
+      const placed = placedMap.get(furnId);
+      if (placed) {
+        fx = placed.x;
+        fz = placed.z;
+        fy = placed.floor === 2 ? UPPER_Y : 0;
+      } else {
+        const slots = slotPositions[def.category] || slotPositions.deco;
+        const slotIdx = slotCounts[def.category] % slots.length;
+        [fx, fy, fz] = slots[slotIdx];
+        slotCounts[def.category]++;
+      }
       // Représentation 3D simple : boîte colorée + emoji en label flottant
       const fg = new THREE.Group();
       fg.position.set(fx, fy, fz);
@@ -1453,6 +1523,21 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
         }}
       >🛍 AMEUBLEMENT</button>
 
+      {/* Bouton Plan de la maison (sous AMEUBLEMENT) */}
+      <button
+        data-testid="home-floorplan-btn"
+        onClick={() => setShowFloorPlan(true)}
+        style={{
+          position: 'absolute', top: 122, right: 14, zIndex: 20,
+          padding: '12px 18px', borderRadius: 14,
+          background: 'linear-gradient(135deg, rgba(20,15,30,0.92), rgba(0,0,0,0.92))',
+          border: `2px solid ${STAKE.gold}`, color: STAKE.goldLight,
+          fontWeight: 900, fontSize: 13, cursor: 'pointer', letterSpacing: 1,
+          boxShadow: '0 6px 18px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,215,0,0.1)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >🗺 PLAN</button>
+
       {/* Modal Machine Ameublement — catalogue achetable style Sims */}
       {showFurnStore && (
         <div style={{
@@ -1704,6 +1789,256 @@ const HomeInterior3D = ({ profile, setProfile, houseId, onExit }) => {
           </div>
         </div>
       )}
+
+      {/* ============================================================
+           PLAN DE LA MAISON — vue top-down + placement par clic
+           - Pièces nommées (Salon, Cuisine, Chambre, Jeux)
+           - 1er étage + 2ème étage (si villa/maison)
+           - Liste d'objets achetés à gauche → clic → placer sur la carte
+           ============================================================ */}
+      {showFloorPlan && (
+        <div
+          data-testid="home-floorplan-modal"
+          onClick={() => setShowFloorPlan(false)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.93)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 250, backdropFilter: 'blur(10px)', padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(145deg, #15090f, #08040a)',
+              border: `2px solid ${STAKE.gold}`, borderRadius: 18,
+              maxWidth: 980, width: '100%', maxHeight: '92vh',
+              display: 'flex', flexDirection: 'column',
+              padding: 22, color: '#fff',
+              boxShadow: '0 30px 80px rgba(0,0,0,0.75)',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginBottom: 14, paddingBottom: 12,
+              borderBottom: `1px solid ${STAKE.gold}33`,
+            }}>
+              <h3 style={{
+                color: STAKE.goldLight, margin: 0, letterSpacing: 3,
+                fontFamily: 'Georgia, serif', fontSize: 22,
+              }}>🗺 PLAN DE LA MAISON</h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {isTwoFloor && (
+                  <div style={{ display: 'flex', gap: 4, borderRadius: 8, padding: 3, background: 'rgba(255,255,255,0.05)' }}>
+                    {[1, 2].map((fl) => (
+                      <button
+                        key={fl}
+                        data-testid={`floor-tab-${fl}`}
+                        onClick={() => setPlanFloor(fl)}
+                        style={{
+                          padding: '6px 14px', borderRadius: 6,
+                          background: planFloor === fl ? STAKE.gold : 'transparent',
+                          border: 'none', color: planFloor === fl ? '#111' : '#aaa',
+                          fontWeight: 800, fontSize: 12, cursor: 'pointer', letterSpacing: 1,
+                        }}
+                      >{fl === 1 ? 'RDC' : 'ÉTAGE'}</button>
+                    ))}
+                  </div>
+                )}
+                <button
+                  data-testid="floorplan-close"
+                  onClick={() => setShowFloorPlan(false)}
+                  style={{
+                    background: 'transparent', border: `1px solid ${STAKE.gold}`,
+                    color: STAKE.goldLight, width: 34, height: 34, borderRadius: 8,
+                    cursor: 'pointer', fontWeight: 800, fontSize: 16,
+                  }}
+                >✕</button>
+              </div>
+            </div>
+
+            {/* Body : 2 colonnes (liste meubles | carte) */}
+            <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+              {/* Colonne gauche : liste des meubles achetés */}
+              <div style={{
+                width: 250, display: 'flex', flexDirection: 'column',
+                background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 10,
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}>
+                <div style={{ fontSize: 11, color: '#aaa', letterSpacing: 2, marginBottom: 8 }}>
+                  MES MEUBLES ({ownedFurnIds.length})
+                </div>
+                <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {ownedFurnIds.length === 0 ? (
+                    <div style={{ fontSize: 11, color: '#666', textAlign: 'center', padding: 20 }}>
+                      Achète des meubles via <b>🛍 AMEUBLEMENT</b>
+                    </div>
+                  ) : (
+                    ownedFurnIds.map((furnId) => {
+                      const def = FURNITURE_CATALOG.find(f => f.id === furnId);
+                      if (!def) return null;
+                      const isPlaced = placedFurniture.some((it) => it.id === furnId);
+                      const isSelected = planSelected === furnId;
+                      return (
+                        <div
+                          key={furnId}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: 8, borderRadius: 8,
+                            background: isSelected
+                              ? `${STAKE.gold}22`
+                              : isPlaced
+                                ? 'rgba(63,230,255,0.08)'
+                                : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${isSelected ? STAKE.gold : isPlaced ? '#3fe6ff44' : 'transparent'}`,
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setPlanSelected(isSelected ? null : furnId)}
+                          data-testid={`floorplan-pick-${furnId}`}
+                        >
+                          <div style={{ fontSize: 22 }}>{def.icon}</div>
+                          <div style={{ flex: 1, fontSize: 11 }}>
+                            <div style={{ fontWeight: 700 }}>{def.name}</div>
+                            <div style={{ color: isPlaced ? '#3fe6ff' : '#888', fontSize: 10 }}>
+                              {isPlaced ? '✓ Placé' : 'Non placé'}
+                            </div>
+                          </div>
+                          {isPlaced && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); unplaceFurniture(furnId); }}
+                              style={{
+                                background: 'transparent', border: '1px solid #ff6666',
+                                color: '#ff6666', borderRadius: 4, padding: '2px 6px',
+                                fontSize: 9, cursor: 'pointer',
+                              }}
+                              title="Retirer le placement"
+                            >✕</button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                {planSelected && (
+                  <div style={{
+                    marginTop: 10, padding: 8, borderRadius: 8,
+                    background: `${STAKE.gold}22`, border: `1px solid ${STAKE.gold}`,
+                    fontSize: 10, color: STAKE.goldLight, textAlign: 'center', letterSpacing: 1,
+                  }}>
+                    Clique sur le plan pour placer →
+                  </div>
+                )}
+              </div>
+
+              {/* Colonne droite : la carte (SVG top-down) */}
+              <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+                <FloorPlanSVG
+                  size={size}
+                  isTwoFloor={isTwoFloor}
+                  floor={planFloor}
+                  placedFurniture={placedFurniture}
+                  catalog={FURNITURE_CATALOG}
+                  selected={planSelected}
+                  onPlace={(x, z) => planSelected && placeFurnitureAt(planSelected, x, z, planFloor)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// FloorPlanSVG — carte top-down avec pièces nommées + meubles placés
+// ============================================================
+const FloorPlanSVG = ({ size, isTwoFloor, floor, placedFurniture, catalog, selected, onPlace }) => {
+  // Le plan SVG fait 600 × 400 px et représente la maison vue d'en haut.
+  // 1 unité monde = 600 / size.w en x, 400 / size.d en z
+  const W_PX = 600;
+  const H_PX = 400;
+  const sx = W_PX / size.w;
+  const sz = H_PX / size.d;
+  // Convertit (x, z) monde → (px, py) SVG (z=0 au milieu, x=0 au milieu)
+  const w2s = (x, z) => ({ x: W_PX / 2 + x * sx, y: H_PX / 2 + z * sz });
+  // L'inverse : (px, py) → (x, z) monde
+  const s2w = (px, py) => ({ x: (px - W_PX / 2) / sx, z: (py - H_PX / 2) / sz });
+
+  // Pièces logiques (rectangles dans le monde)
+  const rooms = floor === 1 ? [
+    { label: 'SALON',     x: -size.w / 4,  z:  size.d / 4,  w: size.w / 2, d: size.d / 2,  color: '#ffd70022' },
+    { label: 'CUISINE',   x:  size.w / 4,  z: -size.d / 4,  w: size.w / 2, d: size.d / 2,  color: '#3fe6ff22' },
+    { label: 'CHAMBRE',   x: -size.w / 4,  z: -size.d / 4,  w: size.w / 2, d: size.d / 2,  color: '#ff99b022' },
+    { label: 'SALLE DE JEUX', x: size.w / 4, z: size.d / 4, w: size.w / 2, d: size.d / 2, color: '#b48cff22' },
+  ] : [
+    { label: 'CHAMBRE PARENTALE', x: 0, z: -size.d * 0.18, w: size.w * 0.6, d: size.d * 0.4, color: '#ff99b022' },
+    { label: 'BUREAU',             x: -size.w * 0.3, z: size.d * 0.1, w: size.w * 0.35, d: size.d * 0.25, color: '#ffd70022' },
+    { label: 'DRESSING',           x:  size.w * 0.3, z: size.d * 0.1, w: size.w * 0.35, d: size.d * 0.25, color: '#3fe6ff22' },
+  ];
+
+  const handleClick = (e) => {
+    if (!selected) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W_PX;
+    const py = ((e.clientY - rect.top) / rect.height) * H_PX;
+    const { x, z } = s2w(px, py);
+    onPlace && onPlace(x, z);
+  };
+
+  const visibleFurn = placedFurniture.filter((it) => (it.floor || 1) === floor);
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg
+        viewBox={`0 0 ${W_PX} ${H_PX}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{
+          width: '100%', height: '100%',
+          background: '#0a0a0e',
+          borderRadius: 12,
+          cursor: selected ? 'crosshair' : 'default',
+          border: '1px solid rgba(255,215,0,0.2)',
+        }}
+        onClick={handleClick}
+      >
+        {/* Mur extérieur */}
+        <rect x="2" y="2" width={W_PX - 4} height={H_PX - 4}
+              fill="rgba(255,255,255,0.03)" stroke="#d4af37" strokeWidth="3" rx="6" />
+        {/* Pièces nommées */}
+        {rooms.map((r, i) => {
+          const tl = w2s(r.x - r.w / 2, r.z - r.d / 2);
+          const w = r.w * sx;
+          const h = r.d * sz;
+          return (
+            <g key={i}>
+              <rect x={tl.x} y={tl.y} width={w} height={h}
+                    fill={r.color} stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="4 3" />
+              <text x={tl.x + w / 2} y={tl.y + 18} fill="#888" fontSize="11"
+                    fontWeight="800" letterSpacing="2" textAnchor="middle" fontFamily="Georgia,serif">
+                {r.label}
+              </text>
+            </g>
+          );
+        })}
+        {/* Meubles placés */}
+        {visibleFurn.map((it) => {
+          const def = catalog.find(f => f.id === it.id);
+          if (!def) return null;
+          const p = w2s(it.x, it.z);
+          return (
+            <g key={it.id} style={{ pointerEvents: 'none' }}>
+              <circle cx={p.x} cy={p.y} r="14" fill={def.color || '#d4af37'} stroke="#fff" strokeWidth="1.5" />
+              <text x={p.x} y={p.y + 5} fontSize="16" textAnchor="middle">{def.icon}</text>
+            </g>
+          );
+        })}
+        {/* Légende */}
+        <text x={W_PX / 2} y={H_PX - 8} textAnchor="middle"
+              fill="#666" fontSize="10" letterSpacing="1.5">
+          {selected ? '✦ CLIQUE POUR PLACER LE MEUBLE SÉLECTIONNÉ' : 'SÉLECTIONNE UN MEUBLE À GAUCHE'}
+        </text>
+      </svg>
     </div>
   );
 };

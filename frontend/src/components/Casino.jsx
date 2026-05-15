@@ -190,6 +190,39 @@ export default function Casino() {
   };
 
   // ============================================================
+  // ESC global : ferme le menu ou modal le plus haut
+  // Priorité du haut vers le bas (le 1er à true est fermé en 1er)
+  // ============================================================
+  useEffect(() => {
+    const onKey = (ev) => {
+      if (ev.key !== 'Escape') return;
+      // Modals casino (top-most en premier)
+      if (showShop)         { setShowShop(false); ev.preventDefault(); return; }
+      if (showATM)          { setShowATM(false); ev.preventDefault(); return; }
+      if (showBar)          { setShowBar(false); ev.preventDefault(); return; }
+      if (showToilet)       { setShowToilet(false); ev.preventDefault(); return; }
+      if (showWheel)        { setShowWheel(false); ev.preventDefault(); return; }
+      if (showGambleBet)    { setShowGambleBet(false); ev.preventDefault(); return; }
+      if (showCrash)        { setShowCrash(false); ev.preventDefault(); return; }
+      if (showBattlePass)   { setShowBattlePass(false); ev.preventDefault(); return; }
+      if (showLeaderboard)  { setShowLeaderboard(false); ev.preventDefault(); return; }
+      if (showTrophies)     { setShowTrophies(false); ev.preventDefault(); return; }
+      if (showQuests)       { setShowQuests(false); ev.preventDefault(); return; }
+      if (showProfile)      { setShowProfile(null); ev.preventDefault(); return; }
+      if (showControls)     { setShowControls(false); ev.preventDefault(); return; }
+      if (showChangeCasino) { setShowChangeCasino(false); ev.preventDefault(); return; }
+      if (unlockedTrophy)   { setUnlockedTrophy(null); ev.preventDefault(); return; }
+      // Si rien n'est ouvert, ESC ne fait rien (évite de quitter le jeu)
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [
+    showShop, showATM, showBar, showToilet, showWheel, showGambleBet,
+    showCrash, showBattlePass, showLeaderboard, showTrophies, showQuests,
+    showProfile, showControls, showChangeCasino, unlockedTrophy,
+  ]);
+
+  // ============================================================
   // data-manager : Single Source of Truth pour les transactions
   // Tout achat passe par ici → validation + saveProfile garantis.
   // ============================================================

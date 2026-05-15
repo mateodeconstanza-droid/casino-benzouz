@@ -188,28 +188,56 @@ export const SHOES_CATALOG = [
 // CATALOGUE MEUBLES STYLE SIMS — achetables via la machine dans chaque logement
 // =============================================================
 export const FURNITURE_CATALOG = [
-  // SALON
-  { id: 'fu-sofa-lux',      category: 'salon',   name: 'Canapé Velours Or',     icon: '🛋', price: 250000,  color: '#7a4020' },
-  { id: 'fu-tv-4k',         category: 'salon',   name: 'TV 8K Gigante',          icon: '📺', price: 800000,  color: '#0a0a0f' },
-  { id: 'fu-rug-persan',    category: 'salon',   name: 'Tapis Persan',           icon: '🪄', price: 120000,  color: '#8b1a2e' },
-  { id: 'fu-piano',         category: 'salon',   name: 'Piano à Queue',          icon: '🎹', price: 1500000, color: '#0a0a0a' },
-  // CUISINE
-  { id: 'fu-kitchen-marble',category: 'cuisine', name: 'Cuisine Marbre',         icon: '🍽', price: 500000,  color: '#f4e4d0' },
-  { id: 'fu-fridge-smart',  category: 'cuisine', name: 'Frigo Smart 600L',       icon: '🧊', price: 180000,  color: '#c0c0c8' },
-  { id: 'fu-wine-cellar',   category: 'cuisine', name: 'Cave à Vin Premium',     icon: '🍷', price: 350000,  color: '#6a1a2e' },
-  // CHAMBRE
-  { id: 'fu-bed-king',      category: 'chambre', name: 'Lit King Royal',         icon: '🛏', price: 400000,  color: '#7a5a20' },
-  { id: 'fu-dresser-wood',  category: 'chambre', name: 'Commode Bois Noir',      icon: '🪞', price: 120000,  color: '#1a0f0a' },
-  { id: 'fu-jacuzzi',       category: 'chambre', name: 'Jacuzzi Privé',          icon: '🛁', price: 2000000, color: '#1ea0d0' },
-  // SALLE DE JEUX
-  { id: 'fu-arcade',        category: 'jeux',    name: 'Borne Arcade',           icon: '🕹', price: 300000,  color: '#8b1a8b' },
-  { id: 'fu-pool-table',    category: 'jeux',    name: 'Billard',                icon: '🎱', price: 600000,  color: '#0f4a1a' },
-  { id: 'fu-ps5',           category: 'jeux',    name: 'Setup Gaming PC/PS5',    icon: '🎮', price: 450000,  color: '#0a0a0f' },
-  { id: 'fu-poker-table',   category: 'jeux',    name: 'Table Poker Casino',     icon: '♠',  price: 800000,  color: '#0f2a42' },
-  // DÉCO / LUXE
-  { id: 'fu-painting',      category: 'deco',    name: 'Tableau Picasso',        icon: '🎨', price: 3000000, color: '#d4af37' },
-  { id: 'fu-statue-gold',   category: 'deco',    name: 'Statue Or Massif',       icon: '🗿', price: 5000000, color: '#ffd700' },
-  { id: 'fu-aquarium',      category: 'deco',    name: 'Aquarium Mural',         icon: '🐠', price: 400000,  color: '#2aa6ff' },
+  // ───────── SALON (8 modèles) ─────────
+  { id: 'fu-sofa-lux',      category: 'salon',   name: 'Canapé Velours Or',         icon: '🛋', price: 250000,  color: '#7a4020' },
+  { id: 'fu-sofa-modern',   category: 'salon',   name: 'Canapé Modulable Gris',     icon: '🛋', price: 180000,  color: '#4a4a52' },
+  { id: 'fu-sofa-l',        category: 'salon',   name: "Canapé d'angle XL",         icon: '🛋', price: 350000,  color: '#2a2a2e' },
+  { id: 'fu-rug-persan',    category: 'salon',   name: 'Tapis Persan',              icon: '🪄', price: 120000,  color: '#8b1a2e' },
+  { id: 'fu-rug-shag',      category: 'salon',   name: 'Tapis Shaggy Crème',        icon: '🪄', price: 60000,   color: '#f0e6d2' },
+  { id: 'fu-fireplace',     category: 'salon',   name: 'Cheminée Marbre',           icon: '🔥', price: 700000,  color: '#e0d8c8' },
+  { id: 'fu-piano',         category: 'salon',   name: 'Piano à Queue',             icon: '🎹', price: 1500000, color: '#0a0a0a' },
+  { id: 'fu-coffee-table',  category: 'salon',   name: 'Table Basse Verre',         icon: '🪟', price: 90000,   color: '#a0c4e0' },
+  // ───────── TV / MEDIA (5 modèles) ─────────
+  { id: 'fu-tv-4k',         category: 'salon',   name: 'TV 4K 65"',                 icon: '📺', price: 250000,  color: '#0a0a0f' },
+  { id: 'fu-tv-oled',       category: 'salon',   name: 'TV OLED 85"',               icon: '📺', price: 700000,  color: '#0a0a0f' },
+  { id: 'fu-tv-cinema',     category: 'salon',   name: 'Écran Cinéma 120"',         icon: '📽', price: 1500000, color: '#000000' },
+  { id: 'fu-soundbar',      category: 'salon',   name: 'Barre de son Dolby',        icon: '🔊', price: 60000,   color: '#1a1a1f' },
+  { id: 'fu-projector',     category: 'salon',   name: 'Projecteur 4K',             icon: '📽', price: 380000,  color: '#2a2a30' },
+  // ───────── CUISINE (6 modèles) ─────────
+  { id: 'fu-kitchen-marble',category: 'cuisine', name: 'Cuisine Marbre Blanc',      icon: '🍽', price: 500000,  color: '#f4e4d0' },
+  { id: 'fu-kitchen-wood',  category: 'cuisine', name: 'Cuisine Bois Naturel',      icon: '🪵', price: 380000,  color: '#a07840' },
+  { id: 'fu-kitchen-black', category: 'cuisine', name: 'Cuisine Mat Noir',          icon: '🍳', price: 600000,  color: '#1a1a1a' },
+  { id: 'fu-island',        category: 'cuisine', name: 'Îlot Central Granit',       icon: '🪨', price: 320000,  color: '#3a3a42' },
+  { id: 'fu-fridge-smart',  category: 'cuisine', name: 'Frigo Smart 600L',          icon: '🧊', price: 180000,  color: '#c0c0c8' },
+  { id: 'fu-wine-cellar',   category: 'cuisine', name: 'Cave à Vin Premium',        icon: '🍷', price: 350000,  color: '#6a1a2e' },
+  // ───────── CHAMBRE (6 modèles) ─────────
+  { id: 'fu-bed-king',      category: 'chambre', name: 'Lit King Size Royal',       icon: '🛏', price: 400000,  color: '#7a5a20' },
+  { id: 'fu-bed-canopy',    category: 'chambre', name: 'Lit à Baldaquin',           icon: '🛏', price: 650000,  color: '#5a2030' },
+  { id: 'fu-bed-modern',    category: 'chambre', name: 'Lit Plateforme LED',        icon: '🛏', price: 280000,  color: '#202028' },
+  { id: 'fu-dresser-wood',  category: 'chambre', name: 'Commode Bois Noir',         icon: '🗄', price: 120000,  color: '#1a0f0a' },
+  { id: 'fu-wardrobe',      category: 'chambre', name: 'Dressing Walk-in',          icon: '👔', price: 480000,  color: '#3a2818' },
+  { id: 'fu-jacuzzi',       category: 'chambre', name: 'Jacuzzi Privé',             icon: '🛁', price: 2000000, color: '#1ea0d0' },
+  // ───────── SALLE DE JEUX (4 modèles) ─────────
+  { id: 'fu-arcade',        category: 'jeux',    name: 'Borne Arcade',              icon: '🕹', price: 300000,  color: '#8b1a8b' },
+  { id: 'fu-pool-table',    category: 'jeux',    name: 'Billard Pro',               icon: '🎱', price: 600000,  color: '#0f4a1a' },
+  { id: 'fu-ps5',           category: 'jeux',    name: 'Setup Gaming PC + PS5',     icon: '🎮', price: 450000,  color: '#0a0a0f' },
+  { id: 'fu-poker-table',   category: 'jeux',    name: 'Table Poker Casino',        icon: '♠',  price: 800000,  color: '#0f2a42' },
+  // ───────── DÉCORATION / LUXE (6 modèles) ─────────
+  { id: 'fu-painting',      category: 'deco',    name: 'Tableau Picasso',           icon: '🎨', price: 3000000, color: '#d4af37' },
+  { id: 'fu-painting-mono', category: 'deco',    name: 'Toile Abstraite XL',        icon: '🖼', price: 220000,  color: '#3a3a42' },
+  { id: 'fu-statue-gold',   category: 'deco',    name: 'Statue Or Massif',          icon: '🗿', price: 5000000, color: '#ffd700' },
+  { id: 'fu-aquarium',      category: 'deco',    name: 'Aquarium Mural',            icon: '🐠', price: 400000,  color: '#2aa6ff' },
+  { id: 'fu-plant-xl',      category: 'deco',    name: 'Plante Tropicale XL',       icon: '🌿', price: 35000,   color: '#2a8a3a' },
+  { id: 'fu-chandelier',    category: 'deco',    name: 'Lustre Cristal',            icon: '💡', price: 280000,  color: '#f8f4e0' },
+];
+
+// === data-manager : 5 catégories pour le menu "par pièce" === ===========
+export const FURNITURE_CATEGORIES = [
+  { id: 'salon',   label: 'Salon',           icon: '🛋' },
+  { id: 'cuisine', label: 'Cuisine',         icon: '🍽' },
+  { id: 'chambre', label: 'Chambre',         icon: '🛏' },
+  { id: 'jeux',    label: 'Salle de jeux',   icon: '🕹' },
+  { id: 'deco',    label: 'Décoration',      icon: '🎨' },
 ];
 
 // ============== CARTES ==============

@@ -157,6 +157,20 @@ const Street3D = ({
     return () => clearTimeout(t);
   }, []);
 
+  // ESC ferme le modal le plus haut (selectedHouse > aptPicker > garage > inventaire)
+  useEffect(() => {
+    const onKey = (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (showStreetInventory) { setShowStreetInventory(false); ev.preventDefault(); return; }
+      if (selectedHouse)       { setSelectedHouse(null); ev.preventDefault(); return; }
+      if (aptPickerOpen)       { setAptPickerOpen(false); ev.preventDefault(); return; }
+      if (garageOpen)          { setGarageOpen(false); ev.preventDefault(); return; }
+      if (rooftopView)         { setRooftopView(null); ev.preventDefault(); return; }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showStreetInventory, selectedHouse, aptPickerOpen, garageOpen, rooftopView]);
+
   // Hook : tourner la tête à la souris (PC) / drag tactile (mobile)
   // On exclut les boutons HUD pour pas que tap = lock
   useLookControls(mountRef, stateRef, {
@@ -3316,6 +3330,15 @@ const Street3D = ({
         if (stuckInside || !st.collidesAt(nx, p.z)) p.x = nx;
         if (stuckInside || !st.collidesAt(p.x, nz)) p.z = nz;
       }
+      // === Rooftop barrier : clamp dans la terrasse (8m × 7m, rails à ±4.2/±3.7) ===
+      if ((p.y || 0) > 5 && st.onRooftopTower) {
+        const cx = st.onRooftopTower.x;
+        const cz = st.onRooftopTower.z;
+        const ROOF_HALF_X = 4.0;   // rail à 4.2, 20 cm de marge
+        const ROOF_HALF_Z = 3.5;   // rail à 3.7, 20 cm de marge
+        p.x = Math.max(cx - ROOF_HALF_X, Math.min(cx + ROOF_HALF_X, p.x));
+        p.z = Math.max(cz - ROOF_HALF_Z, Math.min(cz + ROOF_HALF_Z, p.z));
+      }
       // Death zone check (hors jeu prolongé = mort)
       if (p.alive && st.isInDeathZone && st.isInDeathZone(p.x, p.z)) {
         p.alive = false;
@@ -3723,12 +3746,15 @@ const Street3D = ({
         p.x = nb.towerX;
         p.z = nb.towerZ + 6;
         setOnRooftop(null);
+        stateRef.current.onRooftopTower = null;  // libère le clamp
       } else {
         // Monter — sur le toit, légèrement devant la table centrale
         p.y = 14.7;
         p.x = nb.towerX;
         p.z = nb.towerZ + 2;
         setOnRooftop({ id: nb.id, towerX: nb.towerX, towerZ: nb.towerZ });
+        // Active le clamp barrières dans le tick loop
+        stateRef.current.onRooftopTower = { x: nb.towerX, z: nb.towerZ };
       }
     };
     // Hooks de test (dev) — permettent de téléporter / ouvrir directement
@@ -4493,6 +4519,7 @@ const Street3D = ({
                 stateRef.current.player.x = onRooftop.towerX;
                 stateRef.current.player.z = onRooftop.towerZ + 6;
               }
+              stateRef.current.onRooftopTower = null;
               setOnRooftop(null);
             }}
             style={{
