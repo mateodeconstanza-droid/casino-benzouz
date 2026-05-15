@@ -445,12 +445,16 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
           setAuthError(res.error || 'Inscription impossible');
           return;
         }
-        onLogin(res.pseudo, true, { hair, outfit, shoes, email });
+        try { onLogin(res.pseudo, true, { hair, outfit, shoes, email }); }
+        catch (e) { setAuthError(`Erreur post-login : ${e?.message || e}`); }
       } else {
         const res = await loginAccount({ email, password });
         if (!res.ok) { setAuthError(res.error || 'Connexion impossible'); return; }
-        onLogin(res.pseudo, false, { email });
+        try { onLogin(res.pseudo, false, { email }); }
+        catch (e) { setAuthError(`Erreur post-login : ${e?.message || e}`); }
       }
+    } catch (e) {
+      setAuthError(`Erreur réseau : ${e?.message || 'inconnue'}`);
     } finally {
       setAuthBusy(false);
     }

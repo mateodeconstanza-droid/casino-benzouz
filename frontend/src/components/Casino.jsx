@@ -277,9 +277,30 @@ export default function Casino() {
       };
     } else {
       p = savedProfiles.find(s => s.name === name);
-      // Si l'utilisateur s'est reconnecté via email/password, on persiste l'email
-      // sur le profil pour faciliter la prochaine session
-      if (p && appearance?.email && !p.email) p.email = appearance.email;
+      // Cas critique : compte serveur authentifié mais aucun profil local
+      // (nouvel appareil, localStorage vidé, etc.) → on crée un profil local
+      // par défaut. Le user aura "500 $ de bienvenue" sur cet appareil
+      // mais sera bien connecté à son compte mail.
+      if (!p) {
+        p = {
+          name, casino: 'vegas',
+          balance: 500, totalWinnings: 0, sessions: 0,
+          createdAt: Date.now(), unlockedTrophies: [],
+          weapons: [], vehicles: [], equippedVehicle: null,
+          ownedHair: [0,1,2], ownedOutfit: [0,1,2], ownedShoes: [0,1,2],
+          hair: 0, outfit: 0, shoes: 0,
+          skin: '#e0b48a',
+          email: appearance?.email || null,
+          ownedBanners: ['b-default','b-classic','b-cards','b-neon','b-pixel'],
+          equippedBanner: 'b-default',
+          customized: true,
+          lastWheelSpin: 0, lastWithdraw: 0,
+          keys: [], ownedHouses: [],
+        };
+      } else if (appearance?.email && !p.email) {
+        // Profil local trouvé : on persiste l'email s'il n'y était pas encore
+        p.email = appearance.email;
+      }
     }
     p.sessions = (p.sessions || 0) + 1;
     setCasino(CASINOS[p.casino] || CASINOS.vegas);
