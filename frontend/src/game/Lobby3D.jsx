@@ -3615,17 +3615,24 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         });
       }
 
-      // MP : envoyer notre position (throttle 100ms)
-      if (mpRef.current && nowTime - lastPosSentRef.current > 100) {
-        lastPosSentRef.current = nowTime;
-        mpRef.current.sendPos(
-          camera.position.x,
-          camera.position.y,
-          camera.position.z,
-          camera.rotation.y,
-          selectedWeaponRef.current,
-          { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair }
-        );
+      // MP : envoi position throttle 120 ms, skip si pas bougé (sauf keepalive 1.5s)
+      if (mpRef.current && nowTime - lastPosSentRef.current > 120 && !document.hidden) {
+        const px = camera.position.x, pz = camera.position.z;
+        const lp = mpLastSentPosRef.current;
+        const dx = px - lp.x, dz = pz - lp.z;
+        const moved = (dx * dx + dz * dz) > 0.002; // ~4.5 cm
+        const rotChanged = Math.abs(camera.rotation.y - lp.rotY) > 0.02;
+        const aged = nowTime - lastPosSentRef.current > 1500;
+        if (moved || rotChanged || aged) {
+          lp.x = px; lp.z = pz; lp.rotY = camera.rotation.y;
+          lastPosSentRef.current = nowTime;
+          mpRef.current.sendPos(
+            px, camera.position.y, pz,
+            camera.rotation.y,
+            selectedWeaponRef.current,
+            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair }
+          );
+        }
       }
     };
     animate();
@@ -3706,6 +3713,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
 
   // ===== MULTIJOUEUR : refs partagées =====
   const lastPosSentRef = useRef(0);
+  const mpLastSentPosRef = useRef({ x: 0, z: 0, rotY: 0 });
   const selectedWeaponRef = useRef(null);
   useEffect(() => { selectedWeaponRef.current = selectedWeapon; }, [selectedWeapon]);
   // usingHookahRef pour que la boucle d'animation Three.js lise la valeur
@@ -3796,10 +3804,13 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     delete remotePlayersRef.current[id];
   };
 
+  // === Perf : Vec3 réutilisé pour éviter ~3000 allocs/sec (60fps × 50 players) ===
+  const _targetVec3 = new THREE.Vector3();
   const updateRemoteAvatars = () => {
     const snap = pendingRemoteUpdatesRef.current;
     if (!snap) return;
     const myId = myIdRef.current;
+    const tNow = performance.now();
     // Add/update
     Object.values(snap).forEach((pd) => {
       if (!pd || !pd.id) return;
@@ -3814,21 +3825,18 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       entry.data = pd;
       // Interpolation douce vers la position cible
       const m = entry.mesh;
-      const target = new THREE.Vector3(pd.x || 0, 0, pd.z || 0);
-      m.position.x += (target.x - m.position.x) * 0.2;
-      m.position.z += (target.z - m.position.z) * 0.2;
-      // Rotation
+      _targetVec3.set(pd.x || 0, 0, pd.z || 0);
+      m.position.x += (_targetVec3.x - m.position.x) * 0.2;
+      m.position.z += (_targetVec3.z - m.position.z) * 0.2;
       m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
-      // Animation marche si bouge
-      const moved = m.userData.lastPos.distanceTo(target) > 0.005;
-      const t = performance.now() * 0.008;
-      const swing = moved ? Math.sin(t) * 0.3 : 0;
+      // Anim marche
+      const moved = m.userData.lastPos.distanceTo(_targetVec3) > 0.005;
+      const swing = moved ? Math.sin(tNow * 0.008) * 0.3 : 0;
       if (m.userData.legL) m.userData.legL.rotation.x = swing;
       if (m.userData.legR) m.userData.legR.rotation.x = -swing;
       if (m.userData.armL) m.userData.armL.rotation.x = -swing * 0.8;
       if (m.userData.armR) m.userData.armR.rotation.x = swing * 0.8;
-      m.userData.lastPos.copy(target);
-      // Masquer si HP = 0
+      m.userData.lastPos.copy(_targetVec3);
       m.visible = (pd.hp || 100) > 0;
     });
     // Remove disparus

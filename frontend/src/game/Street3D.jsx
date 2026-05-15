@@ -3850,19 +3850,27 @@ const Street3D = ({
     };
   }, [mpOnline, mpServerId, profile?.name]);
 
-  // Envoi position throttled 150ms (économise réseau vs Lobby3D à 100ms)
+  // Envoi position throttled : skip si pas bougé, pause si tab hidden
   useEffect(() => {
     if (!mpOnline) return undefined;
+    const lastSent = { x: 0, z: 0, rotY: 0 };
     let raf = 0;
     const loop = () => {
       const c = mpRef.current;
       const p = stateRef.current.player;
-      if (c && p) {
+      if (c && p && !document.hidden) {
         const now = performance.now();
         if (now - lastPosSentRef.current > 150) {
-          lastPosSentRef.current = now;
-          c.sendPos(p.x || 0, p.y || 1.7, p.z || 0, p.rotY || 0, null,
-            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair });
+          const dx = p.x - lastSent.x, dz = p.z - lastSent.z;
+          const moved = (dx * dx + dz * dz) > 0.002;
+          const rotChanged = Math.abs((p.rotY || 0) - lastSent.rotY) > 0.02;
+          const aged = now - lastPosSentRef.current > 1500;
+          if (moved || rotChanged || aged) {
+            lastSent.x = p.x; lastSent.z = p.z; lastSent.rotY = p.rotY || 0;
+            lastPosSentRef.current = now;
+            c.sendPos(p.x || 0, p.y || 1.7, p.z || 0, p.rotY || 0, null,
+              { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair });
+          }
         }
       }
       raf = requestAnimationFrame(loop);

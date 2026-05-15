@@ -19,12 +19,32 @@ export class MPClient {
     this.ws = null;
     this.closed = false;
     this.reconnectAttempts = 0;
+    this.heartbeatTimer = null;
+    this.lastPong = 0;
+  }
+
+  _startHeartbeat() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.lastPong = Date.now();
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.ws || this.ws.readyState !== 1) return;
+      // Si pas de pong depuis 60s → la connexion est morte, force reconnect
+      if (Date.now() - this.lastPong > 60000) {
+        try { this.ws.close(); } catch (_e) {}
+        return;
+      }
+      try { this.ws.send(JSON.stringify({ type: 'ping' })); } catch (_e) {}
+    }, 25000); // ping toutes les 25s pour éviter le timeout des proxys (Render/Cloudflare ~30s idle)
+  }
+
+  _stopHeartbeat() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
   }
 
   connect() {
     if (!this.serverId || !this.username) return;
     if (!BACKEND) {
-      // Pas de backend configuré (déployé sur Vercel sans WS) : abandonner proprement
       this.closed = true;
       this.onClose && this.onClose();
       return;
@@ -37,15 +57,21 @@ export class MPClient {
     }
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
+      this._startHeartbeat();
       this.onOpen && this.onOpen();
     };
     this.ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
+        if (msg.type === 'pong') {
+          this.lastPong = Date.now();
+          return; // pong est consommé en interne, pas exposé
+        }
         this.onMessage && this.onMessage(msg);
       } catch (_e) { /* noop */ }
     };
     this.ws.onclose = () => {
+      this._stopHeartbeat();
       this.onClose && this.onClose();
       if (!this.closed && this.reconnectAttempts < 5) {
         this.reconnectAttempts += 1;
@@ -80,6 +106,7 @@ export class MPClient {
 
   close() {
     this.closed = true;
+    this._stopHeartbeat();
     try { this.ws && this.ws.close(); } catch (_e) { /* noop */ }
   }
 }

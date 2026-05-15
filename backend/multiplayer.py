@@ -236,10 +236,17 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
 #   ≤10 joueurs : 120 ms (8.3 Hz) — fluidité max pour petits serveurs
 #   11-25      : 180 ms (5.5 Hz)
 #   26-50      : 250 ms (4 Hz)   — réduit la charge réseau sur les gros serveurs
+#
+# Bonus : timeout des joueurs idle (> 30 s sans message). Évite les avatars
+# fantômes qui restent sur les autres clients quand un socket meurt sans
+# fermeture propre (mobile qui rentre en background trop longtemps).
+IDLE_TIMEOUT_S = 30.0
+
+
 async def snapshot_loop():
+    last_idle_check = 0.0
     while True:
-        # Le sleep dynamique permet de gérer chaque serveur à son rythme.
-        # On utilise le serveur le plus chargé pour fixer le délai global.
+        # Sleep dynamique : on prend le serveur le plus chargé comme référence
         max_players = max((len(s.players) for s in SERVER_STATES.values()), default=0)
         if max_players <= 10:
             delay = 0.12
@@ -248,9 +255,32 @@ async def snapshot_loop():
         else:
             delay = 0.25
         await asyncio.sleep(delay)
+
+        now = time.time()
+        # Check joueurs idle 1×/s
+        check_idle = (now - last_idle_check) > 1.0
+        if check_idle:
+            last_idle_check = now
+
         for state in SERVER_STATES.values():
             if not state.sockets:
                 continue
+            # Timeout idle : déconnecte ceux qui n'ont rien envoyé depuis 30s
+            # Ils seront broadcastés "player_left" automatiquement par le finally.
+            if check_idle:
+                to_kick = []
+                for pid, p in list(state.players.items()):
+                    if (now - p.get("lastSeen", now)) > IDLE_TIMEOUT_S:
+                        to_kick.append(pid)
+                for pid in to_kick:
+                    ws = state.sockets.get(pid)
+                    if ws:
+                        try:
+                            await ws.close(code=4408, reason="Idle timeout")
+                        except Exception:
+                            pass
+                    # Le close() côté serveur déclenche le finally du ws handler
+                    # qui fait state.remove + broadcast player_left.
             try:
                 await state.broadcast({
                     "type": "snapshot",
