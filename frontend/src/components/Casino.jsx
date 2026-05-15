@@ -189,6 +189,37 @@ export default function Casino() {
     } catch (e) {}
   };
 
+  // ============================================================
+  // data-manager : Single Source of Truth pour les transactions
+  // Tout achat passe par ici → validation + saveProfile garantis.
+  // ============================================================
+  const tryPurchase = async ({ price, applyToProfile, onInsufficient }) => {
+    // Validation : assez d'argent ?
+    if ((balance || 0) < price) {
+      onInsufficient && onInsufficient(price - (balance || 0));
+      return false;
+    }
+    // Construit le profil mis à jour
+    const updated = applyToProfile(profile) || profile;
+    const newBalance = balance - price;
+    // Update local + persist atomique
+    setBalance(newBalance);
+    setProfile(updated);
+    await saveProfile({ ...updated, balance: newBalance });
+    return true;
+  };
+
+  // Gain (loterie, mini-jeux) — même contrat
+  const grantReward = async ({ amount, applyToProfile }) => {
+    const updated = applyToProfile ? (applyToProfile(profile) || profile) : profile;
+    const newBalance = (balance || 0) + amount;
+    const newTotal   = (updated.totalWinnings || 0) + (amount > 0 ? amount : 0);
+    const finalProfile = { ...updated, totalWinnings: newTotal };
+    setBalance(newBalance);
+    setProfile(finalProfile);
+    await saveProfile({ ...finalProfile, balance: newBalance });
+  };
+
   const handleLogin = async (name, isNew, appearance) => {
     let p;
     if (isNew) {

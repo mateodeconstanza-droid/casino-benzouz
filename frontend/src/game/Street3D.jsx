@@ -1402,6 +1402,7 @@ const Street3D = ({
           legL: ud0.leftLeg, legR: ud0.rightLeg,
           armL: ud0.leftArm, armR: ud0.rightArm,
         },
+        baseSpeed: 0.035 + Math.random() * 0.025,
         speed: 0.035 + Math.random() * 0.025,
         direction: i % 2 === 0 ? 1 : -1,
         phase: Math.random() * Math.PI * 2,
@@ -1410,6 +1411,13 @@ const Street3D = ({
         bodyMesh: ud0.torso,
         isWanted,
         bounty: bountyAmount,
+        // === city-ai : state machine WANDER / FLEE / IDLE ===
+        state: 'wander',
+        stateUntil: 0,
+        fleeFromX: 0,
+        fleeFromZ: 0,
+        // throttle pour les checks "5x/s" du skill
+        lastAiTick: 0,
       };
       // Halo + panneau "WANTED" au-dessus
       if (isWanted) {
@@ -1557,19 +1565,23 @@ const Street3D = ({
       const h = 6 + rand() * 38; // immeubles jusqu'à ~44m
       const d = 5 + rand() * 8;
       const col = bgColors[Math.floor(rand() * bgColors.length)];
+      // === world-streaming : un Group par bâtiment pour culling par unité ===
+      const unit = new THREE.Group();
+      unit.userData.bgX = pos.x;
+      unit.userData.bgZ = pos.z;
       const bg = new THREE.Mesh(
         new THREE.BoxGeometry(w, h, d),
         new THREE.MeshStandardMaterial({ color: col, roughness: 0.85 })
       );
       bg.position.set(pos.x, h / 2, pos.z);
       bg.castShadow = true; bg.receiveShadow = true;
-      bgBuildings.add(bg);
-      // Fenêtres émissives stylisées (2 faces seulement pour perf)
+      unit.add(bg);
+      // Fenêtres émissives stylisées (skip rate 78% pour perf)
       const rows = Math.floor(h / 2.2);
       const cols = Math.floor(w / 1.6);
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (rand() < 0.78) continue; // skip 78% (perf : moins de meshes window)
+          if (rand() < 0.78) continue;
           const winColor = rand() < 0.15 ? 0x3fe6ff : 0xffd88a;
           const win = new THREE.Mesh(
             new THREE.PlaneGeometry(0.5, 1.2),
@@ -1580,7 +1592,7 @@ const Street3D = ({
             1.4 + r * 2,
             pos.z + d / 2 + 0.02
           );
-          bgBuildings.add(win);
+          unit.add(win);
         }
       }
       // Toit plat gris
@@ -1589,7 +1601,8 @@ const Street3D = ({
         new THREE.MeshStandardMaterial({ color: 0x2a2a2a })
       );
       roof.position.set(pos.x, h + 0.15, pos.z);
-      bgBuildings.add(roof);
+      unit.add(roof);
+      bgBuildings.add(unit);
       placed++;
     }
     scene.add(bgBuildings);
@@ -3160,6 +3173,20 @@ const Street3D = ({
         damage: weapon === 'bazooka' ? 200 : weapon === 'shotgun' ? 60 : weapon === 'knife' ? 40 : 45,
         weapon,
       });
+      // === city-ai : déclenche FLEE chez les PNJ dans un rayon de 12m ===
+      const tStart = performance.now();
+      const FLEE_RADIUS_SQ = 12 * 12;
+      npcs.children.forEach((n) => {
+        if (!n.userData.alive) return;
+        const dx = n.position.x - origin.x;
+        const dz = n.position.z - origin.z;
+        if (dx * dx + dz * dz < FLEE_RADIUS_SQ) {
+          n.userData.state = 'flee';
+          n.userData.stateUntil = tStart + 4500 + Math.random() * 1500; // 4.5-6s
+          n.userData.fleeFromX = origin.x;
+          n.userData.fleeFromZ = origin.z;
+        }
+      });
     };
     stateRef.current.spawnBulletFromCamera = (weaponId) => {
       const origin = new THREE.Vector3(camera.position.x, 1.7, camera.position.z);
@@ -3448,25 +3475,71 @@ const Street3D = ({
         b.children[1].rotation.z = -0.4 - flap;
         b.rotation.y = -b.userData.phase + Math.PI / 2;
       });
+      // === city-ai : boucle PNJ avec state machine + distance culling ===
+      const CULL_DIST_SQ = 100 * 100;  // skill : >100m off
+      const AI_INTERVAL  = 200;        // skill : ~5x/s
       npcs.children.forEach((n) => {
         const ud = n.userData;
-        if (!ud.alive) return; // PNJ mort → reste au sol
-        ud.phase += 0.14;
-        n.position.x += ud.speed * ud.direction;
-        if (n.position.x > 40) ud.direction = -1;
-        if (n.position.x < -40) ud.direction = 1;
-        n.rotation.y = ud.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
-        const swing = Math.sin(ud.phase) * 0.4;
+        if (!ud.alive) {
+          // PNJ mort : on cull aussi quand loin pour économiser draw call
+          const dxd = n.position.x - p.x;
+          const dzd = n.position.z - p.z;
+          n.visible = (dxd * dxd + dzd * dzd) < CULL_DIST_SQ;
+          return;
+        }
+        // ---- Distance culling (skill directive #3) ----
+        const dx = n.position.x - p.x;
+        const dz = n.position.z - p.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq > CULL_DIST_SQ) {
+          n.visible = false;
+          return; // skip animation entièrement
+        }
+        n.visible = true;
+
+        // ---- Transitions d'état throttlées 5x/s ----
+        if (tNow - ud.lastAiTick > AI_INTERVAL) {
+          ud.lastAiTick = tNow;
+          // Sortie FLEE / IDLE quand le timer expire
+          if ((ud.state === 'flee' || ud.state === 'idle') && tNow > ud.stateUntil) {
+            ud.state = 'wander';
+            ud.speed = ud.baseSpeed;
+          }
+          // 8% de chance d'entrer en IDLE depuis WANDER
+          if (ud.state === 'wander' && Math.random() < 0.08) {
+            ud.state = 'idle';
+            ud.stateUntil = tNow + 1800 + Math.random() * 1600; // 1.8-3.4s
+          }
+        }
+
+        // ---- Mouvement selon l'état ----
+        ud.phase += ud.state === 'flee' ? 0.28 : ud.state === 'idle' ? 0.04 : 0.14;
+        if (ud.state === 'flee') {
+          // FLEE : court vers l'opposé de la menace, vitesse ×2.4
+          const fx = n.position.x - ud.fleeFromX;
+          const fz = n.position.z - ud.fleeFromZ;
+          const fl = Math.hypot(fx, fz) || 1;
+          n.position.x += (fx / fl) * ud.baseSpeed * 2.4;
+          n.position.z += (fz / fl) * ud.baseSpeed * 2.4;
+          n.rotation.y = Math.atan2(fx, fz);
+        } else if (ud.state === 'wander') {
+          n.position.x += ud.baseSpeed * ud.direction;
+          if (n.position.x > 40) ud.direction = -1;
+          if (n.position.x < -40) ud.direction = 1;
+          n.rotation.y = ud.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
+        } // IDLE : pas de translation
+
+        // ---- Animation des membres (skip si IDLE / culled) ----
+        const animAmp = ud.state === 'flee' ? 0.7 : ud.state === 'idle' ? 0.08 : 0.4;
+        const swing = Math.sin(ud.phase) * animAmp;
         if (ud.parts) {
           ud.parts.legL.rotation.x =  swing;
           ud.parts.legR.rotation.x = -swing;
           ud.parts.armL.rotation.x = -swing * 0.8;
           ud.parts.armR.rotation.x =  swing * 0.8;
         }
-        // Billboard du panneau WANTED : face à la caméra + pulse du halo
+        // Billboard WANTED face caméra + pulse halo
         if (ud.sign) {
-          // Le NPC a une rotation.y non nulle ; on neutralise en mettant sign.rotation.y à l'inverse
-          // de sorte que le panneau regarde toujours la caméra (approximation)
           const camToNpcY = Math.atan2(camera.position.x - n.position.x, camera.position.z - n.position.z);
           ud.sign.rotation.y = camToNpcY - n.rotation.y;
         }
@@ -3478,6 +3551,18 @@ const Street3D = ({
       if (st.car) {
         st.car.position.x += st.car.userData.speed;
         if (st.car.position.x > 50) st.car.position.x = -50;
+      }
+
+      // === world-streaming : culling des bâtiments de fond (>150m off, throttled 4x/s) ===
+      if (tNow - (stateRef.current.lastBgCull || 0) > 250) {
+        stateRef.current.lastBgCull = tNow;
+        const BG_CULL_DIST_SQ = 150 * 150;
+        bgBuildings.children.forEach((unit) => {
+          if (!unit.userData || unit.userData.bgX == null) return;
+          const dx = unit.userData.bgX - p.x;
+          const dz = unit.userData.bgZ - p.z;
+          unit.visible = (dx * dx + dz * dz) < BG_CULL_DIST_SQ;
+        });
       }
       if (st.gateBar) {
         const target = st.gateOpen ? Math.PI / 2.2 : 0;
