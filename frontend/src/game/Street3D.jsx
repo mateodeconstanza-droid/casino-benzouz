@@ -11,7 +11,7 @@ import { FPHookahView } from '@/game/FPWeapon';
 import { useHookah } from '@/game/useHookah';
 import { useAmbientAudio } from '@/game/useAmbientAudio';
 import sfx from '@/game/sfx';
-import { PALETTE, createSkyDome, setupFog, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
+import { PALETTE, createSkyDome, setupFog, roundedBox, matMatte, matMetal, matGlow, createContactShadow } from '@/game/style';
 import { buildPlayerCharacter } from '@/game/playerCharacter';
 
 // =============================================================
@@ -213,8 +213,9 @@ const Street3D = ({
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // fix-rendering : shadowMap dynamique remplacé par ContactShadows
+    // par entité (≤ 30 plans transparents au lieu de 200 shadow casters).
+    renderer.shadowMap.enabled = false;
     // === fix-rendering : look cinéma GTA V ===
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -235,25 +236,17 @@ const Street3D = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // ----- Lights (style guide : hemisphere + sun warm + cool fill + ambient) -----
-    const hemi = new THREE.HemisphereLight(PALETTE.skyTop, PALETTE.sand, 0.55);
+    // ----- Lights (fix-rendering : intensités calibrées pour ACES + env map) -----
+    const hemi = new THREE.HemisphereLight(PALETTE.skyTop, PALETTE.sand, 0.7);
     scene.add(hemi);
-    const sunLight = new THREE.DirectionalLight(PALETTE.sunWarm, 1.2);
+    const sunLight = new THREE.DirectionalLight(PALETTE.sunWarm, 1.8);
     sunLight.position.set(60, 80, 30);
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(2048, 2048);
-    sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 200;
-    sunLight.shadow.camera.left = -100;
-    sunLight.shadow.camera.right = 100;
-    sunLight.shadow.camera.top = 100;
-    sunLight.shadow.camera.bottom = -100;
-    sunLight.shadow.bias = -0.0005;
+    // shadowMap désactivé globalement → on n'a plus besoin du shadow camera
     scene.add(sunLight);
-    const skyFill = new THREE.DirectionalLight(PALETTE.sunCool, 0.4);
+    const skyFill = new THREE.DirectionalLight(PALETTE.sunCool, 0.6);
     skyFill.position.set(-50, 30, -30);
     scene.add(skyFill);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
 
     // Soleil visuel
     const sun = new THREE.Mesh(
@@ -1396,6 +1389,8 @@ const Street3D = ({
       });
       const sp = npcSpawnPoints[i];
       npc.position.set(sp.x, 0, sp.z);
+      // fix-rendering : ombre de contact au pied du NPC
+      npc.add(createContactShadow({ radius: 0.5, opacity: 0.45 }));
       // Bounty : 40 % des NPCs sont "wanted" avec une prime affichée
       const isWanted = i % 5 === 0 || i % 5 === 2;
       const bountyAmount = isWanted ? [25000, 50000, 100000, 250000, 500000][i % 5] : 0;
@@ -3134,6 +3129,8 @@ const Street3D = ({
       if (!vid) return;
       vehicleRig = buildVehicleRig(vid);
       scene.add(vehicleRig);
+      // fix-rendering : ombre de contact oblongue sous le véhicule
+      vehicleRig.add(createContactShadow({ radius: 0.55, opacity: 0.55, oval: 1.6 }));
     };
 
     // ========== BULLETS & PROJECTILES (combat dans la rue) ==========

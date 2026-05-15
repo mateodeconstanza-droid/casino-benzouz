@@ -200,10 +200,67 @@ export const setupFog = (scene, density = 'normal') => {
   scene.fog = new THREE.Fog(cfg.color, cfg.near, cfg.far);
 };
 
+// =============================================================
+// CONTACT SHADOWS — fake ombre circulaire au sol par entité
+// Bien moins cher qu'un shadowMap dynamique global, et c'est ce
+// que GTA V mobile / Unity URP "Soft Shadow" font.
+// Usage :
+//   const shadow = createContactShadow({ radius: 0.5, opacity: 0.45 });
+//   scene.add(shadow);
+//   // dans tick() :
+//   shadow.position.set(player.x, 0.02, player.z);
+// =============================================================
+let _CONTACT_TEX = null;
+const _getContactTexture = () => {
+  if (_CONTACT_TEX) return _CONTACT_TEX;
+  const size = 128;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0.0, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.55, 'rgba(0,0,0,0.45)');
+  grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  _CONTACT_TEX = tex;
+  return tex;
+};
+
+export const createContactShadow = ({
+  radius = 0.6,
+  opacity = 0.5,
+  groundY = 0.02,
+  oval = 1.0,         // > 1 = oval allongé sur Z (utile pour véhicules)
+} = {}) => {
+  const geo = new THREE.PlaneGeometry(radius * 2, radius * 2 * oval);
+  const mat = new THREE.MeshBasicMaterial({
+    map: _getContactTexture(),
+    transparent: true,
+    opacity,
+    depthWrite: false,        // ne masque pas le sol
+    polygonOffset: true,      // évite z-fighting avec le sol
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+    toneMapped: false,        // ombre = noir pur, pas affectée par ACES
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = groundY;
+  mesh.renderOrder = 1;       // après le sol, avant tout le reste
+  mesh.userData.isContactShadow = true;
+  return mesh;
+};
+
 // ── Helpers à exposer pour code legacy qui veut un look cohérent ──
 export const STYLE_HELPERS = {
   PALETTE,
   roundedBox, softSphere, softCylinder,
   matMatte, matMetal, matGlow,
   setupOutdoorLighting, createSkyDome, setupFog,
+  createContactShadow,
 };

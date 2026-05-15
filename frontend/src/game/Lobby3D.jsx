@@ -9,7 +9,7 @@ import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
 import { buildPlayerCharacter } from '@/game/playerCharacter';
-import { PALETTE, roundedBox, matMatte, matMetal, matGlow } from '@/game/style';
+import { PALETTE, roundedBox, matMatte, matMetal, matGlow, createContactShadow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -139,6 +139,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         skin: profile?.skin || '#e0b48a',
       });
       av.visible = false; // shown only in 3rd person
+      // fix-rendering : ombre de contact (visible aussi en TPS)
+      av.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
       return av;
     };
     const playerAvatar = buildPlayerAvatar();
@@ -556,14 +558,11 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     buildWallSegment(40, 6, -20, 3, 0, Math.PI / 2);
     buildWallSegment(40, 6, 20, 3, 0, -Math.PI / 2);
 
-    // ========== LUMIÈRES — atmosphère casino chaude ==========
-    // Ambient plus tamisé pour faire ressortir lustres + néons
-    scene.add(new THREE.AmbientLight(0xfff4dc, 0.55));
-    // Hemisphere : ciel doux + sol chaud-or → halo cosy
-    const hemi = new THREE.HemisphereLight(0xfff0c8, 0xb87a2a, 0.55);
+    // ========== LUMIÈRES — atmosphère casino chaude (fix-rendering : bump ACES) ==========
+    scene.add(new THREE.AmbientLight(0xfff4dc, 0.75));
+    const hemi = new THREE.HemisphereLight(0xfff0c8, 0xb87a2a, 0.75);
     scene.add(hemi);
-    // Petite lumière directionnelle pour un sens "soleil rasant via vitres"
-    const wallSun = new THREE.DirectionalLight(0xffd9a0, 0.35);
+    const wallSun = new THREE.DirectionalLight(0xffd9a0, 0.6);
     wallSun.position.set(0, 6, 18);
     scene.add(wallSun);
     
@@ -1989,16 +1988,20 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         }
       }
 
-      // ========== VERRES EN RÉSERVE ==========
+      // ========== VERRES EN RÉSERVE (fix-rendering : vrai verre PBR) ==========
+      const realGlassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xccddff,
+        roughness: 0.05,
+        metalness: 0.0,
+        transmission: 0.92,     // vrai verre transparent (refract)
+        ior: 1.5,               // indice de réfraction du verre
+        thickness: 0.05,
+        transparent: true,
+      });
       for (let g = 0; g < 6; g++) {
         const glass = new THREE.Mesh(
           new THREE.CylinderGeometry(0.05, 0.04, 0.1, 8),
-          new THREE.MeshStandardMaterial({ 
-            color: 0xccddff, 
-            transparent: true, 
-            opacity: 0.4,
-            roughness: 0.05,
-          })
+          realGlassMat,
         );
         glass.position.set(-1.2 + g * 0.15, 1.22, 0.4);
         group.add(glass);
@@ -3709,6 +3712,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     nameSprite.position.y = 2.3;
     nameSprite.scale.set(1.2, 0.3, 1);
     group.add(nameSprite);
+    // fix-rendering : ombre de contact sous chaque remote player
+    group.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
     group.position.set(pdata.x || 0, 0, pdata.z || 0);
     group.userData = { legL, legR, armL, armR, nameSprite, lastPos: new THREE.Vector3(pdata.x, 0, pdata.z) };
     scene.add(group);

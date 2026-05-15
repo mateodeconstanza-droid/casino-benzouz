@@ -68,9 +68,11 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
     // Anneau bois extérieur
     const outerRing = new THREE.Mesh(
       new THREE.CylinderGeometry(4.2, 4.4, 0.6, 64),
-      new THREE.MeshStandardMaterial({
+      // fix-rendering : bois laqué casino (clearcoat)
+      new THREE.MeshPhysicalMaterial({
         color: 0x3a1e0c, metalness: 0.35, roughness: 0.55,
         emissive: 0x110700, emissiveIntensity: 0.2,
+        clearcoat: 1.0, clearcoatRoughness: 0.08,
       })
     );
     outerRing.position.y = -0.2;
@@ -103,7 +105,11 @@ const Roulette3DWheel = ({ size = 380, winNumber = null, spinSignal = 0, onLande
     // Plateau principal (alu brossé) — plus petit que les pockets pour les laisser visibles
     const disk = new THREE.Mesh(
       new THREE.CylinderGeometry(2.0, 2.0, 0.2, 64),
-      new THREE.MeshStandardMaterial({ color: 0x1a1a1f, metalness: 0.7, roughness: 0.35 })
+      // fix-rendering : disque central laqué noir (clearcoat)
+      new THREE.MeshPhysicalMaterial({
+        color: 0x1a1a1f, metalness: 0.7, roughness: 0.35,
+        clearcoat: 1.0, clearcoatRoughness: 0.05,
+      })
     );
     disk.position.y = -0.12;
     disk.receiveShadow = true;
