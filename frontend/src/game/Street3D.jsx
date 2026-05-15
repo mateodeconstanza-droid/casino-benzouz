@@ -132,6 +132,34 @@ const Street3D = ({
   const [onRooftop, setOnRooftop] = useState(null);     // null | { id, towerX, towerZ } — joueur physiquement en hauteur
   const [showStreetInventory, setShowStreetInventory] = useState(false);
   const [streetInvTab, setStreetInvTab] = useState('weapons');
+  // Vue 3ème personne ville (toggle V ou bouton mobile)
+  const [tpsMode, setTpsMode] = useState(false);
+  const tpsModeRef = useRef(false);
+  useEffect(() => { tpsModeRef.current = tpsMode; }, [tpsMode]);
+
+  // Rebuild le rig local quand l'apparence du joueur change (customisation)
+  useEffect(() => {
+    const st = stateRef.current;
+    const scene = st?.scene;
+    if (!scene || !st.localPlayerRig) return undefined;
+    // On retire l'ancien rig
+    scene.remove(st.localPlayerRig);
+    st.localPlayerRig.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+    });
+    // On rebuild avec la nouvelle apparence
+    const rig = buildPlayerCharacter({
+      skin: profile?.skin || '#e0b48a',
+      outfit: profile?.outfit ?? 0,
+      hair: profile?.hair ?? 0,
+      shoes: profile?.shoes ?? 0,
+    });
+    rig.visible = !!tpsModeRef.current;
+    scene.add(rig);
+    st.localPlayerRig = rig;
+    return undefined;
+  }, [profile?.skin, profile?.outfit, profile?.hair, profile?.shoes]);
   // === Multijoueur ville ===
   const mpOnline = mpMode === 'online' && !!mpServerId;
   const mpRef = useRef(null);
@@ -3243,21 +3271,28 @@ const Street3D = ({
         };
       }
     }
+    // === Rig local joueur (TPS) — invisible par défaut, affiché si tpsMode ===
+    const localPlayerRig = buildPlayerCharacter({
+      skin: profile?.skin || '#e0b48a',
+      outfit: profile?.outfit ?? 0,
+      hair: profile?.hair ?? 0,
+      shoes: profile?.shoes ?? 0,
+    });
+    localPlayerRig.visible = false;
+    scene.add(localPlayerRig);
+
     stateRef.current = {
       ...(stateRef.current || {}),
       scene, camera, renderer, clouds, birds, npcs, car, gateBar, disposed: false,
-      // Position/rotation du joueur (FPS)
       player: { ...initialSpawn, speedMul: 1, alive: true, health: 100 },
-      // État des entrées (clavier + joystick mobile)
       input: { fwd: 0, back: 0, left: 0, right: 0, rotL: 0, rotR: 0, shoot: 0 },
       interactables,
       collidesAt,
       isNearBarrier, isInDeathZone,
       bullets, bloodBursts, bgBuildings, vehicleRig,
       attachVehicle,
-      // Callbacks live injectés plus bas
+      localPlayerRig,
       onCasinoClick: null, onHouseClick: null, onNpcKilled: null, onPlayerDeath: null,
-      // Prompt de proximité
       nearby: null,
     };
 
@@ -3292,6 +3327,10 @@ const Street3D = ({
         e.preventDefault();
         const ma = stateRef.current.mouseAim;
         if (ma?.toggleAim) ma.toggleAim();
+      }
+      else if (k === 'v' && down) {
+        e.preventDefault();
+        setTpsMode((m) => !m);
       }
       else if ((k === 'f' || k === ' ' || k === 'spacebar') && down) {
         e.preventDefault();
@@ -3359,13 +3398,68 @@ const Street3D = ({
         st.onPlayerDeath && st.onPlayerDeath();
       }
       // Applique à la caméra (yaw + pitch via Euler YXZ pour éviter le gimbal)
-      // Hauteur dynamique : 2.6 m au sol par défaut, élevée à 15+ m si le
-      // joueur est monté sur un rooftop (p.y défini).
       const camY = (typeof p.y === 'number' && p.y > 2.6) ? p.y : 2.6;
-      camera.position.set(p.x, camY, p.z);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = p.rotY;
       camera.rotation.x = p.rotX || 0;
+
+      // === Vue TPS (3ème personne) ville ===
+      if (tpsModeRef.current && st.localPlayerRig) {
+        // Avatar visible derrière la caméra. Position basée sur p.
+        st.localPlayerRig.position.set(p.x, camY - 1.7, p.z);
+        st.localPlayerRig.rotation.y = p.rotY;
+        st.localPlayerRig.visible = true;
+
+        // Anim marche si bouge
+        const isMoving = (st.input.fwd || st.input.back || st.input.left || st.input.right);
+        const u = st.localPlayerRig.userData;
+        const swing = isMoving ? Math.sin(tNow * 0.012) * 0.4 : 0;
+        if (u?.leftLeg) u.leftLeg.rotation.x = swing;
+        if (u?.rightLeg) u.rightLeg.rotation.x = -swing;
+        if (u?.leftArm) u.leftArm.rotation.x = -swing * 0.8;
+        if (u?.rightArm) u.rightArm.rotation.x = swing * 0.8;
+
+        // Caméra reculée derrière le joueur, avec lerp smooth + raycast anti-mur
+        const TPS_DESIRED = 3.2;
+        const TPS_MIN = 0.6;
+        const TPS_HEIGHT = camY + 0.6;
+        const forward = Math.sin(p.rotY);
+        const fz = Math.cos(p.rotY);
+        let dist = TPS_DESIRED;
+        // Raycast horizontal joueur → derrière, pour éviter de traverser un mur
+        st.tpsRaycaster = st.tpsRaycaster || new THREE.Raycaster();
+        st.tpsRayDir = st.tpsRayDir || new THREE.Vector3();
+        st.tpsRayOrigin = st.tpsRayOrigin || new THREE.Vector3();
+        st.tpsRayOrigin.set(p.x, camY, p.z);
+        st.tpsRayDir.set(-forward, 0, -fz);
+        st.tpsRaycaster.set(st.tpsRayOrigin, st.tpsRayDir);
+        st.tpsRaycaster.far = TPS_DESIRED + 0.4;
+        const hits = st.tpsRaycaster.intersectObjects(scene.children, true).filter((h) => {
+          // Skip avatar joueur + ses enfants, sprites, ombres
+          let cur = h.object;
+          while (cur) {
+            if (cur === st.localPlayerRig) return false;
+            if (cur.userData?.isContactShadow) return false;
+            cur = cur.parent;
+          }
+          if (h.object.isSprite || h.object.isLight) return false;
+          return true;
+        });
+        if (hits.length > 0) dist = Math.max(TPS_MIN, hits[0].distance - 0.18);
+
+        // Position cible caméra + lerp
+        st.tpsCamSmooth = st.tpsCamSmooth || new THREE.Vector3(p.x, TPS_HEIGHT, p.z);
+        const targetX = p.x - forward * dist;
+        const targetZ = p.z - fz * dist;
+        st.tpsCamSmooth.x += (targetX - st.tpsCamSmooth.x) * 0.18;
+        st.tpsCamSmooth.y += (TPS_HEIGHT - st.tpsCamSmooth.y) * 0.18;
+        st.tpsCamSmooth.z += (targetZ - st.tpsCamSmooth.z) * 0.18;
+        camera.position.copy(st.tpsCamSmooth);
+      } else {
+        // FPS (par défaut)
+        camera.position.set(p.x, camY, p.z);
+        if (st.localPlayerRig) st.localPlayerRig.visible = false;
+      }
 
       // ===== Animation MER : vagues sinusoïdales sur les vertices =====
       if (decoRefs.sea && decoRefs.seaPos) {
@@ -3723,25 +3817,32 @@ const Street3D = ({
     const scene = stateRef.current.scene;
     if (!scene) return undefined;
 
+    // === Remote player rig : utilise buildPlayerCharacter pour cohérence visuelle
+    // avec le personnage personnalisé du joueur. Mis à jour si skin/outfit change.
     const buildRemote = (pd) => {
       const g = new THREE.Group();
-      const skinHex = (typeof pd.skin === 'string' && pd.skin.startsWith('#'))
-        ? parseInt(pd.skin.slice(1), 16) : 0xe0b48a;
-      const body = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.32, 0.9, 6, 12),
-        new THREE.MeshStandardMaterial({ color: 0x335588, roughness: 0.7 })
-      );
-      body.position.y = 1.0;
-      g.add(body);
-      const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.24, 16, 12),
-        new THREE.MeshStandardMaterial({ color: skinHex, roughness: 0.55 })
-      );
-      head.position.y = 1.85;
-      g.add(head);
-      // Ombre de contact sous le joueur
-      g.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
-      // Badge nom (sprite billboard)
+      // Le rig principal (perso personnalisé via buildPlayerCharacter)
+      const rig = buildPlayerCharacter({
+        skin: pd.skin || '#e0b48a',
+        outfit: pd.outfit ?? 0,
+        hair: pd.hair ?? 0,
+        shoes: pd.shoes ?? 0,
+      });
+      g.add(rig);
+      // Refs pour anim
+      g.userData = {
+        rig,
+        legL: rig.userData?.leftLeg,
+        legR: rig.userData?.rightLeg,
+        armL: rig.userData?.leftArm,
+        armR: rig.userData?.rightArm,
+        lastPos: new THREE.Vector3(pd.x || 0, 0, pd.z || 0),
+        // On stocke les paramètres d'apparence pour détecter les changements
+        skin: pd.skin, outfit: pd.outfit, hair: pd.hair, shoes: pd.shoes,
+      };
+      // Ombre de contact
+      g.add(createContactShadow({ radius: 0.5, opacity: 0.5 }));
+      // Badge nom (billboard)
       const cv = document.createElement('canvas');
       cv.width = 256; cv.height = 64;
       const cx = cv.getContext('2d');
@@ -3753,12 +3854,39 @@ const Street3D = ({
       cx.fillText(pd.name || '?', 128, 32);
       const tex = new THREE.CanvasTexture(cv);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-      sprite.position.y = 2.55;
+      sprite.position.y = 2.6;
       sprite.scale.set(1.4, 0.35, 1);
       g.add(sprite);
       g.position.set(pd.x || 0, 0, pd.z || 0);
-      g.userData = { lastPos: new THREE.Vector3(pd.x || 0, 0, pd.z || 0) };
       return g;
+    };
+
+    // Si l'apparence du remote change, on rebuild son rig
+    const refreshRemoteAppearance = (entry, pd) => {
+      const u = entry.mesh.userData;
+      if (u.skin === pd.skin && u.outfit === pd.outfit && u.hair === pd.hair && u.shoes === pd.shoes) return;
+      // Retire l'ancien rig
+      if (u.rig) {
+        entry.mesh.remove(u.rig);
+        u.rig.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+        });
+      }
+      // Crée le nouveau rig avec la nouvelle apparence
+      const newRig = buildPlayerCharacter({
+        skin: pd.skin || '#e0b48a',
+        outfit: pd.outfit ?? 0,
+        hair: pd.hair ?? 0,
+        shoes: pd.shoes ?? 0,
+      });
+      entry.mesh.add(newRig);
+      u.rig = newRig;
+      u.legL = newRig.userData?.leftLeg;
+      u.legR = newRig.userData?.rightLeg;
+      u.armL = newRig.userData?.leftArm;
+      u.armR = newRig.userData?.rightArm;
+      u.skin = pd.skin; u.outfit = pd.outfit; u.hair = pd.hair; u.shoes = pd.shoes;
     };
 
     const removeRemote = (id) => {
@@ -3773,9 +3901,11 @@ const Street3D = ({
     };
 
     // === Helper : applique la liste complète de joueurs serveur, gère ajouts/retraits ===
+    const _remoteTargetVec3 = new THREE.Vector3();
     const applyRemoteSnapshot = (players) => {
       const seenIds = new Set();
-      let visibleCount = 0; // nombre de joueurs autres que soi
+      let visibleCount = 0;
+      const tNow = performance.now();
       players.forEach((pd) => {
         if (!pd || !pd.id) return;
         seenIds.add(pd.id);
@@ -3789,20 +3919,28 @@ const Street3D = ({
           remotePlayersRef.current[pd.id] = entry;
         }
         entry.data = pd;
+        // Si apparence changée (le joueur s'est customisé), rebuild son rig
+        refreshRemoteAppearance(entry, pd);
         const m = entry.mesh;
-        const tx = pd.x || 0, tz = pd.z || 0;
-        m.position.x += (tx - m.position.x) * 0.22;
-        m.position.z += (tz - m.position.z) * 0.22;
+        _remoteTargetVec3.set(pd.x || 0, 0, pd.z || 0);
+        m.position.x += (_remoteTargetVec3.x - m.position.x) * 0.22;
+        m.position.z += (_remoteTargetVec3.z - m.position.z) * 0.22;
         m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
+        // Anim marche : balancement bras/jambes si bouge
+        const u = m.userData;
+        const moved = u.lastPos.distanceTo(_remoteTargetVec3) > 0.005;
+        const swing = moved ? Math.sin(tNow * 0.008) * 0.4 : 0;
+        if (u.legL) u.legL.rotation.x = swing;
+        if (u.legR) u.legR.rotation.x = -swing;
+        if (u.armL) u.armL.rotation.x = -swing * 0.8;
+        if (u.armR) u.armR.rotation.x = swing * 0.8;
+        u.lastPos.copy(_remoteTargetVec3);
       });
-      // Cleanup : retire les avatars dont l'id n'est plus dans la snapshot
-      // (ghost avatars après déco non notifiée)
+      // Cleanup ghosts
       Object.keys(remotePlayersRef.current).forEach((id) => {
         if (!seenIds.has(id)) removeRemote(id);
       });
-      // Online count = autres + soi-même (si on est dans la snapshot)
-      const total = visibleCount + (seenIds.has(myMpIdRef.current) ? 1 : 1);
-      setOnlineCount(total);
+      setOnlineCount(visibleCount + 1);
     };
 
     const client = new MPClient({
@@ -3869,7 +4007,7 @@ const Street3D = ({
             lastSent.x = p.x; lastSent.z = p.z; lastSent.rotY = p.rotY || 0;
             lastPosSentRef.current = now;
             c.sendPos(p.x || 0, p.y || 1.7, p.z || 0, p.rotY || 0, null,
-              { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair });
+              { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair, shoes: profile?.shoes });
           }
         }
       }
@@ -4143,6 +4281,33 @@ const Street3D = ({
       >
         <div style={{ fontSize: 22 }}>🎒</div>
         <div style={{ fontSize: 8 }}>INV.</div>
+      </button>
+
+      {/* ====== BOUTON VUE 3ÈME PERSONNE — toggle FPS/TPS (V au clavier) ====== */}
+      <button
+        data-testid="street-tps-toggle"
+        onClick={() => setTpsMode(m => !m)}
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: hasHookah ? 240 : 170,
+          width: 60, height: 60, borderRadius: '50%',
+          background: tpsMode
+            ? 'linear-gradient(135deg, #3fe6ff, #0a9ec7)'
+            : 'linear-gradient(135deg, rgba(20,15,30,0.9), rgba(0,0,0,0.9))',
+          border: `2px solid ${tpsMode ? '#fff' : '#3fe6ff'}`,
+          color: tpsMode ? '#001828' : '#3fe6ff',
+          cursor: 'pointer', fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+          boxShadow: tpsMode
+            ? '0 0 20px rgba(63,230,255,0.6), 0 8px 18px rgba(0,0,0,0.55)'
+            : '0 0 14px rgba(63,230,255,0.2), 0 8px 18px rgba(0,0,0,0.55)',
+          zIndex: 30,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        }}
+        title={tpsMode ? 'Vue 1ère personne (V)' : 'Vue 3ème personne (V)'}
+      >
+        <div style={{ fontSize: 20 }}>{tpsMode ? '👁' : '🎥'}</div>
+        <div style={{ fontSize: 8 }}>{tpsMode ? 'TPS' : 'FPS'}</div>
       </button>
 
       {/* === MENU UNIVERSEL G3 — parité casino === */}

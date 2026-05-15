@@ -3630,7 +3630,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             px, camera.position.y, pz,
             camera.rotation.y,
             selectedWeaponRef.current,
-            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair }
+            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair, shoes: profile?.shoes }
           );
         }
       }
@@ -3728,46 +3728,15 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     const scene = sceneRefLocal.current;
     if (!scene) return null;
     const group = new THREE.Group();
-    const skinHex = (typeof pdata.skin === 'string' && pdata.skin.startsWith('#'))
-      ? parseInt(pdata.skin.slice(1), 16) : 0xe0b48a;
-    // Corps
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.25, 0.3, 1.1, 12),
-      new THREE.MeshStandardMaterial({ color: 0x223388 })
-    );
-    body.position.y = 1.0;
-    group.add(body);
-    // Tête
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 14, 14),
-      new THREE.MeshStandardMaterial({ color: skinHex })
-    );
-    head.position.y = 1.75;
-    group.add(head);
-    // Cheveux
-    const hair = new THREE.Mesh(
-      new THREE.SphereGeometry(0.23, 14, 14, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: 0x222222 })
-    );
-    hair.position.y = 1.82;
-    group.add(hair);
-    // Bras
-    const armMat = new THREE.MeshStandardMaterial({ color: 0x223388 });
-    const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), armMat);
-    armL.position.set(-0.33, 1.2, 0);
-    group.add(armL);
-    const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), armMat);
-    armR.position.set(0.33, 1.2, 0);
-    group.add(armR);
-    // Jambes
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 8), legMat);
-    legL.position.set(-0.12, 0.4, 0);
-    group.add(legL);
-    const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 8), legMat);
-    legR.position.set(0.12, 0.4, 0);
-    group.add(legR);
-    // Badge pseudo au-dessus (billboard via CanvasTexture)
+    // Personnage personnalisé via buildPlayerCharacter (parité avec local)
+    const rig = buildPlayerCharacter({
+      skin: pdata.skin || '#e0b48a',
+      outfit: pdata.outfit ?? 0,
+      hair: pdata.hair ?? 0,
+      shoes: pdata.shoes ?? 0,
+    });
+    group.add(rig);
+    // Badge pseudo au-dessus (billboard)
     const canvas = document.createElement('canvas');
     canvas.width = 256; canvas.height = 64;
     const ctx = canvas.getContext('2d');
@@ -3780,15 +3749,51 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     ctx.fillText(pdata.name || '?', 128, 32);
     const tex = new THREE.CanvasTexture(canvas);
     const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    nameSprite.position.y = 2.3;
+    nameSprite.position.y = 2.4;
     nameSprite.scale.set(1.2, 0.3, 1);
     group.add(nameSprite);
     // fix-rendering : ombre de contact sous chaque remote player
-    group.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
+    group.add(createContactShadow({ radius: 0.5, opacity: 0.5 }));
     group.position.set(pdata.x || 0, 0, pdata.z || 0);
-    group.userData = { legL, legR, armL, armR, nameSprite, lastPos: new THREE.Vector3(pdata.x, 0, pdata.z) };
+    group.userData = {
+      rig,
+      legL: rig.userData?.leftLeg,
+      legR: rig.userData?.rightLeg,
+      armL: rig.userData?.leftArm,
+      armR: rig.userData?.rightArm,
+      nameSprite,
+      lastPos: new THREE.Vector3(pdata.x, 0, pdata.z),
+      // Apparence stockée pour détecter les changements
+      skin: pdata.skin, outfit: pdata.outfit, hair: pdata.hair, shoes: pdata.shoes,
+    };
     scene.add(group);
     return group;
+  };
+
+  // Si l'apparence change (le joueur s'est customisé), rebuild son rig
+  const refreshRemoteAppearanceLobby = (entry, pd) => {
+    const u = entry.mesh.userData;
+    if (u.skin === pd.skin && u.outfit === pd.outfit && u.hair === pd.hair && u.shoes === pd.shoes) return;
+    if (u.rig) {
+      entry.mesh.remove(u.rig);
+      u.rig.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+      });
+    }
+    const newRig = buildPlayerCharacter({
+      skin: pd.skin || '#e0b48a',
+      outfit: pd.outfit ?? 0,
+      hair: pd.hair ?? 0,
+      shoes: pd.shoes ?? 0,
+    });
+    entry.mesh.add(newRig);
+    u.rig = newRig;
+    u.legL = newRig.userData?.leftLeg;
+    u.legR = newRig.userData?.rightLeg;
+    u.armL = newRig.userData?.leftArm;
+    u.armR = newRig.userData?.rightArm;
+    u.skin = pd.skin; u.outfit = pd.outfit; u.hair = pd.hair; u.shoes = pd.shoes;
   };
 
   const removeRemoteAvatar = (id) => {
@@ -3823,6 +3828,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         remotePlayersRef.current[pd.id] = entry;
       }
       entry.data = pd;
+      // Apparence : rebuild si changé
+      refreshRemoteAppearanceLobby(entry, pd);
       // Interpolation douce vers la position cible
       const m = entry.mesh;
       _targetVec3.set(pd.x || 0, 0, pd.z || 0);

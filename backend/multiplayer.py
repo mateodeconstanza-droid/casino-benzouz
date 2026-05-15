@@ -113,7 +113,7 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
                 "id": pid, "name": pid,
                 "x": 0.0, "y": 1.7, "z": 0.0, "rotY": 0.0,
                 "hp": 100, "kills": 0, "deaths": 0,
-                "skin": "#e0b48a", "outfit": 0, "hair": 0,
+                "skin": "#e0b48a", "outfit": 0, "hair": 0, "shoes": 0,
                 "weapon": None,
                 "lastSeen": now,
             }
@@ -163,6 +163,7 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
                 p["skin"] = msg.get("skin", p.get("skin"))
                 p["outfit"] = msg.get("outfit", p.get("outfit"))
                 p["hair"] = msg.get("hair", p.get("hair"))
+                p["shoes"] = msg.get("shoes", p.get("shoes"))
                 p["lastSeen"] = time.time()
                 # Pas de broadcast par pos individuelle, on enverra un snapshot périodique
 
