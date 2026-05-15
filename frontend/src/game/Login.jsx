@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
 import { STAKE } from '@/game/stake/theme';
 import { Avatar3D } from '@/game/Avatar3D';
+import { checkPseudoAvailable, registerAccount, loginAccount, MULTIPLAYER_AVAILABLE } from '@/game/multiplayer';
 
 // =============================================================
 // MiniAvatar — preview stylisé du personnage (SVG compact)
@@ -69,6 +70,28 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
   const [hair, setHair] = useState(0);
   const [outfit, setOutfit] = useState(0);
   const [shoes, setShoes] = useState(0);
+  // Auth (création + connexion par email)
+  const [authMode, setAuthMode] = useState('register'); // 'register' | 'login'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [pseudoCheck, setPseudoCheck] = useState({ state: 'idle', reason: null }); // idle | checking | ok | taken | reserved | format
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState(null);
+
+  // Check live de la disponibilité du pseudo (debounced 400ms)
+  useEffect(() => {
+    if (!MULTIPLAYER_AVAILABLE) { setPseudoCheck({ state: 'idle', reason: null }); return; }
+    const p = name.trim();
+    if (p.length < 3) { setPseudoCheck({ state: 'idle', reason: null }); return; }
+    setPseudoCheck({ state: 'checking', reason: null });
+    const t = setTimeout(async () => {
+      const res = await checkPseudoAvailable(p);
+      if (!res?.ok && res?.error) { setPseudoCheck({ state: 'idle', reason: null }); return; }
+      if (res.available) setPseudoCheck({ state: 'ok', reason: null });
+      else setPseudoCheck({ state: 'taken', reason: res.reason || 'taken' });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [name]);
 
   const containerStyle = {
     position: 'fixed', inset: 0,
@@ -177,10 +200,39 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
   }
 
   // === Écran 2 : Nouveau joueur (pseudo + preview avatar) ===
-  const canSubmit = name.trim().length >= 2;
-  const submit = () => {
+  // Si le backend MP est dispo : auth email obligatoire (pseudo unique
+  // lié au compte mail). Sinon (mode offline) : pseudo seul.
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const canRegister = !MULTIPLAYER_AVAILABLE
+    ? name.trim().length >= 2
+    : (name.trim().length >= 3 && emailValid && password.length >= 6 && pseudoCheck.state === 'ok');
+  const canLogin = !MULTIPLAYER_AVAILABLE
+    ? false
+    : emailValid && password.length >= 6;
+  const canSubmit = authMode === 'register' ? canRegister : canLogin;
+
+  const submit = async () => {
     if (!canSubmit) return;
-    onLogin(name.trim(), true, { hair, outfit, shoes });
+    setAuthError(null);
+    // Sans backend : flow classique (juste le pseudo)
+    if (!MULTIPLAYER_AVAILABLE) {
+      onLogin(name.trim(), true, { hair, outfit, shoes });
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      if (authMode === 'register') {
+        const res = await registerAccount({ email, pseudo: name.trim(), password });
+        if (!res.ok) { setAuthError(res.error || 'Inscription impossible'); return; }
+        onLogin(res.pseudo, true, { hair, outfit, shoes, email });
+      } else {
+        const res = await loginAccount({ email, password });
+        if (!res.ok) { setAuthError(res.error || 'Connexion impossible'); return; }
+        onLogin(res.pseudo, false, { email });
+      }
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   return (
@@ -232,46 +284,142 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
 
           <div style={{ height: 10 }} />
 
-          <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>
-            Ton pseudo
-          </div>
-          <input
-            data-testid="login-name-input"
-            type="text"
-            placeholder="Ex. Loki"
-            value={name}
-            maxLength={18}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-            style={{
-              width: '100%', padding: '12px 14px',
-              background: 'rgba(0,0,0,0.45)',
-              border: `1px solid ${canSubmit ? STAKE.gold : 'rgba(212,175,55,0.3)'}`,
-              borderRadius: 12, color: '#fff', fontSize: 15,
-              fontFamily: 'inherit', boxSizing: 'border-box',
-              outline: 'none', transition: 'border-color .15s',
-            }}
-          />
-          <div style={{ height: 14 }} />
+          {/* Tabs : Inscription / Connexion (visible si backend dispo) */}
+          {MULTIPLAYER_AVAILABLE && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+              {[
+                ['register', '✨ INSCRIPTION'],
+                ['login',    '🔑 CONNEXION'],
+              ].map(([k, l]) => (
+                <button key={k}
+                  data-testid={`auth-tab-${k}`}
+                  onClick={() => { setAuthMode(k); setAuthError(null); }}
+                  style={{
+                    flex: 1, padding: '8px 10px', borderRadius: 8,
+                    background: authMode === k
+                      ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`
+                      : 'rgba(255,255,255,0.05)',
+                    color: authMode === k ? '#111' : STAKE.inkSoft,
+                    border: `1px solid ${authMode === k ? STAKE.gold : 'rgba(212,175,55,0.25)'}`,
+                    fontWeight: 800, fontSize: 11, letterSpacing: 1,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>{l}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Pseudo : inscription seulement */}
+          {(authMode === 'register' || !MULTIPLAYER_AVAILABLE) && (
+            <>
+              <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Ton pseudo</span>
+                {MULTIPLAYER_AVAILABLE && pseudoCheck.state !== 'idle' && (
+                  <span style={{
+                    color: pseudoCheck.state === 'ok' ? '#a8e88a'
+                         : pseudoCheck.state === 'checking' ? '#cca366'
+                         : '#ff8a9a',
+                  }}>
+                    {pseudoCheck.state === 'checking' && '⟳ vérification…'}
+                    {pseudoCheck.state === 'ok' && '✓ disponible'}
+                    {pseudoCheck.state === 'taken' && (pseudoCheck.reason === 'reserved' ? '🔒 réservé' : pseudoCheck.reason === 'format' ? '⚠ format (3-20 alphanum)' : '✗ déjà pris')}
+                  </span>
+                )}
+              </div>
+              <input
+                data-testid="login-name-input"
+                type="text"
+                placeholder="Ex. Loki"
+                value={name}
+                maxLength={20}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  background: 'rgba(0,0,0,0.45)',
+                  border: `1px solid ${pseudoCheck.state === 'ok' ? '#a8e88a' : pseudoCheck.state === 'taken' ? '#ff8a9a' : 'rgba(212,175,55,0.3)'}`,
+                  borderRadius: 12, color: '#fff', fontSize: 15,
+                  fontFamily: 'inherit', boxSizing: 'border-box',
+                  outline: 'none', transition: 'border-color .15s',
+                }}
+              />
+              <div style={{ height: 10 }} />
+            </>
+          )}
+
+          {/* Email + password (auth backend dispo) */}
+          {MULTIPLAYER_AVAILABLE && (
+            <>
+              <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>
+                Email
+              </div>
+              <input
+                data-testid="auth-email"
+                type="email"
+                placeholder="ton.mail@exemple.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  background: 'rgba(0,0,0,0.45)',
+                  border: `1px solid ${emailValid ? STAKE.gold : 'rgba(212,175,55,0.3)'}`,
+                  borderRadius: 12, color: '#fff', fontSize: 14,
+                  fontFamily: 'inherit', boxSizing: 'border-box',
+                  outline: 'none', marginBottom: 10,
+                }}
+              />
+              <div style={{ fontSize: 11, color: STAKE.inkSoft, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>
+                Mot de passe {authMode === 'register' && '(min. 6 caractères)'}
+              </div>
+              <input
+                data-testid="auth-password"
+                type="password"
+                placeholder="••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  background: 'rgba(0,0,0,0.45)',
+                  border: `1px solid ${password.length >= 6 ? STAKE.gold : 'rgba(212,175,55,0.3)'}`,
+                  borderRadius: 12, color: '#fff', fontSize: 14,
+                  fontFamily: 'inherit', boxSizing: 'border-box',
+                  outline: 'none',
+                }}
+              />
+              {authError && (
+                <div style={{
+                  marginTop: 10, padding: 8, borderRadius: 6,
+                  background: 'rgba(220,60,60,0.15)', border: '1px solid #a33',
+                  color: '#faa', fontSize: 12, textAlign: 'center',
+                }}>⚠️ {authError}</div>
+              )}
+              <div style={{ height: 14 }} />
+            </>
+          )}
+
+          {!MULTIPLAYER_AVAILABLE && <div style={{ height: 14 }} />}
           <button
             data-testid="login-submit-btn"
             onClick={submit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || authBusy}
             style={{
               width: '100%', padding: 14,
-              background: canSubmit
+              background: (canSubmit && !authBusy)
                 ? `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold} 50%, ${STAKE.goldLight})`
                 : '#333',
-              color: canSubmit ? '#111' : '#666', border: 'none', borderRadius: 12,
+              color: (canSubmit && !authBusy) ? '#111' : '#666', border: 'none', borderRadius: 12,
               fontSize: 14, fontWeight: 900, letterSpacing: 1.5,
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
+              cursor: (canSubmit && !authBusy) ? 'pointer' : 'not-allowed',
               fontFamily: 'inherit',
-              boxShadow: canSubmit ? '0 10px 24px rgba(212,175,55,0.35)' : 'none',
+              boxShadow: (canSubmit && !authBusy) ? '0 10px 24px rgba(212,175,55,0.35)' : 'none',
               transition: 'transform .1s',
             }}
-            onPointerDown={(e) => { if (canSubmit) e.currentTarget.style.transform = 'scale(0.98)'; }}
+            onPointerDown={(e) => { if (canSubmit && !authBusy) e.currentTarget.style.transform = 'scale(0.98)'; }}
             onPointerUp={(e) => { e.currentTarget.style.transform = 'none'; }}
-          >COMMENCER L'AVENTURE →</button>
+          >
+            {authBusy ? '⟳ ...' : (authMode === 'login' ? 'SE CONNECTER →' : "COMMENCER L'AVENTURE →")}
+          </button>
           {savedProfiles.length > 0 && (
             <button
               onClick={() => setMode('select')}

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -6,9 +6,11 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import re
+import bcrypt
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from multiplayer import mp_router, start_snapshot_loop
@@ -71,6 +73,96 @@ async def get_status_checks():
 
 
 # ============================================================
+# AUTH — création de compte par email + pseudo unique
+# ============================================================
+PSEUDO_RE = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
+
+
+class RegisterIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    email: EmailStr
+    pseudo: str
+    password: str
+
+
+class LoginIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    email: EmailStr
+    password: str
+
+
+class CheckPseudoIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    pseudo: str
+
+
+def _norm_pseudo(p: str) -> str:
+    return (p or "").strip()
+
+
+def _hash_pw(pw: str) -> str:
+    return bcrypt.hashpw(pw.encode("utf-8"), bcrypt.gensalt(rounds=10)).decode("utf-8")
+
+
+def _verify_pw(pw: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(pw.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception:
+        return False
+
+
+# Pseudo réservé : seul le créateur du jeu peut prendre "ByJaze".
+RESERVED_PSEUDOS = {"byjaze"}
+
+
+@api_router.post("/auth/check-pseudo")
+async def check_pseudo(payload: CheckPseudoIn):
+    """Vérifie qu'un pseudo est disponible (avant submit du formulaire)."""
+    p = _norm_pseudo(payload.pseudo)
+    if not PSEUDO_RE.match(p):
+        return {"available": False, "reason": "format"}
+    if p.lower() in RESERVED_PSEUDOS:
+        return {"available": False, "reason": "reserved"}
+    existing = await db.users.find_one({"pseudo_lower": p.lower()})
+    return {"available": existing is None, "reason": None if existing is None else "taken"}
+
+
+@api_router.post("/auth/register")
+async def register(payload: RegisterIn):
+    p = _norm_pseudo(payload.pseudo)
+    if not PSEUDO_RE.match(p):
+        raise HTTPException(status_code=400, detail="Pseudo invalide (3-20 caractères alphanumériques)")
+    if p.lower() in RESERVED_PSEUDOS:
+        raise HTTPException(status_code=403, detail="Pseudo réservé au créateur")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Mot de passe trop court (min. 6 caractères)")
+    email_lower = payload.email.lower()
+    # Pseudo et email uniques
+    if await db.users.find_one({"$or": [{"pseudo_lower": p.lower()}, {"email_lower": email_lower}]}):
+        raise HTTPException(status_code=409, detail="Email ou pseudo déjà utilisé")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "email": payload.email,
+        "email_lower": email_lower,
+        "pseudo": p,
+        "pseudo_lower": p.lower(),
+        "password_hash": _hash_pw(payload.password),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(doc)
+    return {"ok": True, "pseudo": p, "email": payload.email}
+
+
+@api_router.post("/auth/login")
+async def login(payload: LoginIn):
+    email_lower = payload.email.lower()
+    user = await db.users.find_one({"email_lower": email_lower}, {"_id": 0})
+    if not user or not _verify_pw(payload.password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+    return {"ok": True, "pseudo": user["pseudo"], "email": user["email"]}
+
+
+# ============================================================
 # LEADERBOARD — top joueurs par totalWinnings
 # ============================================================
 class LeaderboardEntry(BaseModel):
@@ -120,6 +212,12 @@ app.include_router(mp_router)
 @app.on_event("startup")
 async def startup_mp():
     start_snapshot_loop()
+    # Index uniques pour l'auth (pseudo + email)
+    try:
+        await db.users.create_index("pseudo_lower", unique=True)
+        await db.users.create_index("email_lower", unique=True)
+    except Exception as e:
+        logging.warning("Could not create user indexes: %s", e)
 
 app.add_middleware(
     CORSMiddleware,

@@ -132,6 +132,18 @@ export default function Casino() {
     }
   }, []);
 
+  // Créateur ByJaze : budget illimité (top up à 999 999 999 $ si le solde
+  // tombe sous 100M). Le pseudo "ByJaze" reconnu sans casse pour éviter
+  // les ratés de saisie.
+  useEffect(() => {
+    if (!profile?.name) return;
+    const isCreator = profile.name.trim().toLowerCase() === 'byjaze';
+    if (!isCreator) return;
+    if ((balance || 0) < 100_000_000) {
+      setBalance(999_999_999);
+    }
+  }, [profile?.name, balance]);
+
   // Auto-submit leaderboard quand totalWinnings change (debounced 3s)
   useEffect(() => {
     if (!profile?.name) return;

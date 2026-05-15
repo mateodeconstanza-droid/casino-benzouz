@@ -112,6 +112,31 @@ export const submitLeaderboard = async (entry) => {
   }
 };
 
+// ============================================================
+// AUTH — register / login / check-pseudo
+// ============================================================
+const authCall = async (path, body) => {
+  if (!BACKEND) return { ok: false, error: 'Backend offline' };
+  try {
+    const res = await fetch(`${BACKEND}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.detail || `HTTP ${res.status}` };
+    return { ok: true, ...data };
+  } catch (e) {
+    return { ok: false, error: 'Réseau indisponible' };
+  }
+};
+
+export const checkPseudoAvailable = async (pseudo) => authCall('/api/auth/check-pseudo', { pseudo });
+export const registerAccount = async ({ email, pseudo, password }) =>
+  authCall('/api/auth/register', { email, pseudo, password });
+export const loginAccount = async ({ email, password }) =>
+  authCall('/api/auth/login', { email, password });
+
 export const fetchLeaderboard = async ({ country = '', limit = 50 } = {}) => {
   if (!BACKEND) return null;
   try {
