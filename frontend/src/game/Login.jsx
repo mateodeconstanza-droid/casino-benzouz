@@ -340,6 +340,10 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 data-testid="picked-password"
                 type="password"
                 value={pickedPassword}
+                autoComplete="current-password"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck="false"
                 onChange={(e) => { setPickedPassword(e.target.value); setAuthError(null); }}
                 onKeyDown={async (e) => {
                   if (e.key !== 'Enter' || pickedPassword.length < 6 || authBusy) return;
@@ -430,7 +434,17 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
     try {
       if (authMode === 'register') {
         const res = await registerAccount({ email, pseudo: name.trim(), password });
-        if (!res.ok) { setAuthError(res.error || 'Inscription impossible'); return; }
+        if (!res.ok) {
+          // Si l'erreur backend mentionne "déjà" / "réservé" / "utilisé" → bascule auto en Connexion
+          const err = (res.error || '').toLowerCase();
+          if (err.includes('déjà') || err.includes('reservé') || err.includes('réservé') || err.includes('utilisé') || err.includes('taken')) {
+            setAuthMode('login');
+            setAuthError(`Ce compte existe déjà. Tape ton mot de passe pour te connecter.`);
+            return;
+          }
+          setAuthError(res.error || 'Inscription impossible');
+          return;
+        }
         onLogin(res.pseudo, true, { hair, outfit, shoes, email });
       } else {
         const res = await loginAccount({ email, password });
@@ -440,6 +454,13 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
     } finally {
       setAuthBusy(false);
     }
+  };
+
+  // Helper : suggère de passer en Connexion si le pseudo tapé est déjà pris
+  const switchToLogin = () => {
+    setAuthMode('login');
+    setAuthError(null);
+    setPassword('');
   };
 
   return (
@@ -540,6 +561,8 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 maxLength={20}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                autoCapitalize="off"
+                autoCorrect="off"
                 style={{
                   width: '100%', padding: '12px 14px',
                   background: 'rgba(0,0,0,0.45)',
@@ -549,6 +572,26 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                   outline: 'none', transition: 'border-color .15s',
                 }}
               />
+              {/* Suggestion : si pseudo pris, propose de basculer en Connexion */}
+              {pseudoCheck.state === 'taken' && authMode === 'register' && (
+                <button
+                  type="button"
+                  onClick={switchToLogin}
+                  data-testid="login-switch-to-connexion"
+                  style={{
+                    width: '100%', marginTop: 8, padding: '10px 12px',
+                    background: 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06))',
+                    border: `1px solid ${STAKE.gold}`, borderRadius: 10,
+                    color: STAKE.goldLight, cursor: 'pointer',
+                    fontSize: 12, fontWeight: 800, letterSpacing: 0.5,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {pseudoCheck.reason === 'reserved'
+                    ? '🔑 Ce pseudo est réservé → Connecte-toi avec ton compte mail'
+                    : '🔑 Ce pseudo existe déjà → Connecte-toi avec ton compte mail'}
+                </button>
+              )}
               <div style={{ height: 10 }} />
             </>
           )}
@@ -564,8 +607,13 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 type="email"
                 placeholder="ton.mail@exemple.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value.trim())}
                 onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                autoComplete={authMode === 'login' ? 'email' : 'email'}
+                autoCapitalize="off"
+                autoCorrect="off"
+                inputMode="email"
+                spellCheck="false"
                 style={{
                   width: '100%', padding: '12px 14px',
                   background: 'rgba(0,0,0,0.45)',
@@ -585,6 +633,10 @@ const LoginScreen = ({ onLogin, savedProfiles }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck="false"
                 style={{
                   width: '100%', padding: '12px 14px',
                   background: 'rgba(0,0,0,0.45)',
