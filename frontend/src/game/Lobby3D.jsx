@@ -3332,8 +3332,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     const onMouseMove = (e) => {
       if (!isPointerLocked) return;
       euler.setFromQuaternion(camera.quaternion);
-      euler.y -= (e.movementX || 0) * 0.002;
-      euler.x -= (e.movementY || 0) * 0.002;
+      // Sensibilité boostée (avant 0.002 → 0.0038) pour rotation plus vive
+      euler.y -= (e.movementX || 0) * 0.0038;
+      euler.x -= (e.movementY || 0) * 0.0038;
       euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
       camera.quaternion.setFromEuler(euler);
     };
@@ -3372,8 +3373,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           lastTouchX = t.clientX;
           lastTouchY = t.clientY;
           euler.setFromQuaternion(camera.quaternion);
-          euler.y -= dx * 0.005;
-          euler.x -= dy * 0.005;
+          // Sensibilité touch boostée (avant 0.005 → 0.0085)
+          euler.y -= dx * 0.0085;
+          euler.x -= dy * 0.0085;
           euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
           camera.quaternion.setFromEuler(euler);
         }
@@ -3831,8 +3833,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         });
       }
 
-      // MP : envoi position throttle 120 ms, skip si pas bougé (sauf keepalive 1.5s)
-      if (mpRef.current && nowTime - lastPosSentRef.current > 120 && !document.hidden) {
+      // MP : envoi pos plus rapide (90ms = 11Hz) — anti-lag perceived movement
+      if (mpRef.current && nowTime - lastPosSentRef.current > 90 && !document.hidden) {
         const px = camera.position.x, pz = camera.position.z;
         const lp = mpLastSentPosRef.current;
         const dx = px - lp.x, dz = pz - lp.z;
@@ -4063,8 +4065,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     // rate ≈ 12 → time constant ~85ms (cohérent avec snapshot 120-250ms serveur)
     const dt = Math.min(0.1, (tNow - _lastUpdateTimeRef.current) / 1000);
     _lastUpdateTimeRef.current = tNow;
-    const posFactor = 1 - Math.exp(-12 * dt);
-    const rotFactor = 1 - Math.exp(-15 * dt);
+    // Rate boosté : 18/22 (vs 12/15) → time constant ~55ms, plus réactif
+    const posFactor = 1 - Math.exp(-18 * dt);
+    const rotFactor = 1 - Math.exp(-22 * dt);
 
     _aliveIdsSet.clear();
     // for...in itère sans créer d'array (Object.values en crée un)
@@ -5434,8 +5437,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         }} />
       )}
 
-      {/* ====== CHICHA EN MAIN (G4) ====== */}
-      {hasHookah && viewMode === 'first' && (
+      {/* ====== CHICHA EN MAIN : visible UNIQUEMENT pendant l'utilisation ====== */}
+      {hasHookah && viewMode === 'first' && usingHookah && (
         <FPHookahView hookahId={equippedHookah} isUsing={usingHookah} />
       )}
 
@@ -5451,18 +5454,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         </div>
       )}
 
-      {/* ====== VÉHICULE SOUS LES PIEDS (1ère personne) ====== */}
-      {profile && profile.equippedVehicle && viewMode === 'first' && (
-        <div style={{
-          position: 'absolute', left: '50%', bottom: -40,
-          transform: 'translateX(-50%)',
-          width: 260, pointerEvents: 'none', zIndex: 11,
-          filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.7))',
-          opacity: 0.95,
-        }}>
-          <VehicleGraphic id={profile.equippedVehicle} />
-        </div>
-      )}
+      {/* Overlay véhicule retiré sur demande user — il polluait l'écran en permanence
+          dans le casino. Le véhicule reste équipé en jeu (visible en TPS dehors). */}
 
       {/* ====== PERSONNAGE (3ème personne) ====== */}
       {/* Vue 3ème personne : l'avatar 3D est maintenant rendu directement dans la scène Three.js,

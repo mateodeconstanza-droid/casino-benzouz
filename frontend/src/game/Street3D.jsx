@@ -3937,8 +3937,9 @@ const Street3D = ({
       // Frame-rate independent lerp
       const dt = Math.min(0.1, (tNow - (_lastSnapshotTime || tNow)) / 1000);
       _lastSnapshotTime = tNow;
-      const posFactor = 1 - Math.exp(-12 * dt);
-      const rotFactor = 1 - Math.exp(-15 * dt);
+      // Rate boosté : 18/22 (vs 12/15)
+      const posFactor = 1 - Math.exp(-18 * dt);
+      const rotFactor = 1 - Math.exp(-22 * dt);
 
       _remoteSeenIds.clear();
       let visibleCount = 0;
@@ -4044,7 +4045,7 @@ const Street3D = ({
       const p = stateRef.current.player;
       if (c && p && !document.hidden) {
         const now = performance.now();
-        if (now - lastPosSentRef.current > 150) {
+        if (now - lastPosSentRef.current > 100) {
           const dx = p.x - lastSent.x, dz = p.z - lastSent.z;
           const moved = (dx * dx + dz * dz) > 0.002;
           const rotChanged = Math.abs((p.rotY || 0) - lastSent.rotY) > 0.02;
@@ -4277,8 +4278,8 @@ const Street3D = ({
     >
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
 
-      {/* ====== CHICHA EN MAIN (ville) ====== */}
-      {hasHookah && (
+      {/* ====== CHICHA EN MAIN (ville) — visible que pendant utilisation ====== */}
+      {hasHookah && usingHookah && (
         <FPHookahView hookahId={equippedHookah} isUsing={usingHookah} />
       )}
       {hasHookah && (

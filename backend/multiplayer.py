@@ -293,14 +293,16 @@ IDLE_TIMEOUT_S = 30.0
 async def snapshot_loop():
     last_idle_check = 0.0
     while True:
-        # Sleep dynamique : on prend le serveur le plus chargé comme référence
+        # Sleep dynamique — plus rapide pour les petits serveurs (latence ↓)
         max_players = max((len(s.players) for s in SERVER_STATES.values()), default=0)
-        if max_players <= 10:
-            delay = 0.12
+        if max_players <= 4:
+            delay = 0.06   # ~16 Hz → ultra fluide pour 1-4 joueurs
+        elif max_players <= 10:
+            delay = 0.10   # 10 Hz
         elif max_players <= 25:
-            delay = 0.18
+            delay = 0.15
         else:
-            delay = 0.25
+            delay = 0.22
         await asyncio.sleep(delay)
 
         now = time.time()
