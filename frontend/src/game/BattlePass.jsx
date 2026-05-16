@@ -9,6 +9,8 @@ import { Banner, BANNER_CATALOG } from '@/game/Banners';
 // =============================================================
 export const SEASON_NUMBER = 1;
 export const SEASON_NAME = 'Saison 1 — Les Origines';
+// Prix d'achat du Battle Pass premium pour la saison
+export const SEASON_PRICE = 950000;
 
 // Total XP requis pour atteindre le niveau N (N ∈ [1..25]).
 // Courbe douce : niveaux 1-5 rapides, 6-15 modérés, 16-25 prestige.
@@ -96,16 +98,20 @@ export const progressToNext = (xp) => {
 
 // =============================================================
 // <BattlePass> — UI du pass de combat
-// Props : profile, onClose, onClaimReward(reward)
+// Props : profile, balance, onClose, onClaimReward(reward), onBuyPass()
 // =============================================================
-export const BattlePass = ({ profile, onClose, onClaimReward }) => {
+export const BattlePass = ({ profile, balance, onClose, onClaimReward, onBuyPass }) => {
   const totalWinnings = profile?.totalWinnings || 0;
   const xpMul = profile?.battlePassXpMultiplier || 1;
-  const xp = xpFromWinnings(totalWinnings, xpMul);
+  // Tant que le pass n'est pas acheté, l'XP n'est pas comptabilisée
+  // (on l'affiche en preview mais on peut pas claim)
   const isPremium = !!profile?.battlePassPremium;
+  const xp = isPremium ? xpFromWinnings(totalWinnings, xpMul) : 0;
+  const previewXp = xpFromWinnings(totalWinnings, xpMul);
   const level = computeLevel(xp);
   const progress = progressToNext(xp);
   const claimed = profile?.claimedPassRewards || [];
+  const canAfford = (balance || 0) >= SEASON_PRICE;
 
   return (
     <div
@@ -154,6 +160,59 @@ export const BattlePass = ({ profile, onClose, onClaimReward }) => {
             fontFamily: 'inherit',
           }}>✕ FERMER</button>
         </div>
+
+        {/* ★ BANNER D'ACHAT (visible si non-premium) ★ */}
+        {!isPremium && (
+          <div style={{
+            marginBottom: 18, padding: 16, borderRadius: 12,
+            background: 'linear-gradient(135deg, rgba(255,0,170,0.18), rgba(212,175,55,0.18))',
+            border: '2px solid #ff00aa',
+            boxShadow: '0 8px 22px rgba(255,0,170,0.25)',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              fontSize: 42, lineHeight: 1,
+              filter: 'drop-shadow(0 0 12px rgba(255,0,170,0.6))',
+            }}>⚔️</div>
+            <div style={{ flex: 1 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 900, letterSpacing: 2,
+                color: '#ff00aa', marginBottom: 2,
+                textShadow: '0 0 10px rgba(255,0,170,0.5)',
+              }}>ACTIVE LE BATTLE PASS</div>
+              <div style={{ fontSize: 12, color: '#fff', lineHeight: 1.4 }}>
+                Débloque <b>25 niveaux</b> de récompenses : <b>{fmt(28100000)} $</b> en cash,
+                bannières exclusives, cosmétiques rares.
+              </div>
+              {previewXp > 0 && (
+                <div style={{ marginTop: 4, fontSize: 11, color: '#a8e88a' }}>
+                  ✓ Tu as déjà {previewXp} XP en attente (sera comptabilisé après achat)
+                </div>
+              )}
+            </div>
+            <button
+              data-testid="battlepass-buy-btn"
+              disabled={!canAfford}
+              onClick={() => onBuyPass && onBuyPass()}
+              style={{
+                padding: '14px 22px', borderRadius: 12,
+                background: canAfford
+                  ? 'linear-gradient(135deg, #ff00aa, #b08000)'
+                  : '#444',
+                border: 'none',
+                color: canAfford ? '#fff' : '#888',
+                fontWeight: 900, fontSize: 13, letterSpacing: 1.5,
+                cursor: canAfford ? 'pointer' : 'not-allowed',
+                fontFamily: 'inherit',
+                boxShadow: canAfford
+                  ? '0 8px 22px rgba(255,0,170,0.45)' : 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {canAfford ? `🔓 ACHETER · ${fmt(SEASON_PRICE)} $` : `MANQUE ${fmt(SEASON_PRICE - (balance || 0))} $`}
+            </button>
+          </div>
+        )}
 
         {/* Progress bar global */}
         <div style={{
@@ -245,8 +304,8 @@ export const BattlePass = ({ profile, onClose, onClaimReward }) => {
                   }}>{r.name}</div>
                 </div>
 
-                {/* Bouton claim */}
-                {canClaim && (
+                {/* Bouton claim (uniquement si premium acheté) */}
+                {canClaim && isPremium && (
                   <button
                     data-testid={`pass-claim-${r.level}`}
                     onClick={() => onClaimReward && onClaimReward(r)}
@@ -259,6 +318,11 @@ export const BattlePass = ({ profile, onClose, onClaimReward }) => {
                     }}>
                     RÉCUPÉRER
                   </button>
+                )}
+                {canClaim && !isPremium && (
+                  <div style={{
+                    marginTop: 6, fontSize: 9, color: '#ff00aa', fontWeight: 800,
+                  }}>🔒 PASS REQUIS</div>
                 )}
                 {isClaimed && (
                   <div style={{

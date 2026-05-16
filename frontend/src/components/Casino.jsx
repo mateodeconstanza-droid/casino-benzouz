@@ -18,7 +18,7 @@ import ControlsHelp from '@/game/ControlsHelp';
 import PlayerProfile from '@/game/PlayerProfile';
 import Leaderboard from '@/game/Leaderboard';
 import { submitLeaderboard, fetchCloudProfile, syncCloudProfile, getAuthToken, setAuthToken } from '@/game/multiplayer';
-import { BattlePass, applyPassReward } from '@/game/BattlePass';
+import { BattlePass, applyPassReward, SEASON_PRICE } from '@/game/BattlePass';
 import CrashGame from '@/game/Crash';
 import { ArcadeDice, ArcadeCoinFlip, ArcadeMines } from '@/game/ArcadeGames';
 import PokerGame from '@/game/Poker';
@@ -352,6 +352,10 @@ export default function Casino() {
             bpProgress: c.bpProgress || p.bpProgress,
             bpRewardsClaimed: c.bpRewardsClaimed || p.bpRewardsClaimed,
             bpPremium: c.bpPremium ?? p.bpPremium,
+            // Saison BattlePass premium (système 25 niveaux Fortnite-style)
+            battlePassPremium: c.battlePassPremium ?? p.battlePassPremium,
+            battlePassXpMultiplier: c.battlePassXpMultiplier ?? p.battlePassXpMultiplier,
+            claimedPassRewards: c.claimedPassRewards || p.claimedPassRewards || [],
             // Skin packs
             ownedSkins: c.ownedSkins || p.ownedSkins || ['sk-default'],
             equippedSkin: c.equippedSkin || p.equippedSkin || 'sk-default',
@@ -1220,7 +1224,21 @@ export default function Casino() {
       {showBattlePass && (
         <BattlePass
           profile={profile}
+          balance={balance}
           onClose={() => setShowBattlePass(false)}
+          onBuyPass={async () => {
+            // Achat du Battle Pass premium pour la saison
+            if (!profile || (balance || 0) < SEASON_PRICE) return;
+            const newBal = balance - SEASON_PRICE;
+            const next = {
+              ...profile,
+              balance: newBal,
+              battlePassPremium: true,
+            };
+            setBalance(newBal);
+            setProfile(next);
+            await saveProfile(next);  // sync cloud + local
+          }}
           onClaimReward={(reward) => {
             const { profile: next, deltaBalance } = applyPassReward(profile, reward);
             setProfile(next);
