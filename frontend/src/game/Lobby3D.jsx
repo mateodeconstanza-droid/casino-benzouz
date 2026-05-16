@@ -8,7 +8,7 @@ import { useAmbientAudio } from '@/game/useAmbientAudio';
 import { VehicleGraphic } from '@/game/ui';
 import sfx from '@/game/sfx';
 import { MPClient } from '@/game/multiplayer';
-import { buildPlayerCharacter } from '@/game/playerCharacter';
+import { buildPlayerCharacter, buildPlayerCharacterLite } from '@/game/playerCharacter';
 import { PALETTE, roundedBox, matMatte, matMetal, matGlow, createContactShadow } from '@/game/style';
 import { useLookControls } from '@/game/useLookControls';
 import { UniversalMenu } from '@/game/UniversalMenu';
@@ -2950,6 +2950,32 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       return m;
     })();
 
+    // Matériaux partagés entre les 4 bornes (allocation 1 fois pour les 4)
+    const sharedArcadeMats = {
+      blackLac: new THREE.MeshPhysicalMaterial({
+        color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
+        clearcoat: 1.0, clearcoatRoughness: 0.08,
+      }),
+      screenFrame: new THREE.MeshPhysicalMaterial({
+        color: 0x1a1a22, metalness: 0.9, roughness: 0.2, clearcoat: 1.0, clearcoatRoughness: 0.06,
+      }),
+      stickBase: new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6, roughness: 0.4 }),
+      stick: new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.5, roughness: 0.6 }),
+    };
+    // Géométries partagées
+    const sharedArcadeGeo = {
+      base: roundedBox(1.5, 1.0, 0.95, 0.06, 3),
+      pillar: roundedBox(1.5, 1.6, 0.3, 0.04, 3),
+      screenFrame: roundedBox(1.4, 1.0, 0.08, 0.04, 3),
+      screen: new THREE.PlaneGeometry(1.28, 0.88),
+      stickBase: new THREE.CylinderGeometry(0.06, 0.08, 0.04, 12),
+      stick: new THREE.CylinderGeometry(0.015, 0.015, 0.18, 8),
+      stickBall: new THREE.SphereGeometry(0.05, 12, 8),
+      button: new THREE.CylinderGeometry(0.07, 0.07, 0.04, 12),
+      neon: new THREE.BoxGeometry(0.04, 1.5, 0.04),
+      topBar: new THREE.BoxGeometry(1.55, 0.16, 0.18),
+    };
+
     // Builder paramétrique : produit une borne arcade configurée pour un jeu
     const createArcadeKiosk = ({
       gameId, accentHex, accentEmissive, title, subtitle, emoji, x, z, rotY = 0,
@@ -2958,28 +2984,18 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       group.position.set(x, 0, z);
       group.rotation.y = rotY;
 
-      const blackLac = new THREE.MeshPhysicalMaterial({
-        color: 0x0a0a14, metalness: 0.6, roughness: 0.3,
-        clearcoat: 1.0, clearcoatRoughness: 0.08,
-      });
-
       // Base
-      const base = new THREE.Mesh(roundedBox(1.5, 1.0, 0.95, 0.06, 3), blackLac);
+      const base = new THREE.Mesh(sharedArcadeGeo.base, sharedArcadeMats.blackLac);
       base.position.y = 0.5;
       group.add(base);
 
       // Pilier
-      const pillar = new THREE.Mesh(roundedBox(1.5, 1.6, 0.3, 0.04, 3), blackLac);
+      const pillar = new THREE.Mesh(sharedArcadeGeo.pillar, sharedArcadeMats.blackLac);
       pillar.position.set(0, 1.8, -0.32);
       group.add(pillar);
 
       // Frame écran
-      const screenFrame = new THREE.Mesh(
-        roundedBox(1.4, 1.0, 0.08, 0.04, 3),
-        new THREE.MeshPhysicalMaterial({
-          color: 0x1a1a22, metalness: 0.9, roughness: 0.2, clearcoat: 1.0, clearcoatRoughness: 0.06,
-        })
-      );
+      const screenFrame = new THREE.Mesh(sharedArcadeGeo.screenFrame, sharedArcadeMats.screenFrame);
       screenFrame.position.set(0, 2.0, -0.18);
       screenFrame.rotation.x = -0.05;
       group.add(screenFrame);
@@ -3014,71 +3030,53 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       const screenTex = new THREE.CanvasTexture(cv);
       screenTex.colorSpace = THREE.SRGBColorSpace;
       const screen = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.28, 0.88),
+        sharedArcadeGeo.screen,
         new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false })
       );
       screen.position.set(0, 2.0, -0.135);
       screen.rotation.x = -0.05;
       group.add(screen);
 
-      // Joystick avec bille accent
-      const stickBase = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.08, 0.04, 12),
-        new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6, roughness: 0.4 })
-      );
-      stickBase.position.set(0.4, 1.04, 0.1); group.add(stickBase);
-      const stick = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.015, 0.015, 0.18, 8),
-        new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.5, roughness: 0.6 })
-      );
-      stick.position.set(0.4, 1.15, 0.1); group.add(stick);
+      // Joystick (géométries partagées, matériaux partagés sauf la bille)
+      const stickBaseM = new THREE.Mesh(sharedArcadeGeo.stickBase, sharedArcadeMats.stickBase);
+      stickBaseM.position.set(0.4, 1.04, 0.1); group.add(stickBaseM);
+      const stickM = new THREE.Mesh(sharedArcadeGeo.stick, sharedArcadeMats.stick);
+      stickM.position.set(0.4, 1.15, 0.1); group.add(stickM);
       const stickBall = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 16, 12),
-        new THREE.MeshPhysicalMaterial({
-          color: accentHex, metalness: 0.5, roughness: 0.25, clearcoat: 1.0,
-        })
+        sharedArcadeGeo.stickBall,
+        new THREE.MeshStandardMaterial({ color: accentHex, emissive: accentHex, emissiveIntensity: 0.3, metalness: 0.5, roughness: 0.25 })
       );
       stickBall.position.set(0.4, 1.26, 0.1); group.add(stickBall);
 
-      // 2 boutons d'arcade colorés
-      const btnColors = [accentHex, 0xffd700];
-      btnColors.forEach((c, i) => {
-        const btn = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.07, 0.07, 0.04, 16),
-          new THREE.MeshPhysicalMaterial({
-            color: c, metalness: 0.4, roughness: 0.3,
-            emissive: c, emissiveIntensity: 0.5, clearcoat: 0.8,
-          })
-        );
+      // 2 boutons (1 mat accent + 1 mat or partagés par cette borne)
+      const btnAccentMat = new THREE.MeshStandardMaterial({ color: accentHex, emissive: accentHex, emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 });
+      const btnGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 });
+      [btnAccentMat, btnGoldMat].forEach((mat, i) => {
+        const btn = new THREE.Mesh(sharedArcadeGeo.button, mat);
         btn.position.set(-0.4 + i * 0.25, 1.04, 0.25);
         btn.rotation.x = Math.PI / 2;
         group.add(btn);
       });
 
-      // Néons verticaux accent (toneMapped:false pour rester saturés)
+      // Néons verticaux : 1 matériau accent partagé entre les 2 néons
       const neonMat = new THREE.MeshBasicMaterial({ color: accentHex, toneMapped: false });
       for (let s = -1; s <= 1; s += 2) {
-        const neon = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.5, 0.04), neonMat);
+        const neon = new THREE.Mesh(sharedArcadeGeo.neon, neonMat);
         neon.position.set(s * 0.72, 1.8, -0.28);
         group.add(neon);
       }
 
-      // Top bar accent emissive (logo)
+      // Top bar accent emissive
       const topBar = new THREE.Mesh(
-        new THREE.BoxGeometry(1.55, 0.16, 0.18),
-        new THREE.MeshPhysicalMaterial({
+        sharedArcadeGeo.topBar,
+        new THREE.MeshStandardMaterial({
           color: accentHex, metalness: 0.3, roughness: 0.2,
           emissive: accentEmissive ?? accentHex, emissiveIntensity: 1.2,
-          clearcoat: 1.0,
         })
       );
       topBar.position.set(0, 2.7, -0.28);
       group.add(topBar);
-
-      // Light ambiance
-      const arcadeLight = new THREE.PointLight(accentHex, 0.6, 4);
-      arcadeLight.position.set(0, 2.4, 0.3);
-      group.add(arcadeLight);
+      // Pas de PointLight par borne (4 lights = trop coûteux). Une seule globale ajoutée plus bas.
 
       // Zone d'interaction
       const zone = new THREE.Mesh(
@@ -3113,6 +3111,11 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         emoji: '🪙', x: 13.5, z: -10, rotY: 0,
       }),
     ];
+    // === 1 seule lumière globale pour TOUTE la salle arcade ===
+    // (au lieu de 4 PointLights par borne, coût ÷ 4)
+    const arcadeRoomLight = new THREE.PointLight(0xb87aff, 1.2, 12);
+    arcadeRoomLight.position.set(10.5, 3.0, -9);
+    scene.add(arcadeRoomLight);
 
     // Liste globale des zones d'interaction
     const interactZones = [
@@ -3943,8 +3946,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     const scene = sceneRefLocal.current;
     if (!scene) return null;
     const group = new THREE.Group();
-    // Personnage personnalisé via buildPlayerCharacter (parité avec local)
-    const rig = buildPlayerCharacter({
+    // Perf : rig LITE pour remote (10 meshes vs 65 → -85% draw calls)
+    // Garde les couleurs skin/outfit/hair/shoes pour reconnaissance visuelle.
+    const rig = buildPlayerCharacterLite({
       skin: pdata.skin || '#e0b48a',
       outfit: pdata.outfit ?? 0,
       hair: pdata.hair ?? 0,
@@ -3996,7 +4000,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
       });
     }
-    const newRig = buildPlayerCharacter({
+    const newRig = buildPlayerCharacterLite({
       skin: pd.skin || '#e0b48a',
       outfit: pd.outfit ?? 0,
       hair: pd.hair ?? 0,

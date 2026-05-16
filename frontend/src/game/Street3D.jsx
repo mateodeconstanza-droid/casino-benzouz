@@ -13,7 +13,7 @@ import { useAmbientAudio } from '@/game/useAmbientAudio';
 import { MPClient } from '@/game/multiplayer';
 import sfx from '@/game/sfx';
 import { PALETTE, createSkyDome, setupFog, roundedBox, matMatte, matMetal, matGlow, createContactShadow } from '@/game/style';
-import { buildPlayerCharacter } from '@/game/playerCharacter';
+import { buildPlayerCharacter, buildPlayerCharacterLite } from '@/game/playerCharacter';
 
 // =============================================================
 // HOUSE CATALOG — 32 propriétés (5 appart + 3 maisons + 2 villas + 22 maisons étendues)
@@ -3821,8 +3821,8 @@ const Street3D = ({
     // avec le personnage personnalisé du joueur. Mis à jour si skin/outfit change.
     const buildRemote = (pd) => {
       const g = new THREE.Group();
-      // Le rig principal (perso personnalisé via buildPlayerCharacter)
-      const rig = buildPlayerCharacter({
+      // Perf : rig LITE pour remote (économise 55 meshes/joueur)
+      const rig = buildPlayerCharacterLite({
         skin: pd.skin || '#e0b48a',
         outfit: pd.outfit ?? 0,
         hair: pd.hair ?? 0,
@@ -3874,7 +3874,7 @@ const Street3D = ({
         });
       }
       // Crée le nouveau rig avec la nouvelle apparence
-      const newRig = buildPlayerCharacter({
+      const newRig = buildPlayerCharacterLite({
         skin: pd.skin || '#e0b48a',
         outfit: pd.outfit ?? 0,
         hair: pd.hair ?? 0,

@@ -504,3 +504,93 @@ const buildHair = (head, id, mat) => {
     }
   }
 };
+
+// =============================================================
+// buildPlayerCharacterLite — VERSION OPTIMISÉE pour les remote players
+// (multijoueur). ~10 meshes au lieu de 65. Garde la couleur de skin,
+// outfit, hair, shoes — visuellement reconnaissable mais ultra léger.
+// Utilisé quand on rend ≥ 5 avatars distants simultanés.
+//
+// Retourne THREE.Group avec userData : { leftArm, rightArm, leftLeg,
+// rightLeg } compatibles avec l'animation de marche existante.
+// =============================================================
+export const buildPlayerCharacterLite = ({
+  hair = 0, outfit = 0, shoes = 0, skin = '#e0b48a',
+} = {}) => {
+  const root = new THREE.Group();
+  const skinHex = typeof skin === 'string' && skin.startsWith('#')
+    ? parseInt(skin.slice(1), 16) : 0xe0b48a;
+  const outfitDef = OUTFIT_CATALOG[outfit] || OUTFIT_CATALOG[0];
+  const hairDef = HAIR_CATALOG[hair] || HAIR_CATALOG[0];
+  const shoeDef = SHOES_CATALOG[shoes] || SHOES_CATALOG[0];
+  const outfitHex = parseInt((outfitDef.color || '#888').slice(1), 16);
+  const hairHex = parseInt((hairDef.color || '#222').slice(1), 16);
+  const shoeHex = parseInt((shoeDef.color || '#222').slice(1), 16);
+
+  const matSkin = new THREE.MeshStandardMaterial({ color: skinHex, roughness: 0.55 });
+  const matOutfit = new THREE.MeshStandardMaterial({ color: outfitHex, roughness: 0.7 });
+  const matHair = new THREE.MeshStandardMaterial({ color: hairHex, roughness: 0.7 });
+  const matShoes = new THREE.MeshStandardMaterial({ color: shoeHex, roughness: 0.5 });
+
+  // 1. Torse (capsule outfit color)
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.55, 4, 8), matOutfit);
+  torso.position.y = 1.1;
+  root.add(torso);
+
+  // 2. Tête (sphère skin)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), matSkin);
+  head.position.y = 1.75;
+  root.add(head);
+
+  // 3. Cheveux (demi-sphère hair color, sauf rasée id=1)
+  if (hair !== 1) {
+    const hairMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.2),
+      matHair
+    );
+    hairMesh.position.y = 1.78;
+    root.add(hairMesh);
+  }
+
+  // 4-5. Bras gauche / droit (pivotés depuis l'épaule)
+  const armGeo = new THREE.CapsuleGeometry(0.07, 0.4, 4, 6);
+  const leftArm = new THREE.Group(); // pivot épaule
+  leftArm.position.set(-0.32, 1.4, 0);
+  const leftArmMesh = new THREE.Mesh(armGeo, matSkin);
+  leftArmMesh.position.y = -0.25;
+  leftArm.add(leftArmMesh);
+  root.add(leftArm);
+  const rightArm = new THREE.Group();
+  rightArm.position.set(0.32, 1.4, 0);
+  const rightArmMesh = new THREE.Mesh(armGeo, matSkin);
+  rightArmMesh.position.y = -0.25;
+  rightArm.add(rightArmMesh);
+  root.add(rightArm);
+
+  // 6-7. Jambes (cylindres outfit color)
+  const legGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 6);
+  const leftLeg = new THREE.Group();
+  leftLeg.position.set(-0.14, 0.75, 0);
+  const leftLegMesh = new THREE.Mesh(legGeo, matOutfit);
+  leftLegMesh.position.y = -0.3;
+  leftLeg.add(leftLegMesh);
+  root.add(leftLeg);
+  const rightLeg = new THREE.Group();
+  rightLeg.position.set(0.14, 0.75, 0);
+  const rightLegMesh = new THREE.Mesh(legGeo, matOutfit);
+  rightLegMesh.position.y = -0.3;
+  rightLeg.add(rightLegMesh);
+  root.add(rightLeg);
+
+  // 8-9. Chaussures (petites box shoe color)
+  const shoeGeo = new THREE.BoxGeometry(0.16, 0.08, 0.24);
+  const leftShoe = new THREE.Mesh(shoeGeo, matShoes);
+  leftShoe.position.set(-0.14, 0.04, 0.04);
+  root.add(leftShoe);
+  const rightShoe = new THREE.Mesh(shoeGeo, matShoes);
+  rightShoe.position.set(0.14, 0.04, 0.04);
+  root.add(rightShoe);
+
+  root.userData = { leftArm, rightArm, leftLeg, rightLeg, head, torso };
+  return root;
+};
