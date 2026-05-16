@@ -54,7 +54,7 @@ const ArcadeModal = ({ accent, title, emoji, onClose, children }) => {
   );
 };
 
-// Slider bet (commun aux 3 jeux)
+// Slider + input numérique de mise (mise libre, presets rapides)
 const BetSlider = ({ value, onChange, max, disabled }) => (
   <div style={{ marginBottom: 14 }}>
     <div style={{
@@ -64,30 +64,50 @@ const BetSlider = ({ value, onChange, max, disabled }) => (
       <span>MISE</span>
       <span style={{ color: STAKE.goldLight, fontWeight: 900 }}>{fmt(value)} $</span>
     </div>
+    {/* Input numérique libre (peut taper n'importe quel montant) */}
+    <input
+      type="number"
+      min={1}
+      max={Math.max(1, max)}
+      value={value}
+      onChange={(e) => {
+        const v = parseInt(e.target.value, 10);
+        if (Number.isFinite(v)) onChange(Math.max(1, Math.min(v, max || 1)));
+      }}
+      disabled={disabled}
+      style={{
+        width: '100%', padding: '8px 12px', borderRadius: 8,
+        background: 'rgba(0,0,0,0.5)', border: `1px solid ${STAKE.gold}`,
+        color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit',
+        outline: 'none', boxSizing: 'border-box', marginBottom: 8,
+      }}
+    />
+    {/* Slider de mise rapide */}
     <input
       type="range"
-      min={10}
-      max={Math.max(10, Math.min(max, 100000))}
-      step={10}
+      min={1}
+      max={Math.max(1, max)}
+      step={Math.max(1, Math.floor(max / 100))}
       value={value}
       onChange={(e) => onChange(parseInt(e.target.value, 10))}
       disabled={disabled}
       style={{ width: '100%', accentColor: STAKE.gold }}
     />
+    {/* Presets : 10, 100, 1K, 10K, MAX */}
     <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-      {[10, 100, 1000, 10000].map((v) => (
-        <button key={v}
-          disabled={disabled || v > max}
-          onClick={() => onChange(v)}
+      {[10, 100, 1000, 10000, max].map((v, i) => (
+        <button key={i}
+          disabled={disabled || v > max || v < 1}
+          onClick={() => onChange(Math.min(v, max))}
           style={{
             flex: 1, padding: '5px 0', borderRadius: 6,
             background: value === v ? STAKE.gold : 'rgba(255,255,255,0.05)',
             color: value === v ? '#111' : '#aaa',
             border: `1px solid ${value === v ? STAKE.gold : 'rgba(255,255,255,0.1)'}`,
-            cursor: disabled || v > max ? 'not-allowed' : 'pointer',
+            cursor: disabled || v > max || v < 1 ? 'not-allowed' : 'pointer',
             fontSize: 11, fontWeight: 800,
           }}
-        >{v < 1000 ? v : `${v / 1000}K`}</button>
+        >{i === 4 ? 'MAX' : v < 1000 ? v : `${v / 1000}K`}</button>
       ))}
     </div>
   </div>
@@ -104,11 +124,13 @@ export const ArcadeDice = ({ balance, onResult, onClose }) => {
   const [history, setHistory] = useState([]); // {roll, win}
 
   const play = (choice) => {
-    if (rolling || bet > balance || bet < 10) return;
+    if (rolling || bet > balance || bet < 1) return;
     setPick(choice);
     setRolling(true);
-    onResult(-bet); // débite la mise
+    // Pré-calcule le résultat ET le payout net pour 1 SEUL appel onResult
     const finalRoll = 1 + Math.floor(Math.random() * 100);
+    const won = (choice === 'high' && finalRoll > 50) || (choice === 'low' && finalRoll <= 50);
+    const netPayout = won ? Math.floor(bet * 0.95) : -bet; // gain net (1.95*bet - bet) ou perte
     let frame = 0;
     const total = 25;
     const tick = () => {
@@ -118,9 +140,8 @@ export const ArcadeDice = ({ balance, onResult, onClose }) => {
         setTimeout(tick, 40 + frame * 4);
       } else {
         setRoll(finalRoll);
-        const won = (choice === 'high' && finalRoll > 50) || (choice === 'low' && finalRoll <= 50);
         setHistory((h) => [{ roll: finalRoll, win: won }, ...h].slice(0, 8));
-        if (won) onResult(Math.floor(bet * 1.95)); // gain net : payout - mise
+        onResult(netPayout); // ← UN seul call, pas de race condition
         setRolling(false);
       }
     };
@@ -204,16 +225,16 @@ export const ArcadeCoinFlip = ({ balance, onResult, onClose }) => {
   const [history, setHistory] = useState([]);
 
   const flip = (choice) => {
-    if (flipping || bet > balance || bet < 10) return;
+    if (flipping || bet > balance || bet < 1) return;
     setFlipping(true);
     setResult(null);
-    onResult(-bet);
     const final = Math.random() < 0.5 ? 'pile' : 'face';
+    const won = choice === final;
+    const netPayout = won ? Math.floor(bet * 0.95) : -bet;
     setTimeout(() => {
       setResult(final);
-      const won = choice === final;
       setHistory((h) => [{ result: final, win: won }, ...h].slice(0, 8));
-      if (won) onResult(Math.floor(bet * 1.95));
+      onResult(netPayout); // ← un seul call
       setFlipping(false);
     }, 1400);
   };
@@ -312,7 +333,7 @@ export const ArcadeMines = ({ balance, onResult, onClose }) => {
   const currentPayout = Math.floor(bet * currentMul);
 
   const start = () => {
-    if (active || bet > balance || bet < 10) return;
+    if (active || bet > balance || bet < 1) return;
     const positions = new Set();
     while (positions.size < bombs) {
       positions.add(Math.floor(Math.random() * 25));
@@ -321,18 +342,17 @@ export const ArcadeMines = ({ balance, onResult, onClose }) => {
     setGrid(Array(25).fill(null));
     setRevealed(0);
     setActive(true);
-    onResult(-bet);
+    onResult(-bet);  // débite la mise au start (1 seul call avant cashOut)
   };
 
   const reveal = (i) => {
     if (!active || grid[i] !== null) return;
     if (bombPositions.includes(i)) {
-      // BOOM
+      // BOOM — partie perdue, mise déjà débitée
       const newGrid = [...grid];
       bombPositions.forEach((p) => { newGrid[p] = 'bomb'; });
       setGrid(newGrid);
       setActive(false);
-      // Pas de gain (mise déjà débitée au start)
     } else {
       const newGrid = [...grid];
       newGrid[i] = 'safe';
@@ -343,9 +363,10 @@ export const ArcadeMines = ({ balance, onResult, onClose }) => {
 
   const cashOut = () => {
     if (!active || revealed === 0) return;
-    onResult(currentPayout); // payout brut (mise déjà débitée)
+    // Gain net = currentPayout − bet (puisque la mise est déjà débitée)
+    const netGain = currentPayout - bet;
+    onResult(netGain);
     setActive(false);
-    // Reveal all bombs
     const newGrid = [...grid];
     bombPositions.forEach((p) => { if (newGrid[p] === null) newGrid[p] = 'bomb'; });
     setGrid(newGrid);

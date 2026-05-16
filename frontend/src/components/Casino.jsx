@@ -1112,12 +1112,17 @@ export default function Casino() {
           balance={balance}
           onClose={() => setShowCoinFlip(false)}
           onResult={(payout) => {
-            const newBal = (balance || 0) + payout;
-            setBalance(newBal);
-            const next = { ...profile, balance: newBal };
-            if (payout > 0) next.totalWinnings = (profile.totalWinnings || 0) + payout;
-            setProfile(next);
-            saveProfile(next);
+            // ⚠ Bug closure : utiliser setBalance/setProfile fonctionnels
+            // pour ne pas se baser sur la valeur captured de `balance`/`profile`
+            setBalance((prev) => (prev || 0) + payout);
+            setProfile((prev) => {
+              if (!prev) return prev;
+              const newBal = (prev.balance || 0) + payout;
+              const next = { ...prev, balance: newBal };
+              if (payout > 0) next.totalWinnings = (prev.totalWinnings || 0) + payout;
+              saveProfile(next);
+              return next;
+            });
           }}
         />
       )}
@@ -1126,12 +1131,17 @@ export default function Casino() {
           balance={balance}
           onClose={() => setShowMines(false)}
           onResult={(payout) => {
-            const newBal = (balance || 0) + payout;
-            setBalance(newBal);
-            const next = { ...profile, balance: newBal };
-            if (payout > 0) next.totalWinnings = (profile.totalWinnings || 0) + payout;
-            setProfile(next);
-            saveProfile(next);
+            // ⚠ Bug closure : utiliser setBalance/setProfile fonctionnels
+            // pour ne pas se baser sur la valeur captured de `balance`/`profile`
+            setBalance((prev) => (prev || 0) + payout);
+            setProfile((prev) => {
+              if (!prev) return prev;
+              const newBal = (prev.balance || 0) + payout;
+              const next = { ...prev, balance: newBal };
+              if (payout > 0) next.totalWinnings = (prev.totalWinnings || 0) + payout;
+              saveProfile(next);
+              return next;
+            });
           }}
         />
       )}

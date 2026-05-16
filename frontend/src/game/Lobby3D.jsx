@@ -408,10 +408,11 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     //    L'ancienne version itérait ~700 meshes recursivement à chaque frame
     //    (casino + 4 bornes + 50 remote rigs). Le nouveau fait un slab-test
     //    rapide sur la liste pré-calculée de colliders (~30 boxes).
-    const TPS_DESIRED_DIST = 2.8;
-    const TPS_MIN_DIST     = 0.5;
+    // Constantes TPS UNIFIÉES (identiques à Street3D ville) :
+    const TPS_DESIRED_DIST = 3.2;   // mêmes valeurs partout
+    const TPS_MIN_DIST     = 0.6;
     const TPS_WALL_PAD     = 0.18;
-    const TPS_HEIGHT       = 2.3;
+    const TPS_HEIGHT       = 2.9;   // ~camY + 0.6 = 2.3 + 0.6
     const TPS_LERP         = 0.18;
     const tpsTargetPos     = new THREE.Vector3();
     const tpsSmoothPos     = new THREE.Vector3(0, TPS_HEIGHT, 0);
@@ -5285,27 +5286,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             <div style={{ fontSize: 8 }}>{isAiming ? 'VISE' : 'VISER'}</div>
           </button>
         )}
-        {/* Bouton CHICHA — visible si chicha équipée. Animation tube 3s + fumée 4s */}
-        {hasHookah && (
-          <button
-            data-testid="lobby-hookah-btn"
-            onClick={useHookahFn}
-            disabled={usingHookah}
-            style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: usingHookah
-                ? 'linear-gradient(135deg, #ff6a3a, #c41e3a)'
-                : 'linear-gradient(135deg, rgba(255,215,0,0.85), rgba(200,168,90,0.95))',
-              border: `2px solid ${usingHookah ? '#fff' : '#ffd700'}`,
-              color: '#000',
-              fontSize: 11, fontWeight: 'bold',
-              cursor: usingHookah ? 'wait' : 'pointer',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.6)',
-            }}>
-            <div style={{ fontSize: 22 }}>💨</div>
-            <div style={{ fontSize: 8 }}>{usingHookah ? '...' : 'CHICHA'}</div>
-          </button>
-        )}
+        {/* Bouton chicha retiré : utilisation via inventaire (parité armes) */}
         <button
           data-testid="lobby-fire-btn"
           onPointerDown={(e) => {

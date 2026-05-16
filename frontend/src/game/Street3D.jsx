@@ -177,6 +177,21 @@ const Street3D = ({
   // ====== CHICHA — hook partagé ======
   const { equippedHookah, hasHookah, usingHookah, useHookah: useHookahFn } = useHookah(profile);
 
+  // Quand usingHookah passe à true → spawn smoke burst 3D à la bouche du joueur
+  useEffect(() => {
+    if (!usingHookah) return undefined;
+    const st = stateRef.current;
+    if (!st || !st.spawnSmokeBurst) return undefined;
+    const p = st.player;
+    if (!p) return undefined;
+    // Position bouche : ~1.65m au-dessus du joueur, légèrement devant
+    const mouthX = p.x + Math.sin(p.rotY || 0) * 0.25;
+    const mouthY = (p.y || 0) + 1.6;
+    const mouthZ = p.z + Math.cos(p.rotY || 0) * 0.25;
+    st.spawnSmokeBurst(mouthX, mouthY, mouthZ);
+    return undefined;
+  }, [usingHookah]);
+
   // ====== AMBIANCE SONORE ville — léger seul (klaxons rares) ======
   // L'utilisateur a demandé : pas de bruits d'ambiance sauf léger bruit de
   // voitures + tirs d'arme (gérés ailleurs). On désactive vagues + mouettes
@@ -215,9 +230,9 @@ const Street3D = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [showStreetInventory, selectedHouse, aptPickerOpen, garageOpen, rooftopView]);
 
-  // Hook : tourner la tête à la souris (PC) / drag tactile (mobile)
-  // On exclut les boutons HUD pour pas que tap = lock
+  // Hook look : sensibilité unifiée avec Lobby3D casino
   useLookControls(mountRef, stateRef, {
+    sensitivity: { mouse: 0.0038, touch: 0.0085 }, // === parité Lobby3D
     excludeSelectors: ['button', '[data-no-look]', '.hud-control', '[data-testid$="-modal"]', '[data-testid="street-hud-bottom"]', '[data-testid="street-radar"]'],
   });
 
@@ -3273,6 +3288,42 @@ const Street3D = ({
         };
       }
     }
+    // === SMOKE CLOUD chicha : nuage 3D qui sort de la bouche pendant 7s ===
+    // Géré via stateRef.current.smokeBursts (array de bursts actifs)
+    // Chaque burst = { particles[], age, dur } — les particules grossissent
+    // et s'estompent, le burst s'auto-nettoie à la fin
+    const smokeBursts = [];
+    const _smokeMat = new THREE.MeshBasicMaterial({
+      color: 0xeeeeee, transparent: true, opacity: 0.55, depthWrite: false,
+    });
+    const _smokeGeo = new THREE.SphereGeometry(0.18, 8, 6);
+    const spawnSmokeBurst = (originX, originY, originZ) => {
+      const burst = { particles: [], age: 0, dur: 7000 };
+      // 24 particules en cône qui montent + s'étalent
+      for (let i = 0; i < 24; i++) {
+        const p = new THREE.Mesh(_smokeGeo, _smokeMat.clone());
+        p.material.opacity = 0.7;
+        const ang = Math.random() * Math.PI * 2;
+        const r = Math.random() * 0.05;
+        p.position.set(originX + Math.cos(ang) * r, originY, originZ + Math.sin(ang) * r);
+        p.userData = {
+          vx: (Math.random() - 0.5) * 0.012,
+          vy: 0.008 + Math.random() * 0.008,
+          vz: (Math.random() - 0.5) * 0.012,
+          delay: i * 80, // staggered spawn over ~2s
+          scaleRate: 1.012,
+        };
+        p.visible = false;
+        p.scale.setScalar(0.4 + Math.random() * 0.3);
+        scene.add(p);
+        burst.particles.push(p);
+      }
+      smokeBursts.push(burst);
+    };
+    // Exposer pour utilisation côté React (au déclenchement de usingHookah)
+    if (stateRef.current) stateRef.current.spawnSmokeBurst = spawnSmokeBurst;
+    else stateRef.current = { spawnSmokeBurst };
+
     // === Rig local joueur (TPS) — invisible par défaut, affiché si tpsMode ===
     const localPlayerRig = buildPlayerCharacter({
       skinPack: profile?.equippedSkin,
@@ -3703,6 +3754,36 @@ const Street3D = ({
       if (st.gateBar) {
         const target = st.gateOpen ? Math.PI / 2.2 : 0;
         st.gateBar.rotation.z = THREE.MathUtils.lerp(st.gateBar.rotation.z, target, 0.05);
+      }
+
+      // === Smoke bursts (chicha) : animation 7s avec délai staggered ===
+      const dtMs = 16.67;
+      for (let bi = smokeBursts.length - 1; bi >= 0; bi--) {
+        const b = smokeBursts[bi];
+        b.age += dtMs;
+        const lifeRatio = b.age / b.dur; // 0..1
+        for (let pi = 0; pi < b.particles.length; pi++) {
+          const part = b.particles[pi];
+          const ud = part.userData;
+          if (b.age < ud.delay) continue;
+          part.visible = true;
+          part.position.x += ud.vx;
+          part.position.y += ud.vy;
+          part.position.z += ud.vz;
+          part.scale.multiplyScalar(ud.scaleRate);
+          // Opacity diminue dans les 2 dernières secondes
+          if (lifeRatio > 0.7) {
+            part.material.opacity = 0.7 * (1 - (lifeRatio - 0.7) / 0.3);
+          }
+        }
+        if (b.age >= b.dur) {
+          // Cleanup
+          b.particles.forEach((part) => {
+            scene.remove(part);
+            if (part.material) part.material.dispose();
+          });
+          smokeBursts.splice(bi, 1);
+        }
       }
 
       // ===== RADAR =====
@@ -4286,34 +4367,7 @@ const Street3D = ({
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
 
       {/* ====== CHICHA EN MAIN (ville) — visible que pendant utilisation ====== */}
-      {hasHookah && usingHookah && (
-        <FPHookahView hookahId={equippedHookah} isUsing={usingHookah} />
-      )}
-      {hasHookah && (
-        <button
-          data-testid="street-hookah-btn"
-          onClick={useHookahFn}
-          disabled={usingHookah}
-          style={{
-            position: 'absolute', right: 16, bottom: 100,
-            width: 60, height: 60, borderRadius: '50%',
-            background: usingHookah
-              ? 'linear-gradient(135deg, #ff6a3a, #c41e3a)'
-              : 'linear-gradient(135deg, rgba(255,215,0,0.95), rgba(200,168,90,0.95))',
-            border: `2px solid ${usingHookah ? '#fff' : '#ffd700'}`,
-            color: '#000', cursor: usingHookah ? 'wait' : 'pointer',
-            fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
-            boxShadow: usingHookah
-              ? '0 0 24px rgba(255,106,58,0.55), 0 8px 18px rgba(0,0,0,0.6)'
-              : '0 0 18px rgba(255,215,0,0.35), 0 8px 18px rgba(0,0,0,0.55)',
-            zIndex: 30,
-            transform: 'translateZ(0)', willChange: 'transform, box-shadow',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          }}>
-          <div style={{ fontSize: 22 }}>💨</div>
-          <div style={{ fontSize: 8 }}>{usingHookah ? '...' : 'CHICHA'}</div>
-        </button>
-      )}
+      {/* Bouton chicha retiré : utilisation via inventaire (parité armes) */}
 
       {/* ====== BOUTON INVENTAIRE — toujours visible dans la ville ====== */}
       <button
@@ -5098,23 +5152,50 @@ const Street3D = ({
         </div>
       )}
 
-      {/* Apartment picker modal (5 appartements dans l'immeuble) */}
+      {/* Apartment picker — compact + bouton SORTIR visible */}
       {aptPickerOpen && !scanning && (
-        <div style={{
-          position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 50, backdropFilter: 'blur(6px)',
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #0f2a42, #1d4a79)',
-            border: `2px solid ${STAKE.gold}`, borderRadius: 16,
-            padding: 20, maxWidth: 420, width: '90%', color: '#fff',
-          }}>
-            <div style={{ fontSize: 11, color: STAKE.goldLight, letterSpacing: 1.5, marginBottom: 6 }}>
-              IMMEUBLE — LES RÉSIDENCES
+        <div
+          onClick={() => setAptPickerOpen(false)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 50, backdropFilter: 'blur(6px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(135deg, #0f2a42, #1d4a79)',
+              border: `2px solid ${STAKE.gold}`, borderRadius: 14,
+              padding: 14, maxWidth: 360, width: '88%', color: '#fff',
+              maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            }}
+          >
+            {/* Header compact avec ✕ */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginBottom: 10, paddingBottom: 8,
+              borderBottom: `1px solid ${STAKE.gold}33`,
+            }}>
+              <div>
+                <div style={{ fontSize: 9, color: STAKE.goldLight, letterSpacing: 1.2 }}>RÉSIDENCES</div>
+                <div style={{ fontSize: 15, fontWeight: 900 }}>Choisis un appartement</div>
+              </div>
+              <button
+                data-testid="apt-close"
+                onClick={() => setAptPickerOpen(false)}
+                style={{
+                  background: 'transparent', border: `1px solid ${STAKE.gold}`,
+                  color: STAKE.goldLight, width: 30, height: 30, borderRadius: 8,
+                  cursor: 'pointer', fontWeight: 800, fontSize: 14,
+                }}
+              >✕</button>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 14 }}>Choisis un appartement</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+            {/* Liste compacte */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 6,
+              overflowY: 'auto', flex: 1,
+            }}>
               {HOUSES.filter(h => h.type === 'apartment').map(h => {
                 const own = ownedKeys.includes(h.id);
                 return (
@@ -5123,32 +5204,35 @@ const Street3D = ({
                     data-testid={`apt-pick-${h.id}`}
                     onClick={() => { setAptPickerOpen(false); setSelectedHouse(h.id); }}
                     style={{
-                      padding: 12, borderRadius: 10,
+                      padding: '8px 10px', borderRadius: 8,
                       background: own ? 'rgba(26,163,74,0.18)' : 'rgba(0,0,0,0.3)',
                       border: `1px solid ${own ? '#1aa34a' : 'rgba(212,175,55,0.3)'}`,
                       color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      fontSize: 12,
                     }}
                   >
                     <span style={{ fontWeight: 700 }}>
-                      {own ? '🔑 ' : ''}Appartement {h.floor + 1} — étage {h.floor + 1}
+                      {own ? '🔑 ' : ''}Appt. étage {h.floor + 1}
                     </span>
-                    <span style={{ color: own ? '#1aa34a' : STAKE.goldLight, fontWeight: 800, fontSize: 13 }}>
-                      {own ? 'À VOUS' : fmt(h.price) + ' $'}
+                    <span style={{ color: own ? '#1aa34a' : STAKE.goldLight, fontWeight: 800 }}>
+                      {own ? 'À TOI' : fmt(h.price) + ' $'}
                     </span>
                   </button>
                 );
               })}
             </div>
+            {/* Bouton SORTIR plus visible */}
             <button
-              data-testid="apt-close"
+              data-testid="apt-leave"
               onClick={() => setAptPickerOpen(false)}
               style={{
-                width: '100%', padding: 12, borderRadius: 10,
-                background: 'transparent', border: '1px solid #888',
-                color: '#aaa', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                width: '100%', marginTop: 10, padding: 10, borderRadius: 8,
+                background: `linear-gradient(135deg, ${STAKE.goldDark}, ${STAKE.gold})`,
+                border: 'none', color: '#111', cursor: 'pointer',
+                fontSize: 12, fontWeight: 900, letterSpacing: 2,
               }}
-            >Fermer</button>
+            >🚪 SORTIR</button>
           </div>
         </div>
       )}
