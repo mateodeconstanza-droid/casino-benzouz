@@ -3900,16 +3900,27 @@ const Street3D = ({
       delete remotePlayersRef.current[id];
     };
 
-    // === Helper : applique la liste complète de joueurs serveur, gère ajouts/retraits ===
+    // === Helper : applique la liste serveur, ZERO alloc per snapshot ===
+    // Pool de structures : Vec3 + Set + tracker de temps réutilisés
     const _remoteTargetVec3 = new THREE.Vector3();
+    const _remoteSeenIds = new Set();
+    let _lastSnapshotTime = 0;
+
     const applyRemoteSnapshot = (players) => {
-      const seenIds = new Set();
-      let visibleCount = 0;
       const tNow = performance.now();
-      players.forEach((pd) => {
-        if (!pd || !pd.id) return;
-        seenIds.add(pd.id);
-        if (pd.id === myMpIdRef.current) return;
+      // Frame-rate independent lerp
+      const dt = Math.min(0.1, (tNow - (_lastSnapshotTime || tNow)) / 1000);
+      _lastSnapshotTime = tNow;
+      const posFactor = 1 - Math.exp(-12 * dt);
+      const rotFactor = 1 - Math.exp(-15 * dt);
+
+      _remoteSeenIds.clear();
+      let visibleCount = 0;
+      for (let i = 0; i < players.length; i++) {
+        const pd = players[i];
+        if (!pd || !pd.id) continue;
+        _remoteSeenIds.add(pd.id);
+        if (pd.id === myMpIdRef.current) continue;
         visibleCount++;
         let entry = remotePlayersRef.current[pd.id];
         if (!entry) {
@@ -3919,14 +3930,17 @@ const Street3D = ({
           remotePlayersRef.current[pd.id] = entry;
         }
         entry.data = pd;
-        // Si apparence changée (le joueur s'est customisé), rebuild son rig
         refreshRemoteAppearance(entry, pd);
         const m = entry.mesh;
         _remoteTargetVec3.set(pd.x || 0, 0, pd.z || 0);
-        m.position.x += (_remoteTargetVec3.x - m.position.x) * 0.22;
-        m.position.z += (_remoteTargetVec3.z - m.position.z) * 0.22;
-        m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
-        // Anim marche : balancement bras/jambes si bouge
+        m.position.x += (_remoteTargetVec3.x - m.position.x) * posFactor;
+        m.position.z += (_remoteTargetVec3.z - m.position.z) * posFactor;
+        // Rotation shortest-path
+        const targetRotY = pd.rotY || 0;
+        const dRot = targetRotY - m.rotation.y;
+        const wrap = dRot > Math.PI ? dRot - 2 * Math.PI : dRot < -Math.PI ? dRot + 2 * Math.PI : dRot;
+        m.rotation.y += wrap * rotFactor;
+        // Anim marche
         const u = m.userData;
         const moved = u.lastPos.distanceTo(_remoteTargetVec3) > 0.005;
         const swing = moved ? Math.sin(tNow * 0.008) * 0.4 : 0;
@@ -3935,11 +3949,11 @@ const Street3D = ({
         if (u.armL) u.armL.rotation.x = -swing * 0.8;
         if (u.armR) u.armR.rotation.x = swing * 0.8;
         u.lastPos.copy(_remoteTargetVec3);
-      });
-      // Cleanup ghosts
-      Object.keys(remotePlayersRef.current).forEach((id) => {
-        if (!seenIds.has(id)) removeRemote(id);
-      });
+      }
+      // Cleanup ghosts (for...in itère sans alloc d'array)
+      for (const id in remotePlayersRef.current) {
+        if (!_remoteSeenIds.has(id)) removeRemote(id);
+      }
       setOnlineCount(visibleCount + 1);
     };
 

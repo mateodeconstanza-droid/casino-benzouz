@@ -3938,8 +3938,17 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   // courante sans dépendre du re-render React.
   const usingHookahRef = useRef(false);
   useEffect(() => { usingHookahRef.current = usingHookah; }, [usingHookah]);
-  const pendingRemoteUpdatesRef = useRef({}); // dernière snapshot reçue {id: playerData}
+  // Object pool pour les snapshots — on réutilise le MÊME objet et on
+  // vide ses clés au lieu d'en créer un nouveau toutes les 120ms (8 Hz × 50
+  // players = ~480 keys de churn/sec sans cette optimisation).
+  const pendingRemoteUpdatesRef = useRef({});
+  const _snapshotMapPool = useRef({});
   const remoteShotsRef = useRef([]); // tirs distants à animer
+  // Pool de Vector3 pré-alloués pour les remote shots (évite 2 allocs/shot)
+  const _shotVecPool = useRef({
+    from: new THREE.Vector3(),
+    to: new THREE.Vector3(),
+  });
 
   // Construire un avatar basique pour un joueur distant
   const buildRemoteAvatar = (pdata) => {
@@ -4028,33 +4037,47 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     delete remotePlayersRef.current[id];
   };
 
-  // === Perf : Vec3 réutilisé pour éviter ~3000 allocs/sec (60fps × 50 players) ===
+  // === Perf : Vec3 réutilisé + Set réutilisé pour éviter le GC ===
   const _targetVec3 = new THREE.Vector3();
+  const _aliveIdsSet = new Set();           // réutilisé chaque frame
+  const _lastUpdateTimeRef = useRef(0);
   const updateRemoteAvatars = () => {
     const snap = pendingRemoteUpdatesRef.current;
     if (!snap) return;
     const myId = myIdRef.current;
     const tNow = performance.now();
-    // Add/update
-    Object.values(snap).forEach((pd) => {
-      if (!pd || !pd.id) return;
-      if (pd.id === myId) return; // skip self
+    // Frame-rate independent lerp : factor = 1 - exp(-rate * dt)
+    // rate ≈ 12 → time constant ~85ms (cohérent avec snapshot 120-250ms serveur)
+    const dt = Math.min(0.1, (tNow - _lastUpdateTimeRef.current) / 1000);
+    _lastUpdateTimeRef.current = tNow;
+    const posFactor = 1 - Math.exp(-12 * dt);
+    const rotFactor = 1 - Math.exp(-15 * dt);
+
+    _aliveIdsSet.clear();
+    // for...in itère sans créer d'array (Object.values en crée un)
+    for (const id in snap) {
+      const pd = snap[id];
+      if (!pd || !pd.id) continue;
+      _aliveIdsSet.add(pd.id);
+      if (pd.id === myId) continue;
       let entry = remotePlayersRef.current[pd.id];
       if (!entry) {
         const mesh = buildRemoteAvatar(pd);
-        if (!mesh) return;
+        if (!mesh) continue;
         entry = { mesh, data: pd };
         remotePlayersRef.current[pd.id] = entry;
       }
       entry.data = pd;
-      // Apparence : rebuild si changé
       refreshRemoteAppearanceLobby(entry, pd);
-      // Interpolation douce vers la position cible
       const m = entry.mesh;
       _targetVec3.set(pd.x || 0, 0, pd.z || 0);
-      m.position.x += (_targetVec3.x - m.position.x) * 0.2;
-      m.position.z += (_targetVec3.z - m.position.z) * 0.2;
-      m.rotation.y += ((pd.rotY || 0) - m.rotation.y) * 0.25;
+      m.position.x += (_targetVec3.x - m.position.x) * posFactor;
+      m.position.z += (_targetVec3.z - m.position.z) * posFactor;
+      // Rotation : shortest-path lerp (évite spin sur passage ±π)
+      let targetRotY = pd.rotY || 0;
+      const dRot = targetRotY - m.rotation.y;
+      const wrappedDRot = dRot > Math.PI ? dRot - 2 * Math.PI : dRot < -Math.PI ? dRot + 2 * Math.PI : dRot;
+      m.rotation.y += wrappedDRot * rotFactor;
       // Anim marche
       const moved = m.userData.lastPos.distanceTo(_targetVec3) > 0.005;
       const swing = moved ? Math.sin(tNow * 0.008) * 0.3 : 0;
@@ -4064,12 +4087,11 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       if (m.userData.armR) m.userData.armR.rotation.x = swing * 0.8;
       m.userData.lastPos.copy(_targetVec3);
       m.visible = (pd.hp || 100) > 0;
-    });
-    // Remove disparus
-    const aliveIds = new Set(Object.keys(snap));
-    Object.keys(remotePlayersRef.current).forEach((id) => {
-      if (!aliveIds.has(id)) removeRemoteAvatar(id);
-    });
+    }
+    // Cleanup ghosts (iter via for...in pour éviter Object.keys array)
+    for (const id in remotePlayersRef.current) {
+      if (!_aliveIdsSet.has(id)) removeRemoteAvatar(id);
+    }
   };
 
   // Connexion WebSocket au serveur multijoueur
@@ -4082,23 +4104,28 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       onMessage: (msg) => {
         if (msg.type === 'welcome') {
           myIdRef.current = msg.you?.id;
-          // Sécurité reconnect : retire tous les remotes du précédent socket
-          // pour éviter les avatars dupliqués
           Object.keys(remotePlayersRef.current).forEach((id) => removeRemoteAvatar(id));
-          // initial snapshot
-          const map = {};
-          (msg.players || []).forEach(p => { map[p.id] = p; });
-          pendingRemoteUpdatesRef.current = map;
-          setOnlinePlayersCount(msg.players?.length || 1);
+          // Object pooling : on REUSE la même map au lieu d'en créer une nouvelle
+          const pool = _snapshotMapPool.current;
+          for (const k in pool) delete pool[k];
+          const players = msg.players || [];
+          for (let i = 0; i < players.length; i++) pool[players[i].id] = players[i];
+          pendingRemoteUpdatesRef.current = pool;
+          setOnlinePlayersCount(players.length || 1);
           setChatMessages(msg.chat || []);
         } else if (msg.type === 'snapshot') {
-          const map = {};
-          (msg.players || []).forEach(p => { map[p.id] = p; });
-          pendingRemoteUpdatesRef.current = map;
-          setOnlinePlayersCount(msg.players?.length || 1);
-          // HP personnel
-          const me = (msg.players || []).find(p => p.id === myIdRef.current);
-          if (me) setMyHp(me.hp);
+          // Object pooling — vide et repeuple le même objet (anti-GC)
+          const pool = _snapshotMapPool.current;
+          for (const k in pool) delete pool[k];
+          const players = msg.players || [];
+          for (let i = 0; i < players.length; i++) pool[players[i].id] = players[i];
+          pendingRemoteUpdatesRef.current = pool;
+          setOnlinePlayersCount(players.length || 1);
+          // HP personnel : itération directe sans .find (qui crée un closure)
+          const myId = myIdRef.current;
+          for (let i = 0; i < players.length; i++) {
+            if (players[i].id === myId) { setMyHp(players[i].hp); break; }
+          }
         } else if (msg.type === 'player_joined') {
           // Pas de set onlineCount manuel — la snapshot fait foi
           setChatMessages((prev) => [...prev, { from: 'SYSTÈME', text: `${msg.player.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));
