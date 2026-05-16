@@ -3050,14 +3050,13 @@ const Street3D = ({
       }
     };
 
-    // Les 4 côtés sont fermés (aucun portail). La plage (x ∈ [65, 120]) est
-    // incluse dans l'enclos donc accessible librement, mais le bord est de la
-    // clôture (x = 120) borde directement la mer pour empêcher l'entrée dans
-    // l'eau.
+    // 3 côtés fermés (nord/sud/ouest). Côté EST (x=PZ_MAX_X=120, sable/mer)
+    // est OUVERT : le joueur peut entrer dans l'eau librement.
     buildSide({ axis: 'x', fixed: PZ_MAX_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: false });
     buildSide({ axis: 'x', fixed: PZ_MIN_Z, from: PZ_MIN_X, to: PZ_MAX_X, hasGate: false });
     buildSide({ axis: 'z', fixed: PZ_MIN_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: false });
-    buildSide({ axis: 'z', fixed: PZ_MAX_X, from: PZ_MIN_Z, to: PZ_MAX_Z, hasGate: false });
+    // BARRIÈRE MER/SABLE RETIRÉE : on n'appelle plus buildSide pour x=PZ_MAX_X
+    // → la plage débouche directement sur l'océan, sans clôture noire
 
     scene.add(playZoneFence);
 
@@ -3190,7 +3189,9 @@ const Street3D = ({
     const DEATH_GRACE = 1.5;
     const isInDeathZone = (x, z) => {
       if (x < PZ_MIN_X - DEATH_GRACE) return true;
-      if (x > PZ_MAX_X + DEATH_GRACE) return true;
+      // Côté mer (x > PZ_MAX_X) : marge généreuse de 60m → le joueur peut
+      // entrer dans l'eau sans mourir, mais pas s'égarer trop loin
+      if (x > PZ_MAX_X + 60) return true;
       if (z < PZ_MIN_Z - DEATH_GRACE) return true;
       if (z > PZ_MAX_Z + DEATH_GRACE) return true;
       return false;
