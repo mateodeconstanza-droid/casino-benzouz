@@ -65,6 +65,27 @@ class ServerState:
     def snapshot(self):
         return list(self.players.values())
 
+    def snapshot_compact(self):
+        """anti-lag-multiplayer : array packé pour économiser ~4× la bande passante.
+        Layout : [id, x, y, z, rotY, hp, weapon, skin, outfit, hair, shoes]
+        Les floats sont arrondis pour réduire encore (2-3 décimales suffisent)."""
+        out = []
+        for p in self.players.values():
+            out.append([
+                p["id"],
+                round(p["x"], 2),
+                round(p["y"], 2),
+                round(p["z"], 2),
+                round(p["rotY"], 3),
+                p.get("hp", 100),
+                p.get("weapon") or "",
+                p.get("skin", "#e0b48a"),
+                p.get("outfit", 0),
+                p.get("hair", 0),
+                p.get("shoes", 0),
+            ])
+        return out
+
 
 SERVER_STATES: dict[str, ServerState] = {sid: ServerState(sid) for sid in SERVERS}
 
@@ -151,21 +172,46 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
                 continue
             mtype = msg.get("type")
 
-            if mtype == "pos":
+            # anti-lag-multiplayer : protocole compact array
+            # Accepte aussi le format legacy {type:'pos', x, y, z, ...}
+            if mtype == "pos" or mtype == "p":
                 p = state.players.get(pid)
                 if not p:
                     break
-                p["x"] = float(msg.get("x", p["x"]))
-                p["y"] = float(msg.get("y", p["y"]))
-                p["z"] = float(msg.get("z", p["z"]))
-                p["rotY"] = float(msg.get("rotY", p["rotY"]))
-                p["weapon"] = msg.get("weapon")
-                p["skin"] = msg.get("skin", p.get("skin"))
-                p["outfit"] = msg.get("outfit", p.get("outfit"))
-                p["hair"] = msg.get("hair", p.get("hair"))
-                p["shoes"] = msg.get("shoes", p.get("shoes"))
+                d = msg.get("d")
+                if d and isinstance(d, list) and len(d) >= 4:
+                    # Format compact : [x, y, z, rotY, weapon?]
+                    p["x"] = float(d[0])
+                    p["y"] = float(d[1])
+                    p["z"] = float(d[2])
+                    p["rotY"] = float(d[3])
+                    if len(d) > 4:
+                        p["weapon"] = d[4] if d[4] else None
+                else:
+                    # Legacy format
+                    p["x"] = float(msg.get("x", p["x"]))
+                    p["y"] = float(msg.get("y", p["y"]))
+                    p["z"] = float(msg.get("z", p["z"]))
+                    p["rotY"] = float(msg.get("rotY", p["rotY"]))
+                    p["weapon"] = msg.get("weapon")
+                    p["skin"] = msg.get("skin", p.get("skin"))
+                    p["outfit"] = msg.get("outfit", p.get("outfit"))
+                    p["hair"] = msg.get("hair", p.get("hair"))
+                    p["shoes"] = msg.get("shoes", p.get("shoes"))
                 p["lastSeen"] = time.time()
-                # Pas de broadcast par pos individuelle, on enverra un snapshot périodique
+
+            elif mtype == "a":
+                # appearance update (rare) — économise les bytes vs envoi à chaque pos
+                p = state.players.get(pid)
+                if not p:
+                    break
+                d = msg.get("d")
+                if d and isinstance(d, list) and len(d) >= 4:
+                    p["skin"]   = d[0] if d[0] else p.get("skin", "#e0b48a")
+                    p["outfit"] = int(d[1]) if d[1] is not None else p.get("outfit", 0)
+                    p["hair"]   = int(d[2]) if d[2] is not None else p.get("hair", 0)
+                    p["shoes"]  = int(d[3]) if d[3] is not None else p.get("shoes", 0)
+                p["lastSeen"] = time.time()
 
             elif mtype == "chat":
                 text = (msg.get("text") or "").strip()[:200]
@@ -283,9 +329,11 @@ async def snapshot_loop():
                     # Le close() côté serveur déclenche le finally du ws handler
                     # qui fait state.remove + broadcast player_left.
             try:
+                # Format compact : ~4× plus léger que l'ancien JSON
+                # ([id, x, y, z, rotY, hp, weapon, skin, outfit, hair, shoes])
                 await state.broadcast({
-                    "type": "snapshot",
-                    "players": state.snapshot(),
+                    "t": "s",
+                    "p": state.snapshot_compact(),
                 })
             except Exception:
                 pass

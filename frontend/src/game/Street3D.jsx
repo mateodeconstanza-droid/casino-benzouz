@@ -3901,10 +3901,35 @@ const Street3D = ({
     };
 
     // === Helper : applique la liste serveur, ZERO alloc per snapshot ===
-    // Pool de structures : Vec3 + Set + tracker de temps réutilisés
     const _remoteTargetVec3 = new THREE.Vector3();
     const _remoteSeenIds = new Set();
     let _lastSnapshotTime = 0;
+    // Player object pool pour décompacter le format array sans GC
+    const _pdPool = [];
+    let _pdPoolIdx = 0;
+    const _getPooledPd = () => {
+      let obj = _pdPool[_pdPoolIdx++];
+      if (!obj) { obj = {}; _pdPool.push(obj); }
+      return obj;
+    };
+    // Décompacte un array [id,x,y,z,rotY,hp,weapon,skin,outfit,hair,shoes]
+    // dans un objet pooled et l'envoie à applyRemoteSnapshot
+    const _decompactedBuffer = [];
+    const applyRemoteSnapshotCompact = (compactArr) => {
+      _pdPoolIdx = 0;
+      _decompactedBuffer.length = 0;
+      for (let i = 0; i < compactArr.length; i++) {
+        const a = compactArr[i];
+        const p = _getPooledPd();
+        p.id = a[0]; p.name = a[0];
+        p.x = a[1]; p.y = a[2]; p.z = a[3];
+        p.rotY = a[4]; p.hp = a[5];
+        p.weapon = a[6] || null;
+        p.skin = a[7]; p.outfit = a[8]; p.hair = a[9]; p.shoes = a[10];
+        _decompactedBuffer.push(p);
+      }
+      applyRemoteSnapshot(_decompactedBuffer);
+    };
 
     const applyRemoteSnapshot = (players) => {
       const tNow = performance.now();
@@ -3983,8 +4008,14 @@ const Street3D = ({
           setMpChat((prev) => [...prev, { from: 'SYSTÈME', text: `${pd.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));
         } else if (msg.type === 'player_left') {
           removeRemote(msg.id);
-        } else if (msg.type === 'snapshot') {
-          applyRemoteSnapshot(msg.players || []);
+        } else if (msg.type === 'snapshot' || msg.t === 's') {
+          // anti-lag-multiplayer : décode format compact array si présent
+          // [id, x, y, z, rotY, hp, weapon, skin, outfit, hair, shoes]
+          if (msg.t === 's') {
+            applyRemoteSnapshotCompact(msg.p || []);
+          } else {
+            applyRemoteSnapshot(msg.players || []);
+          }
         } else if (msg.type === 'chat') {
           setMpChat((prev) => [...prev, msg].slice(-30));
         }

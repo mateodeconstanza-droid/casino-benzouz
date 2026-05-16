@@ -3939,10 +3939,21 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const usingHookahRef = useRef(false);
   useEffect(() => { usingHookahRef.current = usingHookah; }, [usingHookah]);
   // Object pool pour les snapshots — on réutilise le MÊME objet et on
-  // vide ses clés au lieu d'en créer un nouveau toutes les 120ms (8 Hz × 50
-  // players = ~480 keys de churn/sec sans cette optimisation).
+  // vide ses clés au lieu d'en créer un nouveau toutes les 120ms.
   const pendingRemoteUpdatesRef = useRef({});
   const _snapshotMapPool = useRef({});
+  // Pool de player objects pour décompacter le protocole array sans GC
+  const _playerObjPool = useRef([]);
+  const _playerObjPoolIdxRef = useRef(0);
+  const _getPooledPlayer = () => {
+    const idx = _playerObjPoolIdxRef.current++;
+    let obj = _playerObjPool.current[idx];
+    if (!obj) {
+      obj = {};
+      _playerObjPool.current[idx] = obj;
+    }
+    return obj;
+  };
   const remoteShotsRef = useRef([]); // tirs distants à animer
   // Pool de Vector3 pré-alloués pour les remote shots (évite 2 allocs/shot)
   const _shotVecPool = useRef({
@@ -4113,19 +4124,36 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
           pendingRemoteUpdatesRef.current = pool;
           setOnlinePlayersCount(players.length || 1);
           setChatMessages(msg.chat || []);
-        } else if (msg.type === 'snapshot') {
-          // Object pooling — vide et repeuple le même objet (anti-GC)
+        } else if (msg.type === 'snapshot' || msg.t === 's') {
+          // anti-lag-multiplayer : décode le format compact array
+          // [id, x, y, z, rotY, hp, weapon, skin, outfit, hair, shoes]
+          const compact = msg.t === 's';
+          const players = compact ? (msg.p || []) : (msg.players || []);
           const pool = _snapshotMapPool.current;
           for (const k in pool) delete pool[k];
-          const players = msg.players || [];
-          for (let i = 0; i < players.length; i++) pool[players[i].id] = players[i];
+          _playerObjPoolIdxRef.current = 0;
+          const myId = myIdRef.current;
+          let myHp = null;
+          for (let i = 0; i < players.length; i++) {
+            const src = players[i];
+            let p;
+            if (compact) {
+              // Décode array → pooled object (zero alloc)
+              p = _getPooledPlayer();
+              p.id = src[0]; p.name = src[0];
+              p.x = src[1]; p.y = src[2]; p.z = src[3];
+              p.rotY = src[4]; p.hp = src[5];
+              p.weapon = src[6] || null;
+              p.skin = src[7]; p.outfit = src[8]; p.hair = src[9]; p.shoes = src[10];
+            } else {
+              p = src;
+            }
+            pool[p.id] = p;
+            if (p.id === myId) myHp = p.hp;
+          }
           pendingRemoteUpdatesRef.current = pool;
           setOnlinePlayersCount(players.length || 1);
-          // HP personnel : itération directe sans .find (qui crée un closure)
-          const myId = myIdRef.current;
-          for (let i = 0; i < players.length; i++) {
-            if (players[i].id === myId) { setMyHp(players[i].hp); break; }
-          }
+          if (myHp !== null) setMyHp(myHp);
         } else if (msg.type === 'player_joined') {
           // Pas de set onlineCount manuel — la snapshot fait foi
           setChatMessages((prev) => [...prev, { from: 'SYSTÈME', text: `${msg.player.name} a rejoint.`, ts: Date.now() / 1000 }].slice(-30));

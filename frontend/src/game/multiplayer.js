@@ -88,8 +88,24 @@ export class MPClient {
     try { this.ws.send(JSON.stringify(obj)); } catch (_e) { /* noop */ }
   }
 
+  // anti-lag-multiplayer : protocole compact array (5× plus léger que JSON verbeux)
+  // L'apparence (skin/outfit/hair/shoes) est envoyée séparément SEULEMENT
+  // quand elle change, via sendAppearance(). Sinon on perd ~80 bytes/pos pour
+  // rien à 8 Hz × 50 joueurs.
   sendPos(x, y, z, rotY, weapon, extras = {}) {
-    this.send({ type: 'pos', x, y, z, rotY, weapon, ...extras });
+    // Array: [x, y, z, rotY, weapon?]
+    this.send({ t: 'p', d: [x, y, z, rotY, weapon || ''] });
+    // Auto-track de l'apparence — envoie un msg 'a' uniquement si changé
+    if (extras && (extras.skin !== undefined || extras.outfit !== undefined)) {
+      const cur = `${extras.skin || ''}|${extras.outfit ?? 0}|${extras.hair ?? 0}|${extras.shoes ?? 0}`;
+      if (cur !== this._lastAppearance) {
+        this._lastAppearance = cur;
+        this.send({
+          t: 'a',
+          d: [extras.skin || '', extras.outfit ?? 0, extras.hair ?? 0, extras.shoes ?? 0],
+        });
+      }
+    }
   }
 
   sendChat(text) {
