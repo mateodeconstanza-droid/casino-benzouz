@@ -133,8 +133,9 @@ const Street3D = ({
   const [showStreetInventory, setShowStreetInventory] = useState(false);
   const [streetInvTab, setStreetInvTab] = useState('weapons');
   // Vue 3ème personne ville (toggle V ou bouton mobile)
-  const [tpsMode, setTpsMode] = useState(false);
-  const tpsModeRef = useRef(false);
+  // TPS par défaut : les joueurs voient leur skin / personnage en jouant
+  const [tpsMode, setTpsMode] = useState(true);
+  const tpsModeRef = useRef(true);
   useEffect(() => { tpsModeRef.current = tpsMode; }, [tpsMode]);
 
   // Rebuild le rig local quand l'apparence du joueur change (customisation)
@@ -3280,7 +3281,8 @@ const Street3D = ({
       hair: profile?.hair ?? 0,
       shoes: profile?.shoes ?? 0,
     });
-    localPlayerRig.visible = false;
+    // Visible si TPS par défaut (toggle V pour FPS)
+    localPlayerRig.visible = !!tpsModeRef.current;
     scene.add(localPlayerRig);
 
     stateRef.current = {

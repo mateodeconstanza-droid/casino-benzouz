@@ -21,8 +21,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const [showInventory, setShowInventory] = useState(false);
   const [showArcadeMenu, setShowArcadeMenu] = useState(false);
   const [shooting, setShooting] = useState(false);
-  const [viewMode, setViewMode] = useState('first'); // 'first' | 'third'
-  const viewModeRef = useRef('first');
+  // TPS par défaut : les joueurs voient leur skin pendant qu'ils jouent
+  const [viewMode, setViewMode] = useState('third'); // 'first' | 'third'
+  const viewModeRef = useRef('third');
   useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
   const firingRef = useRef(false);
   const [visibleBullets, setVisibleBullets] = useState([]);
