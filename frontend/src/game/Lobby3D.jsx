@@ -453,6 +453,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     const tpsTargetPos     = new THREE.Vector3();
     const tpsSmoothPos     = new THREE.Vector3(0, TPS_HEIGHT, 0);
     let tpsSmoothInit = false;
+    let tpsRaycastCache = null; // perf : raycast 1 frame sur 2
 
     // Slab-method ray vs AABB 2D (horizontal). Retourne la distance min ou Infinity.
     // Beaucoup plus rapide qu'intersectObjects sur des centaines de meshes.
@@ -2150,7 +2151,10 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       return { zone };
     };
 
-    const barObj = createBar();
+    // BAR retiré sur demande user (réduction massive du nombre de meshes
+    // dans le casino : bouteilles, barman 3D, étagères, verres, etc.)
+    // Stub pour pas casser les références à barObj.zone plus bas
+    const barObj = { zone: null };
 
     // ========== TOILETTES ==========
     const createToilet = () => {
@@ -3158,7 +3162,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     // Liste globale des zones d'interaction
     const interactZones = [
       bj.zone, rl.zone, hc.zone, pk.zone,
-      barObj.zone, toiletObj.zone, atmObj.zone, wheelObj.zone, shopObj.zone, benzBetObj.zone,
+      toiletObj.zone, atmObj.zone, wheelObj.zone, shopObj.zone, benzBetObj.zone,
       ...arcadeBornes.map(b => b.zone),
     ];
 
@@ -3809,20 +3813,27 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         // 1) Position désirée : `TPS_DESIRED_DIST` derrière le joueur
         let desiredDist = TPS_DESIRED_DIST;
 
-        // 2) anti-lag-multiplayer : 2D AABB raycast (5-10× plus rapide que
-        //    intersectObjects sur scene.children avec 50 remote rigs)
-        // Direction normalisée derrière le joueur dans le plan horizontal
-        const dirLen = Math.hypot(camDir.x, camDir.z) || 1;
-        const rdx = -camDir.x / dirLen;
-        const rdz = -camDir.z / dirLen;
-        let minDist = Infinity;
-        for (let i = 0; i < colliders.length; i++) {
-          const d = _slabRayAABB(origPos.x, origPos.z, rdx, rdz, colliders[i]);
-          if (d < minDist) minDist = d;
+        // 2) anti-lag-multiplayer : 2D AABB raycast throttled 1/2 frames
+        // Cache le résultat précédent pour les frames qui le skippent.
+        // Le lerp 0.18 lisse les transitions, on perd ~rien visuellement.
+        if (!tpsRaycastCache) tpsRaycastCache = { dist: TPS_DESIRED_DIST, frame: 0 };
+        tpsRaycastCache.frame++;
+        if (tpsRaycastCache.frame % 2 === 0) {
+          const dirLen = Math.hypot(camDir.x, camDir.z) || 1;
+          const rdx = -camDir.x / dirLen;
+          const rdz = -camDir.z / dirLen;
+          let minDist = Infinity;
+          for (let i = 0; i < colliders.length; i++) {
+            const d = _slabRayAABB(origPos.x, origPos.z, rdx, rdz, colliders[i]);
+            if (d < minDist) minDist = d;
+          }
+          if (minDist < TPS_DESIRED_DIST + 0.5) {
+            tpsRaycastCache.dist = Math.max(TPS_MIN_DIST, minDist - TPS_WALL_PAD);
+          } else {
+            tpsRaycastCache.dist = TPS_DESIRED_DIST;
+          }
         }
-        if (minDist < TPS_DESIRED_DIST + 0.5) {
-          desiredDist = Math.max(TPS_MIN_DIST, minDist - TPS_WALL_PAD);
-        }
+        desiredDist = tpsRaycastCache.dist;
 
         tpsTargetPos.set(
           origPos.x - camDir.x * desiredDist,
