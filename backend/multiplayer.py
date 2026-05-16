@@ -66,9 +66,7 @@ class ServerState:
         return list(self.players.values())
 
     def snapshot_compact(self):
-        """anti-lag-multiplayer : array packé pour économiser ~4× la bande passante.
-        Layout : [id, x, y, z, rotY, hp, weapon, skin, outfit, hair, shoes]
-        Les floats sont arrondis pour réduire encore (2-3 décimales suffisent)."""
+        """Layout : [id, x, y, z, rotY, hp, weapon, skin, outfit, hair, shoes, skinPack]"""
         out = []
         for p in self.players.values():
             out.append([
@@ -83,6 +81,7 @@ class ServerState:
                 p.get("outfit", 0),
                 p.get("hair", 0),
                 p.get("shoes", 0),
+                p.get("skinPack") or "",   # nouveau slot 11
             ])
         return out
 
@@ -201,7 +200,8 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
                 p["lastSeen"] = time.time()
 
             elif mtype == "a":
-                # appearance update (rare) — économise les bytes vs envoi à chaque pos
+                # appearance update (rare) — éco bytes
+                # d : [skin, outfit, hair, shoes, skinPack?]
                 p = state.players.get(pid)
                 if not p:
                     break
@@ -211,6 +211,9 @@ async def mp_ws(websocket: WebSocket, server_id: str, username: str):
                     p["outfit"] = int(d[1]) if d[1] is not None else p.get("outfit", 0)
                     p["hair"]   = int(d[2]) if d[2] is not None else p.get("hair", 0)
                     p["shoes"]  = int(d[3]) if d[3] is not None else p.get("shoes", 0)
+                    # skinPack en 5ème index (optionnel)
+                    if len(d) > 4:
+                        p["skinPack"] = d[4] if d[4] else None
                 p["lastSeen"] = time.time()
 
             elif mtype == "chat":

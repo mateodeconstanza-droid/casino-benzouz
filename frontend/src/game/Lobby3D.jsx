@@ -139,6 +139,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       // playerCharacter.js dans userData, et exploitées par
       // l'animation de marche TPS plus bas.
       const av = buildPlayerCharacter({
+        skinPack: profile?.equippedSkin,    // ← priorité skin pack
         hair: profile?.hair ?? 0,
         outfit: profile?.outfit ?? 0,
         shoes: profile?.shoes ?? 0,
@@ -3848,7 +3849,8 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             px, camera.position.y, pz,
             camera.rotation.y,
             selectedWeaponRef.current,
-            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair, shoes: profile?.shoes }
+            // skinPack a priorité (override hair/outfit/shoes côté remotes)
+            { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair, shoes: profile?.shoes, skinPack: profile?.equippedSkin }
           );
         }
       }
@@ -4016,7 +4018,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   // Si l'apparence change (le joueur s'est customisé), rebuild son rig
   const refreshRemoteAppearanceLobby = (entry, pd) => {
     const u = entry.mesh.userData;
-    if (u.skin === pd.skin && u.outfit === pd.outfit && u.hair === pd.hair && u.shoes === pd.shoes) return;
+    if (u.skin === pd.skin && u.outfit === pd.outfit && u.hair === pd.hair && u.shoes === pd.shoes && u.skinPack === pd.skinPack) return;
     if (u.rig) {
       entry.mesh.remove(u.rig);
       u.rig.traverse((o) => {
@@ -4025,6 +4027,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       });
     }
     const newRig = buildPlayerCharacterLite({
+      skinPack: pd.skinPack,
       skin: pd.skin || '#e0b48a',
       outfit: pd.outfit ?? 0,
       hair: pd.hair ?? 0,
@@ -4037,6 +4040,7 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
     u.armL = newRig.userData?.leftArm;
     u.armR = newRig.userData?.rightArm;
     u.skin = pd.skin; u.outfit = pd.outfit; u.hair = pd.hair; u.shoes = pd.shoes;
+    u.skinPack = pd.skinPack;
   };
 
   const removeRemoteAvatar = (id) => {
@@ -4143,13 +4147,13 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
             const src = players[i];
             let p;
             if (compact) {
-              // Décode array → pooled object (zero alloc)
               p = _getPooledPlayer();
               p.id = src[0]; p.name = src[0];
               p.x = src[1]; p.y = src[2]; p.z = src[3];
               p.rotY = src[4]; p.hp = src[5];
               p.weapon = src[6] || null;
               p.skin = src[7]; p.outfit = src[8]; p.hair = src[9]; p.shoes = src[10];
+              p.skinPack = src[11] || null;
             } else {
               p = src;
             }

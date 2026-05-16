@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { WEAPONS, VEHICLES, CASINOS, TROPHIES, FOUR_HOURS, DEALER_PROFILES, fmt, BENZBET_PENDING_KEY, BENZBET_HISTORY_KEY, resolvePendingBet } from '@/game/constants';
 import LoginScreen from '@/game/Login';
 import CharacterScreen from '@/game/Character';
+import SkinSelector from '@/game/SkinSelector';
 import Lobby3D from '@/game/Lobby3D';
 import Street3D from '@/game/Street3D';
 import FortniteLobby from '@/game/FortniteLobby';
@@ -215,6 +216,7 @@ export default function Casino() {
       if (showDice)         { setShowDice(false); ev.preventDefault(); return; }
       if (showCoinFlip)     { setShowCoinFlip(false); ev.preventDefault(); return; }
       if (showMines)        { setShowMines(false); ev.preventDefault(); return; }
+      if (showSkinSelector) { setShowSkinSelector(false); ev.preventDefault(); return; }
       if (showBattlePass)   { setShowBattlePass(false); ev.preventDefault(); return; }
       if (showLeaderboard)  { setShowLeaderboard(false); ev.preventDefault(); return; }
       if (showTrophies)     { setShowTrophies(false); ev.preventDefault(); return; }
@@ -229,7 +231,7 @@ export default function Casino() {
     return () => window.removeEventListener('keydown', onKey);
   }, [
     showShop, showATM, showBar, showToilet, showWheel, showGambleBet,
-    showCrash, showDice, showCoinFlip, showMines,
+    showCrash, showDice, showCoinFlip, showMines, showSkinSelector,
     showBattlePass, showLeaderboard, showTrophies, showQuests,
     showProfile, showControls, showChangeCasino, unlockedTrophy,
   ]);
@@ -279,7 +281,10 @@ export default function Casino() {
         outfit: appearance?.outfit ?? 0,
         shoes: appearance?.shoes ?? 0,
         skin: '#e0b48a',
-        email: appearance?.email || null,  // ← persist email pour quick-login profil sauvé
+        // === Système Skin Packs Fortnite-style ===
+        ownedSkins: ['sk-default'],   // tout le monde commence avec le skin gratuit
+        equippedSkin: 'sk-default',
+        email: appearance?.email || null,
         // Bannières : les 5 gratuites pré-débloquées, la première équipée par défaut
         ownedBanners: ['b-default','b-classic','b-cards','b-neon','b-pixel'],
         equippedBanner: 'b-default',
@@ -290,7 +295,6 @@ export default function Casino() {
     } else {
       p = savedProfiles.find(s => s.name === name);
       if (!p) {
-        // Compte serveur OK mais pas de profil local → init par défaut
         p = {
           name, casino: 'vegas',
           balance: 500, totalWinnings: 0, sessions: 0,
@@ -299,6 +303,8 @@ export default function Casino() {
           ownedHair: [0,1,2], ownedOutfit: [0,1,2], ownedShoes: [0,1,2],
           hair: 0, outfit: 0, shoes: 0,
           skin: '#e0b48a',
+          ownedSkins: ['sk-default'],
+          equippedSkin: 'sk-default',
           email: appearance?.email || null,
           ownedBanners: ['b-default','b-classic','b-cards','b-neon','b-pixel'],
           equippedBanner: 'b-default',
@@ -345,6 +351,9 @@ export default function Casino() {
             bpProgress: c.bpProgress || p.bpProgress,
             bpRewardsClaimed: c.bpRewardsClaimed || p.bpRewardsClaimed,
             bpPremium: c.bpPremium ?? p.bpPremium,
+            // Skin packs
+            ownedSkins: c.ownedSkins || p.ownedSkins || ['sk-default'],
+            equippedSkin: c.equippedSkin || p.equippedSkin || 'sk-default',
           };
         }
       } catch (_e) { /* offline-tolerant */ }
@@ -405,9 +414,33 @@ export default function Casino() {
   const [spawnHint, setSpawnHint] = useState(null);
 
   const [characterReturnTo, setCharacterReturnTo] = useState('serverSelect');
+  const [showSkinSelector, setShowSkinSelector] = useState(false);
+  // openCharacterFromMenu ouvre maintenant le SkinSelector Fortnite-style
   const openCharacterFromMenu = () => {
-    setCharacterReturnTo('lobby');
-    setScreen('character');
+    setShowSkinSelector(true);
+  };
+
+  // Achète un skin : débite balance, l'ajoute aux skins possédés, et l'équipe
+  const handleBuySkin = async (skinId, price) => {
+    if (!profile || (balance || 0) < price) return;
+    const newBal = balance - price;
+    const newProfile = {
+      ...profile,
+      balance: newBal,
+      ownedSkins: [...(profile.ownedSkins || ['sk-default']), skinId],
+      equippedSkin: skinId,
+    };
+    setBalance(newBal);
+    setProfile(newProfile);
+    await saveProfile(newProfile);  // sync local + cloud auto
+  };
+
+  // Équipe un skin déjà possédé (gratuit)
+  const handleEquipSkin = async (skinId) => {
+    if (!profile) return;
+    const newProfile = { ...profile, equippedSkin: skinId };
+    setProfile(newProfile);
+    await saveProfile({ ...newProfile, balance });  // sync local + cloud
   };
 
   const [activeHouseId, setActiveHouseId] = useState(null);
@@ -1099,6 +1132,21 @@ export default function Casino() {
             setProfile(next);
             saveProfile(next);
           }}
+        />
+      )}
+
+      {/* === SkinSelector Fortnite-style (équipement de skin pack unifié) === */}
+      {showSkinSelector && profile && (
+        <SkinSelector
+          profile={profile}
+          balance={balance}
+          onPurchase={async (skinId, price) => {
+            await handleBuySkin(skinId, price);
+          }}
+          onEquip={async (skinId) => {
+            await handleEquipSkin(skinId);
+          }}
+          onClose={() => setShowSkinSelector(false)}
         />
       )}
 

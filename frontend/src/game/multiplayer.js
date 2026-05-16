@@ -95,14 +95,14 @@ export class MPClient {
   sendPos(x, y, z, rotY, weapon, extras = {}) {
     // Array: [x, y, z, rotY, weapon?]
     this.send({ t: 'p', d: [x, y, z, rotY, weapon || ''] });
-    // Auto-track de l'apparence — envoie un msg 'a' uniquement si changé
-    if (extras && (extras.skin !== undefined || extras.outfit !== undefined)) {
-      const cur = `${extras.skin || ''}|${extras.outfit ?? 0}|${extras.hair ?? 0}|${extras.shoes ?? 0}`;
+    // Auto-track apparence + skinPack (Fortnite-style override)
+    if (extras && (extras.skin !== undefined || extras.outfit !== undefined || extras.skinPack !== undefined)) {
+      const cur = `${extras.skin || ''}|${extras.outfit ?? 0}|${extras.hair ?? 0}|${extras.shoes ?? 0}|${extras.skinPack || ''}`;
       if (cur !== this._lastAppearance) {
         this._lastAppearance = cur;
         this.send({
           t: 'a',
-          d: [extras.skin || '', extras.outfit ?? 0, extras.hair ?? 0, extras.shoes ?? 0],
+          d: [extras.skin || '', extras.outfit ?? 0, extras.hair ?? 0, extras.shoes ?? 0, extras.skinPack || ''],
         });
       }
     }

@@ -150,6 +150,7 @@ const Street3D = ({
     });
     // On rebuild avec la nouvelle apparence
     const rig = buildPlayerCharacter({
+      skinPack: profile?.equippedSkin,
       skin: profile?.skin || '#e0b48a',
       outfit: profile?.outfit ?? 0,
       hair: profile?.hair ?? 0,
@@ -159,7 +160,7 @@ const Street3D = ({
     scene.add(rig);
     st.localPlayerRig = rig;
     return undefined;
-  }, [profile?.skin, profile?.outfit, profile?.hair, profile?.shoes]);
+  }, [profile?.skin, profile?.outfit, profile?.hair, profile?.shoes, profile?.equippedSkin]);
   // === Multijoueur ville ===
   const mpOnline = mpMode === 'online' && !!mpServerId;
   const mpRef = useRef(null);
@@ -3273,6 +3274,7 @@ const Street3D = ({
     }
     // === Rig local joueur (TPS) — invisible par défaut, affiché si tpsMode ===
     const localPlayerRig = buildPlayerCharacter({
+      skinPack: profile?.equippedSkin,
       skin: profile?.skin || '#e0b48a',
       outfit: profile?.outfit ?? 0,
       hair: profile?.hair ?? 0,
@@ -3865,7 +3867,7 @@ const Street3D = ({
     // Si l'apparence du remote change, on rebuild son rig
     const refreshRemoteAppearance = (entry, pd) => {
       const u = entry.mesh.userData;
-      if (u.skin === pd.skin && u.outfit === pd.outfit && u.hair === pd.hair && u.shoes === pd.shoes) return;
+      if (u.skin === pd.skin && u.outfit === pd.outfit && u.hair === pd.hair && u.shoes === pd.shoes && u.skinPack === pd.skinPack) return;
       // Retire l'ancien rig
       if (u.rig) {
         entry.mesh.remove(u.rig);
@@ -3876,6 +3878,7 @@ const Street3D = ({
       }
       // Crée le nouveau rig avec la nouvelle apparence
       const newRig = buildPlayerCharacterLite({
+        skinPack: pd.skinPack,
         skin: pd.skin || '#e0b48a',
         outfit: pd.outfit ?? 0,
         hair: pd.hair ?? 0,
@@ -3888,6 +3891,7 @@ const Street3D = ({
       u.armL = newRig.userData?.leftArm;
       u.armR = newRig.userData?.rightArm;
       u.skin = pd.skin; u.outfit = pd.outfit; u.hair = pd.hair; u.shoes = pd.shoes;
+      u.skinPack = pd.skinPack;
     };
 
     const removeRemote = (id) => {
@@ -3927,6 +3931,7 @@ const Street3D = ({
         p.rotY = a[4]; p.hp = a[5];
         p.weapon = a[6] || null;
         p.skin = a[7]; p.outfit = a[8]; p.hair = a[9]; p.shoes = a[10];
+        p.skinPack = a[11] || null;
         _decompactedBuffer.push(p);
       }
       applyRemoteSnapshot(_decompactedBuffer);
@@ -4054,7 +4059,7 @@ const Street3D = ({
             lastSent.x = p.x; lastSent.z = p.z; lastSent.rotY = p.rotY || 0;
             lastPosSentRef.current = now;
             c.sendPos(p.x || 0, p.y || 1.7, p.z || 0, p.rotY || 0, null,
-              { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair, shoes: profile?.shoes });
+              { skin: profile?.skin, outfit: profile?.outfit, hair: profile?.hair, shoes: profile?.shoes, skinPack: profile?.equippedSkin });
           }
         }
       }

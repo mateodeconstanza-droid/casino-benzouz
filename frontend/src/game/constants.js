@@ -231,6 +231,84 @@ export const FURNITURE_CATALOG = [
   { id: 'fu-chandelier',    category: 'deco',    name: 'Lustre Cristal',            icon: '💡', price: 280000,  color: '#f8f4e0' },
 ];
 
+// ============== SKINS UNIFIÉS (Fortnite-style) ==============
+// Chaque skin pack = un look complet : tenue + coiffure + chaussures
+// + accent + thème. Override les choix individuels hair/outfit/shoes
+// quand profile.equippedSkin est défini.
+//
+// Fields :
+//   id, name, theme, rarity, price, preview emoji,
+//   outfit, hair, shoes (refs catalogs existants pour le rendu 3D),
+//   skin (couleur peau, '#aabbcc')
+//   pattern (option visuelle future, ex 'stripes', 'stars', etc.)
+export const SKIN_THEMES = [
+  { id: 'classic', label: 'Classique',  icon: '👤', accent: '#cca366' },
+  { id: 'sport',   label: 'Sport',      icon: '⚽', accent: '#1e3a8a' },
+  { id: 'galaxy',  label: 'Galaxy',     icon: '🌌', accent: '#a855f7' },
+  { id: 'war',     label: 'Guerre',     icon: '🪖', accent: '#425c2a' },
+  { id: 'luxe',    label: 'Luxe',       icon: '💎', accent: '#d4af37' },
+  { id: 'street',  label: 'Street',     icon: '🛹', accent: '#ff6a3a' },
+];
+
+export const SKIN_RARITY = {
+  common:    { label: 'Commun',    color: '#aaaaaa', glow: false },
+  rare:      { label: 'Rare',      color: '#3fe6ff', glow: false },
+  epic:      { label: 'Épique',    color: '#a855f7', glow: true },
+  legendary: { label: 'Légendaire', color: '#ffd700', glow: true },
+  mythic:    { label: 'Mythique',  color: '#ff00aa', glow: true },
+};
+
+export const SKINS_CATALOG = [
+  // ===== CLASSIQUE (5 — gratuits / faible prix) =====
+  { id: 'sk-default',     name: 'Joueur Classique',   theme: 'classic', rarity: 'common', price: 0,        preview: '👤', outfit: 0,  hair: 0, shoes: 0, skin: '#e0b48a' },
+  { id: 'sk-casual',      name: 'Casual Bleu',         theme: 'classic', rarity: 'common', price: 5000,     preview: '🧑', outfit: 2,  hair: 0, shoes: 1, skin: '#d4a07c' },
+  { id: 'sk-survetnoir',  name: 'Survêt Noir',         theme: 'classic', rarity: 'common', price: 15000,    preview: '🥷', outfit: 1,  hair: 1, shoes: 1, skin: '#b88862' },
+  { id: 'sk-tshirt',      name: 'T-shirt Été',         theme: 'classic', rarity: 'common', price: 10000,    preview: '🌞', outfit: 0,  hair: 6, shoes: 2, skin: '#e8c099' },
+  { id: 'sk-rocker',      name: 'Rocker Cuir',         theme: 'classic', rarity: 'rare',   price: 80000,    preview: '🤘', outfit: 3,  hair: 5, shoes: 8, skin: '#c89478' },
+
+  // ===== SPORT (5) =====
+  { id: 'sk-psg',         name: 'Maillot PSG',         theme: 'sport',   rarity: 'epic',     price: 2500000,  preview: '⚽', outfit: 12, hair: 6, shoes: 5, skin: '#e0b48a' },
+  { id: 'sk-real',        name: 'Real Madrid',         theme: 'sport',   rarity: 'epic',     price: 2500000,  preview: '⚪', outfit: 13, hair: 0, shoes: 0, skin: '#d4a888' },
+  { id: 'sk-barca',       name: 'FC Barcelone',        theme: 'sport',   rarity: 'epic',     price: 2500000,  preview: '🔵', outfit: 14, hair: 2, shoes: 1, skin: '#c89478' },
+  { id: 'sk-runner',      name: 'Runner Marathon',     theme: 'sport',   rarity: 'rare',     price: 350000,   preview: '🏃', outfit: 6,  hair: 4, shoes: 5, skin: '#d4a888' },
+  { id: 'sk-boxer',       name: 'Boxeur Champion',     theme: 'sport',   rarity: 'epic',     price: 1200000,  preview: '🥊', outfit: 6,  hair: 1, shoes: 4, skin: '#a47852' },
+
+  // ===== GALAXY (5) =====
+  { id: 'sk-astronaute',  name: 'Astronaute',          theme: 'galaxy',  rarity: 'epic',     price: 1800000,  preview: '🚀', outfit: 4,  hair: 7, shoes: 4, skin: '#e8c8a8' },
+  { id: 'sk-stardust',    name: 'Stardust Mythic',     theme: 'galaxy',  rarity: 'mythic',   price: 8000000,  preview: '✨', outfit: 9,  hair: 7, shoes: 5, skin: '#ddd0e8' },
+  { id: 'sk-cosmonaute',  name: 'Cosmonaute Or',       theme: 'galaxy',  rarity: 'legendary',price: 5000000,  preview: '🌠', outfit: 6,  hair: 9, shoes: 7, skin: '#e8d8a8' },
+  { id: 'sk-nebula',      name: 'Nebula Rose',         theme: 'galaxy',  rarity: 'rare',     price: 450000,   preview: '🌌', outfit: 8,  hair: 8, shoes: 5, skin: '#f0d8c8' },
+  { id: 'sk-blackhole',   name: 'Trou Noir',           theme: 'galaxy',  rarity: 'mythic',   price: 12000000, preview: '⚫', outfit: 5,  hair: 1, shoes: 6, skin: '#5a4848' },
+
+  // ===== GUERRE (5) =====
+  { id: 'sk-soldat',      name: 'Soldat Régulier',     theme: 'war',     rarity: 'common',   price: 80000,    preview: '🪖', outfit: 7,  hair: 1, shoes: 4, skin: '#a47852' },
+  { id: 'sk-sniper',      name: 'Sniper Élite',        theme: 'war',     rarity: 'rare',     price: 600000,   preview: '🎯', outfit: 7,  hair: 4, shoes: 4, skin: '#c89478' },
+  { id: 'sk-tactique',    name: 'Tactique Noir',       theme: 'war',     rarity: 'epic',     price: 1500000,  preview: '🥷', outfit: 4,  hair: 1, shoes: 4, skin: '#a47852' },
+  { id: 'sk-camo',        name: 'Camouflage Jungle',   theme: 'war',     rarity: 'rare',     price: 400000,   preview: '🌿', outfit: 7,  hair: 2, shoes: 4, skin: '#b88862' },
+  { id: 'sk-general',     name: 'Général 5 Étoiles',   theme: 'war',     rarity: 'legendary',price: 3500000,  preview: '⭐', outfit: 4,  hair: 0, shoes: 6, skin: '#d4a888' },
+
+  // ===== LUXE (5) =====
+  { id: 'sk-smoking',     name: 'Smoking Casino',      theme: 'luxe',    rarity: 'epic',     price: 800000,   preview: '🎩', outfit: 5,  hair: 0, shoes: 6, skin: '#d4a888' },
+  { id: 'sk-platine',     name: 'Cheveux Platine',     theme: 'luxe',    rarity: 'rare',     price: 500000,   preview: '💎', outfit: 4,  hair: 7, shoes: 6, skin: '#e8c8a8' },
+  { id: 'sk-louisvuiton', name: 'Louis Vuittonz VIP',  theme: 'luxe',    rarity: 'mythic',   price: 15000000, preview: '💰', outfit: 10, hair: 9, shoes: 7, skin: '#d4a888' },
+  { id: 'sk-fourrure',    name: 'Manteau Fourrure',    theme: 'luxe',    rarity: 'legendary',price: 4000000,  preview: '🧥', outfit: 9,  hair: 8, shoes: 6, skin: '#e8c099' },
+  { id: 'sk-or-massif',   name: 'Or Massif VIP',       theme: 'luxe',    rarity: 'mythic',   price: 20000000, preview: '👑', outfit: 6,  hair: 9, shoes: 7, skin: '#d4a888' },
+
+  // ===== STREET (4) =====
+  { id: 'sk-skater',      name: 'Skater Cool',         theme: 'street',  rarity: 'rare',     price: 180000,   preview: '🛹', outfit: 0,  hair: 8, shoes: 5, skin: '#d4a888' },
+  { id: 'sk-rappeur',     name: 'Rappeur Or',          theme: 'street',  rarity: 'epic',     price: 1500000,  preview: '🎤', outfit: 6,  hair: 3, shoes: 5, skin: '#a47852' },
+  { id: 'sk-graffiti',    name: 'Artiste Graffiti',    theme: 'street',  rarity: 'rare',     price: 280000,   preview: '🎨', outfit: 8,  hair: 8, shoes: 5, skin: '#c89478' },
+  { id: 'sk-kimono',      name: 'Kimono Urbain',       theme: 'street',  rarity: 'epic',     price: 1000000,  preview: '🥋', outfit: 8,  hair: 1, shoes: 2, skin: '#d4a888' },
+];
+
+// Helper : retourne le skin pack équipé, ou null si pas d'override
+export const getEquippedSkin = (profile) => {
+  if (!profile) return null;
+  const id = profile.equippedSkin;
+  if (!id) return null;
+  return SKINS_CATALOG.find((s) => s.id === id) || null;
+};
+
 // === data-manager : 5 catégories pour le menu "par pièce" === ===========
 export const FURNITURE_CATEGORIES = [
   { id: 'salon',   label: 'Salon',           icon: '🛋' },

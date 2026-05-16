@@ -1,6 +1,31 @@
 import * as THREE from 'three';
-import { HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, SHORT_CATALOG } from '@/game/constants';
+import { HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG, SHORT_CATALOG, SKINS_CATALOG } from '@/game/constants';
 import { roundedBox, softSphere, softCylinder, matMatte, matMetal } from '@/game/style';
+
+// Si skinPack est défini (ex: 'sk-psg'), on lookup le catalogue
+// et on remplace hair/outfit/shoes/skin par ceux du pack. Garantit
+// que le même skinPack rend identique dans le lobby ET en jeu.
+export const resolveSkinParams = (opts = {}) => {
+  if (opts.skinPack) {
+    const pack = SKINS_CATALOG.find((s) => s.id === opts.skinPack);
+    if (pack) {
+      return {
+        skin: pack.skin,
+        outfit: pack.outfit,
+        hair: pack.hair,
+        shoes: pack.shoes,
+        short: opts.short ?? null,
+      };
+    }
+  }
+  return {
+    skin: opts.skin || '#e0b48a',
+    outfit: opts.outfit ?? 0,
+    hair: opts.hair ?? 0,
+    shoes: opts.shoes ?? 0,
+    short: opts.short ?? null,
+  };
+};
 
 // =============================================================
 // buildPlayerCharacter — perso 3D unifié style GambleLife
@@ -13,9 +38,9 @@ import { roundedBox, softSphere, softCylinder, matMatte, matMetal } from '@/game
 //   { leftArm, rightArm, leftLeg, rightLeg, head, torso, eyes, mouth }
 // pour permettre l'animation marche / parler / regards.
 // =============================================================
-export const buildPlayerCharacter = ({
-  hair = 0, outfit = 0, shoes = 0, short = null, skin = '#e0b48a',
-} = {}) => {
+export const buildPlayerCharacter = (opts = {}) => {
+  // Si skinPack présent, override avec les valeurs du pack
+  const { hair, outfit, shoes, short, skin } = resolveSkinParams(opts);
   const root = new THREE.Group();
 
   const hairItem = HAIR_CATALOG[hair] || HAIR_CATALOG[0];
@@ -514,9 +539,8 @@ const buildHair = (head, id, mat) => {
 // Retourne THREE.Group avec userData : { leftArm, rightArm, leftLeg,
 // rightLeg } compatibles avec l'animation de marche existante.
 // =============================================================
-export const buildPlayerCharacterLite = ({
-  hair = 0, outfit = 0, shoes = 0, skin = '#e0b48a',
-} = {}) => {
+export const buildPlayerCharacterLite = (opts = {}) => {
+  const { hair, outfit, shoes, skin } = resolveSkinParams(opts);
   const root = new THREE.Group();
   const skinHex = typeof skin === 'string' && skin.startsWith('#')
     ? parseInt(skin.slice(1), 16) : 0xe0b48a;
