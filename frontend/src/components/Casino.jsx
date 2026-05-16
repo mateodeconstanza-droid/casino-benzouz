@@ -50,6 +50,7 @@ export default function Casino() {
   const [showDice, setShowDice] = useState(false);
   const [showCoinFlip, setShowCoinFlip] = useState(false);
   const [showMines, setShowMines] = useState(false);
+  const [showSkinSelector, setShowSkinSelector] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [showTrophies, setShowTrophies] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -414,7 +415,6 @@ export default function Casino() {
   const [spawnHint, setSpawnHint] = useState(null);
 
   const [characterReturnTo, setCharacterReturnTo] = useState('serverSelect');
-  const [showSkinSelector, setShowSkinSelector] = useState(false);
   // openCharacterFromMenu ouvre maintenant le SkinSelector Fortnite-style
   const openCharacterFromMenu = () => {
     setShowSkinSelector(true);
