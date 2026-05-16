@@ -3460,13 +3460,16 @@ const Street3D = ({
 
       // === Vue TPS (3ème personne) ville — parité Lobby3D casino ===
       if (tpsModeRef.current && st.localPlayerRig) {
-        // FIX BUG : rig pieds AU SOL. Avant `camY - 1.7` faisait flotter
-        // le perso à 0.9m du sol car camY=2.6 par défaut.
-        // Au sol → y=0. Sur rooftop (p.y > 5) → feet sur le toit (p.y - 0.7).
+        // Rig pieds AU SOL (y=0) ou sur rooftop (y=p.y-0.7)
         const onRoof = (p.y || 0) > 5;
         const feetY = onRoof ? (p.y - 0.7) : 0;
         st.localPlayerRig.position.set(p.x, feetY, p.z);
-        st.localPlayerRig.rotation.y = p.rotY;
+        // === FIX : rig faces le sens de marche du joueur ===
+        // Trois.js Group avec rotation.y=0 face +Z par défaut. Le joueur,
+        // lui, regarde (-sin(rotY), -cos(rotY)) = -Z par défaut.
+        // Donc on rajoute π pour pivoter le rig de 180° → il fait dos
+        // à la caméra et regarde le sens de marche.
+        st.localPlayerRig.rotation.y = p.rotY + Math.PI;
         st.localPlayerRig.visible = true;
 
         // Anim marche si bouge
@@ -3478,23 +3481,21 @@ const Street3D = ({
         if (u?.leftArm) u.leftArm.rotation.x = -swing * 0.8;
         if (u?.rightArm) u.rightArm.rotation.x = swing * 0.8;
 
-        // Caméra reculée derrière le joueur, avec lerp smooth + raycast 2D AABB
+        // === FIX SIGNE : caméra DERRIÈRE le joueur, pas devant ===
+        // Joueur regarde (-sin, -cos). Pour mettre la caméra derrière,
+        // on l'éloigne dans la direction OPPOSÉE = (+sin, +cos).
         const TPS_DESIRED = 3.2;
         const TPS_MIN = 0.6;
         const TPS_HEIGHT = camY + 0.6;
-        const forward = Math.sin(p.rotY);
-        const fz = Math.cos(p.rotY);
+        const backX = Math.sin(p.rotY);   // direction "derrière le joueur"
+        const backZ = Math.cos(p.rotY);
         let dist = TPS_DESIRED;
-        // anti-lag-multiplayer : 2D slab raycast sur obstacles (≪ Mesh raycast)
-        // Direction normalisée derrière le joueur
-        const dirLen = Math.hypot(forward, fz) || 1;
-        const rdx = -forward / dirLen;
-        const rdz = -fz / dirLen;
+        // 2D slab raycast vers l'arrière pour éviter la caméra dans le mur
         let minDist = Infinity;
         for (let i = 0; i < obstacles.length; i++) {
           const o = obstacles[i];
-          const inv_dx = rdx !== 0 ? 1 / rdx : Infinity;
-          const inv_dz = rdz !== 0 ? 1 / rdz : Infinity;
+          const inv_dx = backX !== 0 ? 1 / backX : Infinity;
+          const inv_dz = backZ !== 0 ? 1 / backZ : Infinity;
           const tx1 = (o.minX - p.x) * inv_dx;
           const tx2 = (o.maxX - p.x) * inv_dx;
           const tz1 = (o.minZ - p.z) * inv_dz;
@@ -3507,10 +3508,10 @@ const Street3D = ({
         }
         if (minDist < TPS_DESIRED + 0.4) dist = Math.max(TPS_MIN, minDist - 0.18);
 
-        // Position cible caméra + lerp
+        // Position cible caméra : DERRIÈRE le joueur dans la dir +sin/+cos
         st.tpsCamSmooth = st.tpsCamSmooth || new THREE.Vector3(p.x, TPS_HEIGHT, p.z);
-        const targetX = p.x - forward * dist;
-        const targetZ = p.z - fz * dist;
+        const targetX = p.x + backX * dist;
+        const targetZ = p.z + backZ * dist;
         st.tpsCamSmooth.x += (targetX - st.tpsCamSmooth.x) * 0.18;
         st.tpsCamSmooth.y += (TPS_HEIGHT - st.tpsCamSmooth.y) * 0.18;
         st.tpsCamSmooth.z += (targetZ - st.tpsCamSmooth.z) * 0.18;
