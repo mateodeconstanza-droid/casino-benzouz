@@ -58,7 +58,42 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
   const mpRef = useRef(null);       // MPClient instance
   const myIdRef = useRef(null);     // ID reçu du serveur
   const remotePlayersRef = useRef({}); // id -> { mesh, data }
-  const sceneRefLocal = useRef(null); // accessible via sceneRef plus bas
+  const sceneRefLocal = useRef(null);
+  const playerAvatarRef = useRef(null); // expose le rig pour rebuild externe
+
+  // Rebuild children du rig quand le skin équipé change (swap-in-place pour
+  // garder la même ref groupe que la tick loop utilise)
+  useEffect(() => {
+    const old = playerAvatarRef.current;
+    if (!old) return undefined;
+    // Retire tous les enfants meshes existants (sauf userData refs)
+    const toRemove = [...old.children];
+    toRemove.forEach((child) => {
+      old.remove(child);
+      child.traverse?.((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+      });
+    });
+    // Build le nouveau rig (un Group) et "déballe" ses enfants dans le old
+    const newRig = buildPlayerCharacter({
+      skinPack: profile?.equippedSkin,
+      hair: profile?.hair ?? 0,
+      outfit: profile?.outfit ?? 0,
+      shoes: profile?.shoes ?? 0,
+      short: profile?.short ?? null,
+      skin: profile?.skin || '#e0b48a',
+    });
+    // Copie userData (refs leftArm/rightArm/etc) pour la marche
+    Object.assign(old.userData, newRig.userData);
+    // Migre les enfants
+    while (newRig.children.length > 0) {
+      old.add(newRig.children[0]);
+    }
+    // Re-add la contact shadow
+    old.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
+    return undefined;
+  }, [profile?.equippedSkin, profile?.hair, profile?.outfit, profile?.shoes, profile?.skin]);
   const [chatMessages, setChatMessages] = useState([]); // [{from, text, ts}]
   const [chatInput, setChatInput] = useState('');
   const [showChatInput, setShowChatInput] = useState(false);
@@ -152,8 +187,9 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
       av.add(createContactShadow({ radius: 0.45, opacity: 0.5 }));
       return av;
     };
-    const playerAvatar = buildPlayerAvatar();
+    let playerAvatar = buildPlayerAvatar();
     scene.add(playerAvatar);
+    playerAvatarRef.current = playerAvatar;
 
     // ===== Weapon mesh attaché au bras droit (visible en TPS) =====
     // Quand selectedWeaponRef.current change, on remplace le mesh.

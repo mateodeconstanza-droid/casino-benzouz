@@ -3458,10 +3458,14 @@ const Street3D = ({
       camera.rotation.y = p.rotY;
       camera.rotation.x = p.rotX || 0;
 
-      // === Vue TPS (3ème personne) ville ===
+      // === Vue TPS (3ème personne) ville — parité Lobby3D casino ===
       if (tpsModeRef.current && st.localPlayerRig) {
-        // Avatar visible derrière la caméra. Position basée sur p.
-        st.localPlayerRig.position.set(p.x, camY - 1.7, p.z);
+        // FIX BUG : rig pieds AU SOL. Avant `camY - 1.7` faisait flotter
+        // le perso à 0.9m du sol car camY=2.6 par défaut.
+        // Au sol → y=0. Sur rooftop (p.y > 5) → feet sur le toit (p.y - 0.7).
+        const onRoof = (p.y || 0) > 5;
+        const feetY = onRoof ? (p.y - 0.7) : 0;
+        st.localPlayerRig.position.set(p.x, feetY, p.z);
         st.localPlayerRig.rotation.y = p.rotY;
         st.localPlayerRig.visible = true;
 
