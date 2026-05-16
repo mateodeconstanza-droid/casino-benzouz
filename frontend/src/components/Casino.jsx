@@ -957,9 +957,10 @@ export default function Casino() {
           onGoCity={() => { setSpawnHint('lobby_to_city'); setScreen('street'); }}
           onGoCasino={() => setScreen('casinoHall')}
           onGoShop={() => setShowShop(true)}
-          onGoProfile={() => setShowShop(true) /* TODO : page profil dédiée */}
+          onGoProfile={() => setShowShop(true)}
           onLogout={handleLogout}
           onOpenControls={() => setShowControls(true)}
+          onOpenSkinSelector={() => setShowSkinSelector(true)}
         />
       )}
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { fmt, HAIR_CATALOG, OUTFIT_CATALOG, SHOES_CATALOG } from '@/game/constants';
+import { fmt, SKINS_CATALOG, SKIN_RARITY } from '@/game/constants';
 import { UniversalMenu } from '@/game/UniversalMenu';
 import { RankBadge } from '@/game/RankBadge';
-import { LobbyBackdrop3D } from '@/game/LobbyBackdrop3D';
+import { LobbyScene3D } from '@/game/LobbyScene3D';
 
 // ============================================================
 // FortniteLobby — écran d'accueil pré-jeu (style Fortnite/AAA)
@@ -11,62 +11,24 @@ import { LobbyBackdrop3D } from '@/game/LobbyBackdrop3D';
 // - Carrousel cosmétiques (changer coiffure/tenue/chaussures sur place)
 // - 4 CTAs : VILLE / CASINO / BOUTIQUE / PROFIL
 // ============================================================
-const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoProfile, onLogout, setProfile, deviceType, onChangeDevice, onOpenControls }) => {
-  const [tick, setTick] = useState(0);
-  const [selHair, setSelHair] = useState(profile?.hair ?? 0);
-  const [selOutfit, setSelOutfit] = useState(profile?.outfit ?? 0);
-  const [selShoes, setSelShoes] = useState(profile?.shoes ?? 0);
-
-  useEffect(() => {
-    let raf = 0;
-    const loop = () => { setTick(t => t + 1); raf = requestAnimationFrame(loop); };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  // Persist le changement de cosmétique
-  useEffect(() => {
-    if (setProfile && profile && (selHair !== profile.hair || selOutfit !== profile.outfit || selShoes !== profile.shoes)) {
-      setProfile({ ...profile, hair: selHair, outfit: selOutfit, shoes: selShoes });
-    }
-    // eslint-disable-next-line
-  }, [selHair, selOutfit, selShoes]);
-
-  const cycle = (catalog, current, dir) => (current + dir + catalog.length) % catalog.length;
-  const swing = Math.sin(tick * 0.04) * 6;
-  const bob = Math.abs(Math.sin(tick * 0.04)) * 4;
-
-  const skin = profile?.skin || '#e0b48a';
-  const hairColor = HAIR_CATALOG[selHair]?.color || '#3a2817';
-  const outfitColor = OUTFIT_CATALOG[selOutfit]?.color || '#1a1a1a';
-  const shoeColor = SHOES_CATALOG[selShoes]?.color || '#0a0a0a';
+const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoProfile, onLogout, setProfile, deviceType, onChangeDevice, onOpenControls, onOpenSkinSelector }) => {
+  // Lookup du skin équipé pour afficher la rareté dans le HUD
+  const equippedPack = SKINS_CATALOG.find((s) => s.id === profile?.equippedSkin) || SKINS_CATALOG[0];
+  const rarity = SKIN_RARITY[equippedPack.rarity] || SKIN_RARITY.common;
 
   return (
     <div data-testid="fortnite-lobby" style={{
       position: 'fixed', inset: 0, overflow: 'hidden',
       color: '#fff', fontFamily: 'Georgia, serif',
-      // Fallback sombre si la WebGL plante (sera caché par le canvas 3D)
-      background: 'linear-gradient(180deg, #1a0a2a 0%, #4a1648 50%, #ff6a3a 100%)',
+      background: 'linear-gradient(180deg, #0a0a1a 0%, #2a1648 60%, #4a2068 100%)',
     }}>
-      {/* ===== FOND 3D ANIMÉ — mini map du jeu (casino + skyline + palmiers) ===== */}
-      <LobbyBackdrop3D />
-      {/* Voile sombre devant la 3D pour que l'UI reste lisible */}
+      {/* ===== SCÈNE 3D PRINCIPALE — perso joueur central + plateforme rotative ===== */}
+      <LobbyScene3D profile={profile} />
+
+      {/* Voile très subtil pour lisibilité (la scène a son propre style) */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
-        background: 'linear-gradient(180deg, rgba(8,8,26,0.55) 0%, rgba(26,10,42,0.35) 40%, rgba(160,40,96,0.28) 100%)',
-      }} />
-
-      {/* Particules ambiantes */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-        background: `
-          radial-gradient(2px 2px at 12% 18%, rgba(255,215,0,0.7), transparent 70%),
-          radial-gradient(2px 2px at 28% 32%, rgba(63,230,255,0.6), transparent 70%),
-          radial-gradient(3px 3px at 70% 22%, rgba(255,138,58,0.55), transparent 70%),
-          radial-gradient(2px 2px at 88% 41%, rgba(255,42,212,0.5), transparent 70%),
-          radial-gradient(2px 2px at 45% 65%, rgba(255,255,255,0.45), transparent 70%)
-        `,
-        animation: 'lobbyTwinkle 5s ease-in-out infinite',
+        background: 'radial-gradient(circle at 50% 50%, transparent 30%, rgba(8,4,20,0.55) 100%)',
       }} />
 
       {/* ===== HUD HAUT-GAUCHE : logo + solde ===== */}
@@ -114,63 +76,44 @@ const FortniteLobby = ({ profile, balance, onGoCity, onGoCasino, onGoShop, onGoP
         </div>
       )}
 
-      {/* ===== ZONE PERSONNAGE CENTRAL (avec halo + plateforme rotative) ===== */}
-      <div style={{
-        position: 'absolute', left: '50%', bottom: 130, transform: 'translateX(-50%)',
-        zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      }}>
-        {/* Halo doré derrière */}
-        <div style={{
-          position: 'absolute', bottom: 60, width: 380, height: 380, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,215,0,0.35), rgba(63,230,255,0.18) 50%, transparent 80%)',
-          animation: 'lobbyHaloPulse 3s ease-in-out infinite',
-          filter: 'blur(8px)',
-        }} />
-        {/* Plateforme rotative au sol */}
-        <div style={{
-          position: 'absolute', bottom: 0, width: 260, height: 60,
-          borderRadius: '50%',
-          background: `repeating-conic-gradient(from ${tick * 0.4}deg, rgba(255,215,0,0.22) 0deg 12deg, transparent 12deg 24deg)`,
-          border: '2px solid rgba(255,215,0,0.5)',
-          boxShadow: '0 0 60px rgba(255,215,0,0.45)',
-          transform: 'rotateX(72deg)',
-        }} />
-        {/* Personnage */}
-        <PlayerAvatar
-          skin={skin} hairColor={hairColor} outfitColor={outfitColor} shoeColor={shoeColor}
-          swing={swing} bob={bob}
-        />
-      </div>
-
-      {/* ===== CARROUSEL COSMÉTIQUES (gauche) ===== */}
+      {/* ===== CARTE SKIN ÉQUIPÉ (gauche, remplace l'ancien carrousel) ===== */}
       <div style={{
         position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)',
         display: 'flex', flexDirection: 'column', gap: 12, zIndex: 5,
+        width: 'min(280px, 35vw)',
       }}>
-        <CosmRow
-          label="COIFFURE"
-          testIdPrev="lobby-cosm-hair-prev" testIdNext="lobby-cosm-hair-next"
-          name={HAIR_CATALOG[selHair]?.name || '—'}
-          owned={(profile?.ownedHair || [0,1,2]).includes(selHair)}
-          onPrev={() => setSelHair(c => cycle(HAIR_CATALOG, c, -1))}
-          onNext={() => setSelHair(c => cycle(HAIR_CATALOG, c, +1))}
-        />
-        <CosmRow
-          label="TENUE"
-          testIdPrev="lobby-cosm-outfit-prev" testIdNext="lobby-cosm-outfit-next"
-          name={OUTFIT_CATALOG[selOutfit]?.name || '—'}
-          owned={(profile?.ownedOutfit || [0,1,2]).includes(selOutfit)}
-          onPrev={() => setSelOutfit(c => cycle(OUTFIT_CATALOG, c, -1))}
-          onNext={() => setSelOutfit(c => cycle(OUTFIT_CATALOG, c, +1))}
-        />
-        <CosmRow
-          label="CHAUSSURES"
-          testIdPrev="lobby-cosm-shoes-prev" testIdNext="lobby-cosm-shoes-next"
-          name={SHOES_CATALOG[selShoes]?.name || '—'}
-          owned={(profile?.ownedShoes || [0,1,2]).includes(selShoes)}
-          onPrev={() => setSelShoes(c => cycle(SHOES_CATALOG, c, -1))}
-          onNext={() => setSelShoes(c => cycle(SHOES_CATALOG, c, +1))}
-        />
+        <div style={{
+          padding: 18, borderRadius: 14,
+          background: `linear-gradient(145deg, rgba(15,15,25,0.85), rgba(5,5,15,0.85))`,
+          border: `2px solid ${rarity.color}`,
+          boxShadow: `0 10px 30px ${rarity.color}33, 0 0 24px ${rarity.color}22`,
+          backdropFilter: 'blur(10px)',
+        }}>
+          <div style={{
+            fontSize: 10, letterSpacing: 3, color: rarity.color,
+            fontWeight: 900, marginBottom: 4,
+            textShadow: rarity.glow ? `0 0 10px ${rarity.color}` : 'none',
+          }}>SKIN ÉQUIPÉ · {rarity.label.toUpperCase()}</div>
+          <div style={{
+            fontSize: 22, fontWeight: 900, color: '#fff',
+            letterSpacing: 1, fontFamily: 'Georgia, serif', marginBottom: 4,
+          }}>{equippedPack.preview} {equippedPack.name}</div>
+          <div style={{ fontSize: 11, color: '#aaa', marginBottom: 12 }}>
+            Thème : {equippedPack.theme.toUpperCase()}
+          </div>
+          <button
+            onClick={onOpenSkinSelector}
+            data-testid="lobby-open-skin-selector"
+            style={{
+              width: '100%', padding: '12px 14px', borderRadius: 10,
+              background: `linear-gradient(135deg, ${rarity.color}33, ${rarity.color}11)`,
+              border: `1.5px solid ${rarity.color}`,
+              color: rarity.color, cursor: 'pointer',
+              fontSize: 12, fontWeight: 900, letterSpacing: 2,
+              fontFamily: 'inherit',
+            }}
+          >🎭 CHANGER DE SKIN</button>
+        </div>
       </div>
 
       {/* ===== BOUTONS D'ACTION (droite) ===== */}
