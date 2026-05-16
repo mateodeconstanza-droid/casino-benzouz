@@ -402,33 +402,32 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
 
     // === gta-mechanics : SpringArm caméra TPS ===
     // 1) Lerp smooth pour fluidifier les rotations (Directive #1)
-    // 2) Raycast contre les murs pour ne plus traverser (Directive #2)
-    const TPS_DESIRED_DIST = 2.8;   // distance idéale derrière le joueur
-    const TPS_MIN_DIST     = 0.5;   // jamais plus près que ça (sinon on voit l'intérieur du perso)
-    const TPS_WALL_PAD     = 0.18;  // marge avant le mur pour éviter le clip
+    // 2) anti-lag-multiplayer : 2D AABB raycast au lieu d'intersectObjects(scene)
+    //    L'ancienne version itérait ~700 meshes recursivement à chaque frame
+    //    (casino + 4 bornes + 50 remote rigs). Le nouveau fait un slab-test
+    //    rapide sur la liste pré-calculée de colliders (~30 boxes).
+    const TPS_DESIRED_DIST = 2.8;
+    const TPS_MIN_DIST     = 0.5;
+    const TPS_WALL_PAD     = 0.18;
     const TPS_HEIGHT       = 2.3;
-    const TPS_LERP         = 0.18;  // smooth factor (directive : 0.1, mais 0.18 plus snappy au casino)
-    const tpsRaycaster     = new THREE.Raycaster();
-    const tpsRayOrigin     = new THREE.Vector3();
-    const tpsRayDir        = new THREE.Vector3();
+    const TPS_LERP         = 0.18;
     const tpsTargetPos     = new THREE.Vector3();
     const tpsSmoothPos     = new THREE.Vector3(0, TPS_HEIGHT, 0);
     let tpsSmoothInit = false;
 
-    const isCameraBlockedBy = (obj) => {
-      // Ignore : avatar du joueur (et ses enfants), sprites (badges), ombres
-      // de contact, lumières, helpers, et le sol/plafond (planes horizontaux).
-      let cur = obj;
-      while (cur) {
-        if (cur === playerAvatar) return false;
-        if (cur.userData && cur.userData.isContactShadow) return false;
-        if (cur.userData && cur.userData.isFloor) return false;
-        cur = cur.parent;
-      }
-      if (obj.isSprite || obj.isLight) return false;
-      // Skip sprites de noms MP et meshes invisibles
-      if (obj.visible === false) return false;
-      return true;
+    // Slab-method ray vs AABB 2D (horizontal). Retourne la distance min ou Infinity.
+    // Beaucoup plus rapide qu'intersectObjects sur des centaines de meshes.
+    const _slabRayAABB = (ox, oz, dx, dz, aabb) => {
+      const inv_dx = dx !== 0 ? 1 / dx : Infinity;
+      const inv_dz = dz !== 0 ? 1 / dz : Infinity;
+      const tx1 = (aabb.minX - ox) * inv_dx;
+      const tx2 = (aabb.maxX - ox) * inv_dx;
+      const tz1 = (aabb.minZ - oz) * inv_dz;
+      const tz2 = (aabb.maxZ - oz) * inv_dz;
+      const tmin = Math.max(Math.min(tx1, tx2), Math.min(tz1, tz2));
+      const tmax = Math.min(Math.max(tx1, tx2), Math.max(tz1, tz2));
+      if (tmax < 0 || tmin > tmax) return Infinity;
+      return Math.max(0, tmin);
     };
 
     // ========== SOL MARBRE UNIFORME ==========
@@ -3769,16 +3768,19 @@ const Lobby3D = ({ profile, casino, casinoId, deviceType, onSelectGame, onLogout
         // 1) Position désirée : `TPS_DESIRED_DIST` derrière le joueur
         let desiredDist = TPS_DESIRED_DIST;
 
-        // 2) Raycast tête → position désirée. Si un mur est avant, on rapproche.
-        tpsRayOrigin.set(origPos.x, 1.8, origPos.z);
-        tpsRayDir.set(-camDir.x, 0, -camDir.z).normalize();
-        tpsRaycaster.set(tpsRayOrigin, tpsRayDir);
-        tpsRaycaster.far = TPS_DESIRED_DIST + 0.5;
-        const hits = tpsRaycaster
-          .intersectObjects(scene.children, true)
-          .filter((h) => isCameraBlockedBy(h.object));
-        if (hits.length > 0) {
-          desiredDist = Math.max(TPS_MIN_DIST, hits[0].distance - TPS_WALL_PAD);
+        // 2) anti-lag-multiplayer : 2D AABB raycast (5-10× plus rapide que
+        //    intersectObjects sur scene.children avec 50 remote rigs)
+        // Direction normalisée derrière le joueur dans le plan horizontal
+        const dirLen = Math.hypot(camDir.x, camDir.z) || 1;
+        const rdx = -camDir.x / dirLen;
+        const rdz = -camDir.z / dirLen;
+        let minDist = Infinity;
+        for (let i = 0; i < colliders.length; i++) {
+          const d = _slabRayAABB(origPos.x, origPos.z, rdx, rdz, colliders[i]);
+          if (d < minDist) minDist = d;
+        }
+        if (minDist < TPS_DESIRED_DIST + 0.5) {
+          desiredDist = Math.max(TPS_MIN_DIST, minDist - TPS_WALL_PAD);
         }
 
         tpsTargetPos.set(

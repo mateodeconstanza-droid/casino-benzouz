@@ -3419,33 +3419,34 @@ const Street3D = ({
         if (u?.leftArm) u.leftArm.rotation.x = -swing * 0.8;
         if (u?.rightArm) u.rightArm.rotation.x = swing * 0.8;
 
-        // Caméra reculée derrière le joueur, avec lerp smooth + raycast anti-mur
+        // Caméra reculée derrière le joueur, avec lerp smooth + raycast 2D AABB
         const TPS_DESIRED = 3.2;
         const TPS_MIN = 0.6;
         const TPS_HEIGHT = camY + 0.6;
         const forward = Math.sin(p.rotY);
         const fz = Math.cos(p.rotY);
         let dist = TPS_DESIRED;
-        // Raycast horizontal joueur → derrière, pour éviter de traverser un mur
-        st.tpsRaycaster = st.tpsRaycaster || new THREE.Raycaster();
-        st.tpsRayDir = st.tpsRayDir || new THREE.Vector3();
-        st.tpsRayOrigin = st.tpsRayOrigin || new THREE.Vector3();
-        st.tpsRayOrigin.set(p.x, camY, p.z);
-        st.tpsRayDir.set(-forward, 0, -fz);
-        st.tpsRaycaster.set(st.tpsRayOrigin, st.tpsRayDir);
-        st.tpsRaycaster.far = TPS_DESIRED + 0.4;
-        const hits = st.tpsRaycaster.intersectObjects(scene.children, true).filter((h) => {
-          // Skip avatar joueur + ses enfants, sprites, ombres
-          let cur = h.object;
-          while (cur) {
-            if (cur === st.localPlayerRig) return false;
-            if (cur.userData?.isContactShadow) return false;
-            cur = cur.parent;
-          }
-          if (h.object.isSprite || h.object.isLight) return false;
-          return true;
-        });
-        if (hits.length > 0) dist = Math.max(TPS_MIN, hits[0].distance - 0.18);
+        // anti-lag-multiplayer : 2D slab raycast sur obstacles (≪ Mesh raycast)
+        // Direction normalisée derrière le joueur
+        const dirLen = Math.hypot(forward, fz) || 1;
+        const rdx = -forward / dirLen;
+        const rdz = -fz / dirLen;
+        let minDist = Infinity;
+        for (let i = 0; i < obstacles.length; i++) {
+          const o = obstacles[i];
+          const inv_dx = rdx !== 0 ? 1 / rdx : Infinity;
+          const inv_dz = rdz !== 0 ? 1 / rdz : Infinity;
+          const tx1 = (o.minX - p.x) * inv_dx;
+          const tx2 = (o.maxX - p.x) * inv_dx;
+          const tz1 = (o.minZ - p.z) * inv_dz;
+          const tz2 = (o.maxZ - p.z) * inv_dz;
+          const tmin = Math.max(Math.min(tx1, tx2), Math.min(tz1, tz2));
+          const tmax = Math.min(Math.max(tx1, tx2), Math.max(tz1, tz2));
+          if (tmax < 0 || tmin > tmax) continue;
+          const d = Math.max(0, tmin);
+          if (d < minDist) minDist = d;
+        }
+        if (minDist < TPS_DESIRED + 0.4) dist = Math.max(TPS_MIN, minDist - 0.18);
 
         // Position cible caméra + lerp
         st.tpsCamSmooth = st.tpsCamSmooth || new THREE.Vector3(p.x, TPS_HEIGHT, p.z);
